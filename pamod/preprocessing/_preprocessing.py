@@ -13,40 +13,24 @@ from omegaconf import DictConfig
 class StaticProcessEngine:
     """
     A class used to preprocess periodontal dataset for machine learning.
-
-    Attributes:
-    ----------
-    input_file : str
-        Path to the input Excel file containing the dataset.
-    behavior : bool
-        Determines whether to include behavioral columns in the dataset.
-    scale : bool
-        Determines whether to perform scaling and encoding in the dataset.
-    df : pd.DataFrame
-        DataFrame containing the loaded and preprocessed data.
-    required_columns : list
-        A list of required columns for processing.
-    behavior_columns : list
-        A list of behavioral columns that can be optionally included in processing.
-    function_preprocessor : FunctionPreprocessor
-        An instance of the FunctionPreprocessor class to handle specific data transformations.
     """
 
-    def __init__(self, behavior, scale, encoding):
+    def __init__(self, behavior=False, scale=False, encoding=None):
         """
-        Initializes the StaticProcessEngine with the given parameters, behavior flag, and loads the dataset.
+        Initializes the StaticProcessEngine with the given parameters, behavior flag, and options for scaling/encoding.
 
         Parameters:
         ----------
         behavior : bool, optional
             If True, includes behavioral columns in processing (default is False).
         scale : bool, optional
-            If True, performs scaling and encoding on the dataset (default is True).
+            If True, performs scaling on the dataset's numeric columns (default is False).
+        encoding : str, optional
+            Specifies the encoding type to apply to categorical columns ('one_hot', 'target', or None) (default is None).
         """
         self.behavior = behavior
         self.scale = scale
         self.encoding = encoding
-        self.df = None
         self.required_columns = [
             "ID_patient",
             "Tooth",
@@ -71,41 +55,39 @@ class StaticProcessEngine:
             "CigaretteNumber",
             "AntibioticTreatment",
             "Stresslvl",
-            "PdRevaluation",  # remove in TargetClass
+            "PdRevaluation",
             "BOPRevaluation",
         ]
         self.behavior_columns = {
-            "binary": [
-                "Flossing",
-                "IDB",
-                "SweetFood",
-                "SweetDrinks",
-                "ErosiveDrinks",
-            ],
+            "binary": ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"],
             "categorical": ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"],
         }
-        self.function_preprocessor = None
 
-    def load_data(self):
+    def load_data(self, path=RAW_DATA_DIR, name="Periodontitis_ML_Dataset_Renamed.xlsx"):
         """
-        Loads data from the provided RAW_DATA_DIR, processes multi-index headers, and validates the required columns.
+        Loads the dataset from the provided directory and validates required columns.
+
+        Parameters:
+        ----------
+        path : str, optional
+            The directory path where the dataset is located (default is RAW_DATA_DIR).
+        name : str, optional
+            The name of the dataset file (default is "Periodontitis_ML_Dataset_Renamed.xlsx").
 
         Returns:
         -------
         pd.DataFrame
-            The loaded DataFrame.
+            The loaded DataFrame with required columns.
 
         Raises:
         ------
         ValueError
-            If the input file is missing required columns.
+            If the dataset is missing any required columns.
         """
-        input_file = os.path.join(RAW_DATA_DIR, "Periodontitis_ML_Dataset_Renamed.xlsx")
+        input_file = os.path.join(path, name)
+        df = pd.read_excel(input_file, header=[1])  # Load the dataset using the second row as headers
 
-        # Load the data, but only use the second row as the header
-        df = pd.read_excel(input_file, header=[1])  # Skip the first row, use the second row as headers
-
-        actual_columns_lower = {col.lower(): col for col in df.columns}  # Mapping of lowercase to actual column names
+        actual_columns_lower = {col.lower(): col for col in df.columns}
         required_columns_lower = [col.lower() for col in self.required_columns]
 
         missing_columns = [col for col in required_columns_lower if col not in actual_columns_lower]
@@ -123,44 +105,50 @@ class StaticProcessEngine:
                 raise ValueError(f"The following behavior columns are missing: {', '.join(missing_behavior_columns)}")
             actual_required_columns += [actual_columns_lower[col] for col in behavior_columns_lower]
 
-        self.df = df[actual_required_columns]
-        return self.df
+        return df[actual_required_columns]
 
-    def _scale_numeric_columns(self):
+    def _scale_numeric_columns(self, df):
         """
-        Scales the numeric columns in the DataFrame.
+        Scales numeric columns in the DataFrame using StandardScaler.
+
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame containing numeric columns to scale.
 
         Returns:
         -------
         pd.DataFrame
             The DataFrame with scaled numeric columns.
         """
-        if self.df is None:
-            raise ValueError("Data must be loaded before scaling.")
-
-        # Scale numeric covariates (necessary for models)
         scale_vars = ["pdbaseline", "age", "bodymassindex", "recbaseline", "cigarettenumber"]
-        self.df[scale_vars] = self.df[scale_vars].apply(pd.to_numeric, errors="coerce")
+        df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
         scaler = StandardScaler()
-        self.df[scale_vars] = scaler.fit_transform(self.df[scale_vars])
+        df[scale_vars] = scaler.fit_transform(df[scale_vars])
 
-        return self.df
+        return df
 
-    def _encode_categorical_columns(self):
+    def _encode_categorical_columns(self, df):
         """
-        Encodes the categorical columns in the DataFrame based on the specified encoding type.
+        Encodes categorical columns in the DataFrame based on the specified encoding type.
+
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame containing categorical columns to encode.
 
         Returns:
         -------
         pd.DataFrame
-            The DataFrame with encoded categorical columns (if applicable).
-        """
-        if self.df is None:
-            raise ValueError("Data must be loaded before encoding.")
+            The DataFrame with encoded categorical columns.
 
-        # Skip encoding if encoding is set to None
+        Raises:
+        ------
+        ValueError
+            If an invalid encoding type is specified.
+        """
         if self.encoding is None:
-            return self.df  # Return the dataframe without encoding
+            return df
 
         elif self.encoding == "one_hot":
             cat_vars = [
@@ -177,106 +165,125 @@ class StaticProcessEngine:
             if self.behavior:
                 cat_vars += [col.lower() for col in self.behavior_columns["categorical"]]
 
-            # Ensure that all categorical variables are treated as strings for encoding
-            df_reset = self.df.reset_index(drop=True)
+            df_reset = df.reset_index(drop=True)
             df_reset[cat_vars] = df_reset[cat_vars].astype(str)
-
-            # Perform OneHotEncoding without creating extra columns for NaN or unknown categories
             encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             encoded_columns = encoder.fit_transform(df_reset[cat_vars])
-
-            # Create a DataFrame with the encoded columns and proper feature names
             encoded_df = pd.DataFrame(encoded_columns, columns=encoder.get_feature_names_out(cat_vars))
-
-            # Concatenate the original dataframe with the encoded features, dropping original categorical columns
             df_final = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
 
         elif self.encoding == "target":
-            # Combine Tooth and Side into a new 'toothside' feature for target encoding
-            self.df["toothside"] = self.df["tooth"].astype(str) + "_" + self.df["side"].astype(str)
-            df_final = self.df.drop(columns=["tooth", "side"])
+            df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
+            df_final = df.drop(columns=["tooth", "side"])
 
         else:
-            raise ValueError(
-                f"Invalid encoding '{self.encoding}' specified. Choose either 'one_hot', 'target', or None."
-            )
+            raise ValueError(f"Invalid encoding '{self.encoding}' specified. Choose 'one_hot', 'target', or None.")
 
         return df_final
 
-    def _create_outcome_variables(self):
+    def _impute_missing_values(self, df):
         """
-        Adds outcome variables to the DataFrame: pocketclosure, pdgroup, and improve.
-        """
-        self.df.loc[:, "pocketclosure"] = self.df.apply(
-            lambda row: 0 if row["pdbaseline"] == 4 and row["boprevaluation"] == 2 or row["pdbaseline"] > 4 else 1,
-            axis=1,
-        )
-        self.df.loc[:, "pdbase"] = self.df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
-        self.df.loc[:, "pdgroup"] = self.df["pdrevaluation"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
-        self.df.loc[:, "improve"] = (self.df["pdrevaluation"] < self.df["pdbaseline"]).astype(int)
-        return self.df
+        Imputes missing values in the DataFrame.
 
-    def process_data(self):
-        """
-        Processes the input dataset by performing data cleaning, imputations, and optional scaling/encoding.
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame with missing values to impute.
+
         Returns:
         -------
         pd.DataFrame
-            The processed DataFrame with or without scaling and encoding.
+            The DataFrame with missing values imputed.
         """
-        if self.df is None:
-            raise ValueError("Data must be loaded before processing.")
-        self.function_preprocessor = FunctionPreprocessor(self.df)
-        pd.set_option("future.no_silent_downcasting", True)
-        self.df.columns = [col.lower() for col in self.df.columns]
-        self.df = self.df[self.df["age"] >= 18].replace(" ", pd.NA)
-        self.df.loc[:, "side_infected"] = self.df.apply(
-            lambda row: self.function_preprocessor.check_infection(row["pdbaseline"], row["boprevaluation"]), axis=1
-        )
-        self.df.loc[:, "tooth_infected"] = (
-            self.df.groupby(["id_patient", "tooth"])["side_infected"].transform(lambda x: (x == 1).any()).astype(int)
-        )
-        self.df = self.function_preprocessor.get_adjacent_infected_teeth_count(
-            self.df, "id_patient", "tooth", "tooth_infected"
-        )
-        side_infected = self.df["side_infected"].copy()
-        tooth_infected = self.df["tooth_infected"].copy()
-        infected_neighbors = self.df["infected_neighbors"].copy()
+        df["boprevaluation"] = df["boprevaluation"].replace(["", "NA", "-", " "], np.nan).astype(float)
+        df.loc[:, "boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
+        df.loc[:, "recbaseline"] = df["recbaseline"].fillna(1).astype(float)
+        df.loc[:, "bop"] = df["bop"].fillna(1).astype(float)
+        df.loc[:, "percussion-sensitivity"] = df["percussion-sensitivity"].fillna(1).astype(float)
+        df.loc[:, "sensitivity"] = df["sensitivity"].fillna(1).astype(float)
+        df["bodymassindex"] = pd.to_numeric(df["bodymassindex"], errors="coerce")
+        mean_bmi = df["bodymassindex"].mean()
+        df.loc[:, "bodymassindex"] = df["bodymassindex"].fillna(mean_bmi).astype(float)
+        df.loc[:, "periofamilyhistory"] = df["periofamilyhistory"].fillna(2).astype(int)
+        df.loc[:, "smokingtype"] = df["smokingtype"].fillna(1).astype(int)
+        df.loc[:, "cigarettenumber"] = df["cigarettenumber"].fillna(0).astype(float)
+        df.loc[:, "diabetes"] = df["diabetes"].fillna(1).astype(int)
 
-        # Impute missing data
-        self.df.loc[:, "recbaseline"] = self.df["recbaseline"].fillna(1).astype(float)
-        self.df.loc[:, "bop"] = self.df["bop"].fillna(1).astype(float)
-        self.df.loc[:, "percussion-sensitivity"] = self.df["percussion-sensitivity"].fillna(1).astype(float)
-        self.df.loc[:, "sensitivity"] = self.df["sensitivity"].fillna(1).astype(float)
-        self.df["bodymassindex"] = pd.to_numeric(self.df["bodymassindex"], errors="coerce")
-        mean_bmi = self.df["bodymassindex"].mean()
-        self.df.loc[:, "bodymassindex"] = self.df["bodymassindex"].fillna(mean_bmi).astype(float)
-        self.df.loc[:, "periofamilyhistory"] = self.df["periofamilyhistory"].fillna(2).astype(int)
-        self.df.loc[:, "smokingtype"] = self.df["smokingtype"].fillna(1).astype(int)
-        self.df.loc[:, "cigarettenumber"] = self.df["cigarettenumber"].fillna(0).astype(float)
-        self.df.loc[:, "diabetes"] = self.df["diabetes"].fillna(1).astype(int)
+        df.loc[:, "stresslvl"] = df["stresslvl"] - 1
+        df.loc[:, "stresslvl"] = pd.to_numeric(df["stresslvl"], errors="coerce")
+        median_stress = df["stresslvl"].median()
+        df.loc[:, "stresslvl"] = df["stresslvl"].fillna(median_stress).astype(float)
 
-        # Impute stress levels
-        self.df.loc[:, "stresslvl"] = self.df["stresslvl"] - 1
-        self.df.loc[:, "stresslvl"] = pd.to_numeric(self.df["stresslvl"], errors="coerce")
-        median_stress = self.df["stresslvl"].median()
-        self.df.loc[:, "stresslvl"] = self.df["stresslvl"].fillna(median_stress).astype(float)
-
-        # Map stress levels
         conditions_stress = [
-            self.df["stresslvl"] <= 3,
-            (self.df["stresslvl"] >= 4) & (self.df["stresslvl"] <= 6),
-            self.df["stresslvl"] >= 7,
+            df["stresslvl"] <= 3,
+            (df["stresslvl"] >= 4) & (df["stresslvl"] <= 6),
+            df["stresslvl"] >= 7,
         ]
         choices_stress = ["low", "medium", "high"]
-        self.df.loc[:, "stresslvl"] = np.select(conditions_stress, choices_stress, default="Not Specified")
+        df.loc[:, "stresslvl"] = np.select(conditions_stress, choices_stress, default="Not Specified")
 
-        # Plaque and furcation imputations
-        self.df = self.function_preprocessor.plaque_imputation()
-        self.df = self.function_preprocessor.fur_imputation()
-        self.df = self._create_outcome_variables()
+        return df
 
-        # Define and replace binary variables
+    def _create_outcome_variables(self, df):
+        """
+        Adds outcome variables to the DataFrame: pocketclosure, pdgroup, and improve.
+
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame to which outcome variables are added.
+
+        Returns:
+        -------
+        pd.DataFrame
+            The DataFrame with new outcome variables.
+        """
+        df.loc[:, "pocketclosure"] = df.apply(
+            lambda row: 0 if row["pdbaseline"] == 4 and row["boprevaluation"] == 2 or row["pdbaseline"] > 4 else 1,
+            axis=1,
+        )
+        df.loc[:, "pdbase"] = df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        df.loc[:, "pdgroup"] = df["pdrevaluation"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        df.loc[:, "improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
+        return df
+
+    def process_data(self, df):
+        """
+        Processes the input dataset by performing data cleaning, imputations, scaling, and encoding.
+
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame to be processed.
+
+        Returns:
+        -------
+        pd.DataFrame
+            The processed DataFrame.
+        """
+        function_preprocessor = FunctionPreprocessor(df)
+        pd.set_option("future.no_silent_downcasting", True)
+        df.columns = [col.lower() for col in df.columns]
+        df = df[df["age"] >= 18].replace(" ", pd.NA)
+        df["boprevaluation"].replace(["", "NA", "-", " "], np.nan, inplace=True)
+        df.loc[:, "boprevaluation"] = pd.to_numeric(df["boprevaluation"], errors="coerce")
+        df.loc[:, "boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
+        df.loc[:, "side_infected"] = df.apply(
+            lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["boprevaluation"]), axis=1
+        )
+        df.loc[:, "tooth_infected"] = (
+            df.groupby(["id_patient", "tooth"])["side_infected"].transform(lambda x: (x == 1).any()).astype(int)
+        )
+        df = function_preprocessor.get_adjacent_infected_teeth_count(df, "id_patient", "tooth", "tooth_infected")
+        side_infected = df["side_infected"].copy()
+        tooth_infected = df["tooth_infected"].copy()
+        infected_neighbors = df["infected_neighbors"].copy()
+
+        df = self._impute_missing_values(df)
+        df = function_preprocessor.plaque_imputation()
+        df = function_preprocessor.fur_imputation()
+        df = self._create_outcome_variables(df)
+
         bin_var = [
             "antibiotictreatment",
             "boprevaluation",
@@ -290,43 +297,41 @@ class StaticProcessEngine:
         ]
         if self.behavior:
             bin_var += [col.lower() for col in self.behavior_columns["binary"]]
-        self.df[bin_var] = self.df[bin_var].replace({1: 0, 2: 1})
+        df[bin_var] = df[bin_var].replace({1: 0, 2: 1})
 
-        # Check for missing values before scaling and encoding
-        if self.df.isnull().values.any():
-            missing_values = self.df.isnull().sum()
+        if df.isnull().values.any():
+            missing_values = df.isnull().sum()
             warnings.warn(f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}")
-
-            for col in self.df.columns:
-                if self.df[col].isna().sum() > 0:
-                    missing_patients = self.df[self.df[col].isna()]["id_patient"].unique().tolist()
+            for col in df.columns:
+                if df[col].isna().sum() > 0:
+                    missing_patients = df[df[col].isna()]["id_patient"].unique().tolist()
                     print(f"Patients with missing {col}: {missing_patients}")
         else:
             print("No missing values found.")
 
-        # Perform scaling and encoding if required
         if self.scale:
-            self.df = self._scale_numeric_columns()
+            df = self._scale_numeric_columns(df)
 
-        self.df = self._encode_categorical_columns()
-        self.df["side_infected"] = side_infected
-        self.df["tooth_infected"] = tooth_infected
-        self.df["infected_neighbors"] = infected_neighbors
+        df = self._encode_categorical_columns(df)
+        df["side_infected"] = side_infected
+        df["tooth_infected"] = tooth_infected
+        df["infected_neighbors"] = infected_neighbors
 
-        return self.df
+        return df
 
-    def save_processed_data(self, file_path=None):
+    def save_processed_data(self, df, file_path=None):
         """
         Saves the processed DataFrame to a CSV file.
 
         Parameters:
         ----------
+        df : pd.DataFrame
+            The DataFrame to be saved.
         file_path : str, optional
-            The path to save the CSV file. If not provided, it defaults to the appropriate directory
-            based on whether behavior variables are included.
+            The path to save the CSV file. Defaults to "processed_data.csv" or "processed_data_b.csv".
         """
-        if self.df is None:
-            raise ValueError("Data must be processed before saving.")
+        if df is None or df.empty:
+            raise ValueError("Data must be processed and not empty before saving.")
 
         if self.behavior:
             if file_path is None:
@@ -337,12 +342,12 @@ class StaticProcessEngine:
                 file_path = "processed_data.csv"
             processed_file_path = os.path.join(PROCESSED_BASE_DIR, file_path)
 
-        # Ensure the directory exists
         directory = os.path.dirname(processed_file_path)
         if not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
 
-        self.df.to_csv(processed_file_path, index=False)
+        df.to_csv(processed_file_path, index=False)
+        print(f"Data saved to {processed_file_path}")
 
 
 @hydra.main(config_path="../../config", config_name="config", version_base="1.2")
@@ -350,9 +355,9 @@ def main(cfg: DictConfig):
     engine = StaticProcessEngine(
         behavior=cfg.preprocess.behavior, scale=cfg.preprocess.scale, encoding=cfg.preprocess.encoding
     )
-    engine.load_data()
-    engine.process_data()
-    engine.save_processed_data()
+    df = engine.load_data()
+    df = engine.process_data(df)
+    engine.save_processed_data(df)
 
 
 if __name__ == "__main__":

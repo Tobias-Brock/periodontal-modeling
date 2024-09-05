@@ -55,19 +55,17 @@ def test_load_data(mock_read_excel, mock_path_join, sample_data):
     mock_path_join.return_value = "dummy_path"
 
     engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
-    engine.load_data()
+    df = engine.load_data("dummy_path", "dummy_file.xlsx")
 
-    assert isinstance(engine.df, pd.DataFrame)
-    assert len(engine.df) == 2  # Check if data is loaded correctly
-    assert "id_patient" in engine.df.columns
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2  # Check if data is loaded correctly
+    assert "id_patient" in df.columns
 
 
 # Test for scaling numeric columns
 def test_scale_numeric_columns(sample_data):
     engine = StaticProcessEngine(behavior=False, scale=True, encoding=None)
-    engine.df = sample_data
-
-    df_scaled = engine._scale_numeric_columns()
+    df_scaled = engine._scale_numeric_columns(sample_data)
 
     assert isinstance(df_scaled, pd.DataFrame)
     assert "pdbaseline" in df_scaled.columns  # Ensure scaling occurred
@@ -76,9 +74,7 @@ def test_scale_numeric_columns(sample_data):
 # Test for encoding categorical columns
 def test_encode_categorical_columns(sample_data):
     engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
-    engine.df = sample_data
-
-    df_encoded = engine._encode_categorical_columns()
+    df_encoded = engine._encode_categorical_columns(sample_data)
 
     assert isinstance(df_encoded, pd.DataFrame)
     assert any(col.startswith("side_") for col in df_encoded.columns)  # One-hot encoding check
@@ -87,9 +83,7 @@ def test_encode_categorical_columns(sample_data):
 # Test for no encoding (None)
 def test_no_encoding(sample_data):
     engine = StaticProcessEngine(behavior=False, scale=False, encoding=None)  # No encoding
-    engine.df = sample_data
-
-    df_no_encoding = engine._encode_categorical_columns()
+    df_no_encoding = engine._encode_categorical_columns(sample_data)
 
     assert isinstance(df_no_encoding, pd.DataFrame)
     assert not any(col.startswith("side_") for col in df_no_encoding.columns)  # Ensure no one-hot encoding
@@ -98,9 +92,7 @@ def test_no_encoding(sample_data):
 # Test for data processing
 def test_process_data(sample_data):
     engine = StaticProcessEngine(behavior=False, scale=True, encoding="one_hot")
-    engine.df = sample_data
-
-    df_processed = engine.process_data()
+    df_processed = engine.process_data(sample_data)
 
     assert isinstance(df_processed, pd.DataFrame)
     assert "side_infected" in df_processed.columns
@@ -113,9 +105,7 @@ def test_process_data(sample_data):
 # Test for behavior columns
 def test_behavior_columns(sample_data):
     engine = StaticProcessEngine(behavior=True, scale=False, encoding="one_hot")
-    engine.df = sample_data
-
-    df = engine.process_data()
+    df = engine.process_data(sample_data)
 
     # Ensure that behavior columns are included when the behavior flag is set
     for col in engine.behavior_columns.get("binary", []) + engine.behavior_columns.get("categorical", []):
@@ -126,10 +116,9 @@ def test_behavior_columns(sample_data):
 # Test for invalid encoding type
 def test_invalid_encoding(sample_data):
     engine = StaticProcessEngine(behavior=False, scale=False, encoding="invalid")
-    engine.df = sample_data
 
     with pytest.raises(ValueError):
-        engine._encode_categorical_columns()
+        engine._encode_categorical_columns(sample_data)
 
 
 # Test for missing required columns
@@ -139,9 +128,10 @@ def test_missing_required_columns(mock_read_excel, mock_path_join):
     mock_read_excel.return_value = pd.DataFrame({"missing_column": [1, 2, 3]})
     mock_path_join.return_value = "dummy_path"
 
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
+
     with pytest.raises(ValueError):
-        engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
-        engine.load_data()
+        engine.load_data("dummy_path", "dummy_file.xlsx")
 
 
 # Test for missing value handling
@@ -151,11 +141,10 @@ def test_missing_values(sample_data):
     sample_data.loc[1, "boprevaluation"] = None
 
     engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
-    engine.df = sample_data
 
     # Process the data and check for the missing value warning
     with pytest.warns(UserWarning, match="Missing values found in the following columns"):
-        df_processed = engine.process_data()
+        df_processed = engine.process_data(sample_data)
 
     assert "age" in df_processed.columns
     assert "boprevaluation" in df_processed.columns
