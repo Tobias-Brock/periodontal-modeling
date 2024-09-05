@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from pamod.preprocessing import FunctionPreprocessor
-from pamod.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+from pamod.config import RAW_DATA_DIR, PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR
 import os
+import warnings
 
 import hydra
 from omegaconf import DictConfig
@@ -45,6 +46,7 @@ class StaticProcessEngine:
         self.behavior = behavior
         self.scale = scale
         self.encoding = encoding
+        self.df = None
         self.required_columns = [
             "ID_patient",
             "Tooth",
@@ -82,10 +84,9 @@ class StaticProcessEngine:
             ],
             "categorical": ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"],
         }
-        self.df = self._load_data()
-        self.function_preprocessor = FunctionPreprocessor(self.df)
+        self.function_preprocessor = None
 
-    def _load_data(self):
+    def load_data(self):
         """
         Loads data from the provided RAW_DATA_DIR, processes multi-index headers, and validates the required columns.
 
@@ -122,31 +123,46 @@ class StaticProcessEngine:
                 raise ValueError(f"The following behavior columns are missing: {', '.join(missing_behavior_columns)}")
             actual_required_columns += [actual_columns_lower[col] for col in behavior_columns_lower]
 
-        df = df[actual_required_columns]
+        self.df = df[actual_required_columns]
+        return self.df
 
-        return df
-
-    def _scale_and_encode(self):
+    def _scale_numeric_columns(self):
         """
-        Performs scaling of numeric variables and either one-hot or target encoding of categorical variables.
+        Scales the numeric columns in the DataFrame.
 
         Returns:
         -------
         pd.DataFrame
-            The final processed DataFrame after scaling and encoding.
-
-        Raises:
-        -------
-        ValueError
-            If an invalid encoding type is provided.
+            The DataFrame with scaled numeric columns.
         """
+        if self.df is None:
+            raise ValueError("Data must be loaded before scaling.")
+
         # Scale numeric covariates (necessary for models)
         scale_vars = ["pdbaseline", "age", "bodymassindex", "recbaseline", "cigarettenumber"]
         self.df[scale_vars] = self.df[scale_vars].apply(pd.to_numeric, errors="coerce")
         scaler = StandardScaler()
         self.df[scale_vars] = scaler.fit_transform(self.df[scale_vars])
 
-        if self.encoding == "one_hot":
+        return self.df
+
+    def _encode_categorical_columns(self):
+        """
+        Encodes the categorical columns in the DataFrame based on the specified encoding type.
+
+        Returns:
+        -------
+        pd.DataFrame
+            The DataFrame with encoded categorical columns (if applicable).
+        """
+        if self.df is None:
+            raise ValueError("Data must be loaded before encoding.")
+
+        # Skip encoding if encoding is set to None
+        if self.encoding is None:
+            return self.df  # Return the dataframe without encoding
+
+        elif self.encoding == "one_hot":
             cat_vars = [
                 "side",
                 "restoration",
@@ -161,20 +177,29 @@ class StaticProcessEngine:
             if self.behavior:
                 cat_vars += [col.lower() for col in self.behavior_columns["categorical"]]
 
+            # Ensure that all categorical variables are treated as strings for encoding
             df_reset = self.df.reset_index(drop=True)
             df_reset[cat_vars] = df_reset[cat_vars].astype(str)
-            encoder = OneHotEncoder(sparse_output=False)
+
+            # Perform OneHotEncoding without creating extra columns for NaN or unknown categories
+            encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             encoded_columns = encoder.fit_transform(df_reset[cat_vars])
+
+            # Create a DataFrame with the encoded columns and proper feature names
             encoded_df = pd.DataFrame(encoded_columns, columns=encoder.get_feature_names_out(cat_vars))
+
+            # Concatenate the original dataframe with the encoded features, dropping original categorical columns
             df_final = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
 
         elif self.encoding == "target":
-            # Combine Tooth and Side into a new 'toothside' feature
+            # Combine Tooth and Side into a new 'toothside' feature for target encoding
             self.df["toothside"] = self.df["tooth"].astype(str) + "_" + self.df["side"].astype(str)
             df_final = self.df.drop(columns=["tooth", "side"])
 
         else:
-            raise ValueError(f"Invalid encoding '{self.encoding}' specified. Choose either 'one_hot' or 'target'.")
+            raise ValueError(
+                f"Invalid encoding '{self.encoding}' specified. Choose either 'one_hot', 'target', or None."
+            )
 
         return df_final
 
@@ -186,7 +211,8 @@ class StaticProcessEngine:
             lambda row: 0 if row["pdbaseline"] == 4 and row["boprevaluation"] == 2 or row["pdbaseline"] > 4 else 1,
             axis=1,
         )
-        self.df.loc[:, "pdgroup"] = self.df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        self.df.loc[:, "pdbase"] = self.df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        self.df.loc[:, "pdgroup"] = self.df["pdrevaluation"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
         self.df.loc[:, "improve"] = (self.df["pdrevaluation"] < self.df["pdbaseline"]).astype(int)
         return self.df
 
@@ -198,6 +224,9 @@ class StaticProcessEngine:
         pd.DataFrame
             The processed DataFrame with or without scaling and encoding.
         """
+        if self.df is None:
+            raise ValueError("Data must be loaded before processing.")
+        self.function_preprocessor = FunctionPreprocessor(self.df)
         pd.set_option("future.no_silent_downcasting", True)
         self.df.columns = [col.lower() for col in self.df.columns]
         self.df = self.df[self.df["age"] >= 18].replace(" ", pd.NA)
@@ -210,6 +239,9 @@ class StaticProcessEngine:
         self.df = self.function_preprocessor.get_adjacent_infected_teeth_count(
             self.df, "id_patient", "tooth", "tooth_infected"
         )
+        side_infected = self.df["side_infected"].copy()
+        tooth_infected = self.df["tooth_infected"].copy()
+        infected_neighbors = self.df["infected_neighbors"].copy()
 
         # Impute missing data
         self.df.loc[:, "recbaseline"] = self.df["recbaseline"].fillna(1).astype(float)
@@ -260,21 +292,56 @@ class StaticProcessEngine:
             bin_var += [col.lower() for col in self.behavior_columns["binary"]]
         self.df[bin_var] = self.df[bin_var].replace({1: 0, 2: 1})
 
+        # Check for missing values before scaling and encoding
+        if self.df.isnull().values.any():
+            missing_values = self.df.isnull().sum()
+            warnings.warn(f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}")
+
+            for col in self.df.columns:
+                if self.df[col].isna().sum() > 0:
+                    missing_patients = self.df[self.df[col].isna()]["id_patient"].unique().tolist()
+                    print(f"Patients with missing {col}: {missing_patients}")
+        else:
+            print("No missing values found.")
+
         # Perform scaling and encoding if required
         if self.scale:
-            self.df = self._scale_and_encode()
+            self.df = self._scale_numeric_columns()
+
+        self.df = self._encode_categorical_columns()
+        self.df["side_infected"] = side_infected
+        self.df["tooth_infected"] = tooth_infected
+        self.df["infected_neighbors"] = infected_neighbors
 
         return self.df
 
-    def save_processed_data(self, file_path="processed_data.csv"):
+    def save_processed_data(self, file_path=None):
         """
         Saves the processed DataFrame to a CSV file.
+
         Parameters:
         ----------
-        file_path : str
-            The path to save the CSV file.
+        file_path : str, optional
+            The path to save the CSV file. If not provided, it defaults to the appropriate directory
+            based on whether behavior variables are included.
         """
-        processed_file_path = os.path.join(PROCESSED_DATA_DIR, file_path)
+        if self.df is None:
+            raise ValueError("Data must be processed before saving.")
+
+        if self.behavior:
+            if file_path is None:
+                file_path = "processed_data_b.csv"
+            processed_file_path = os.path.join(PROCESSED_BEHAVIOR_DIR, file_path)
+        else:
+            if file_path is None:
+                file_path = "processed_data.csv"
+            processed_file_path = os.path.join(PROCESSED_BASE_DIR, file_path)
+
+        # Ensure the directory exists
+        directory = os.path.dirname(processed_file_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+
         self.df.to_csv(processed_file_path, index=False)
 
 
@@ -283,6 +350,7 @@ def main(cfg: DictConfig):
     engine = StaticProcessEngine(
         behavior=cfg.preprocess.behavior, scale=cfg.preprocess.scale, encoding=cfg.preprocess.encoding
     )
+    engine.load_data()
     engine.process_data()
     engine.save_processed_data()
 
