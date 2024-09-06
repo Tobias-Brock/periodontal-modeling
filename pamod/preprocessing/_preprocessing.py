@@ -57,6 +57,7 @@ class StaticProcessEngine:
             "Stresslvl",
             "PdRevaluation",
             "BOPRevaluation",
+            "Pregnant",
         ]
         self.cat_vars = [
             "side",
@@ -341,6 +342,8 @@ class StaticProcessEngine:
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
         df = df[df["age"] >= 18].replace(" ", pd.NA)
+        df = df[df["pregnant"]!=2]
+        df = df.drop(columns=["pregnant"])
 
         # Impute missing values
         df = self._impute_missing_values(df)
