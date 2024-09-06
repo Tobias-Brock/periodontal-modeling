@@ -121,6 +121,86 @@ def test_invalid_encoding(sample_data):
         engine._encode_categorical_columns(sample_data)
 
 
+def test_check_scaled_columns(sample_data):
+    engine = StaticProcessEngine(behavior=False, scale=True, encoding=None)
+    df_scaled = engine._scale_numeric_columns(sample_data)
+
+    # Test to make sure the scaling check does not raise an error
+    try:
+        engine._check_scaled_columns(df_scaled)
+    except ValueError as e:
+        pytest.fail(f"Scaling check failed unexpectedly with error: {e}")
+
+
+def test_check_encoded_columns(sample_data):
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
+    df_encoded = engine._encode_categorical_columns(sample_data)
+
+    # Ensure no exception is raised when encoding is correct
+    try:
+        engine._check_encoded_columns(df_encoded)
+    except ValueError as e:
+        pytest.fail(f"Encoding check failed unexpectedly with error: {e}")
+
+
+def test_check_target_encoded_columns(sample_data):
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding="target")
+    df_target_encoded = engine._encode_categorical_columns(sample_data)
+
+    # Ensure no exception is raised when target encoding is correct
+    try:
+        engine._check_encoded_columns(df_target_encoded)
+    except ValueError as e:
+        pytest.fail(f"Target encoding check failed unexpectedly with error: {e}")
+
+
+def test_behavior_column_encoding(sample_data):
+    engine = StaticProcessEngine(behavior=True, scale=False, encoding="one_hot")
+    df_behavior_encoded = engine.process_data(sample_data)
+
+    # Ensure that behavior columns are included and one-hot encoded
+    for col in engine.behavior_columns["binary"] + engine.behavior_columns["categorical"]:
+        one_hot_columns = [c for c in df_behavior_encoded.columns if c.startswith(col.lower())]
+        assert len(one_hot_columns) > 0, f"Expected one-hot encoded columns for {col.lower()} but not found."
+
+
+def test_create_outcome_variables(sample_data):
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
+    df_outcome = engine._create_outcome_variables(sample_data)
+
+    # Check if the outcome variables exist
+    assert "pocketclosure" in df_outcome.columns
+    assert "pdgroup" in df_outcome.columns
+    assert "improve" in df_outcome.columns
+    # Check if outcome variables have values
+    assert df_outcome["pocketclosure"].sum() >= 0
+    assert df_outcome["improve"].sum() >= 0
+
+
+def test_impute_missing_values(sample_data):
+    # Introduce missing values in sample data
+    sample_data.loc[0, "boprevaluation"] = None
+    sample_data.loc[1, "stresslvl"] = None
+
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding=None)
+    df_imputed = engine._impute_missing_values(sample_data)
+
+    # Ensure no missing values remain in the imputed columns
+    assert df_imputed["boprevaluation"].isna().sum() == 0
+    assert df_imputed["stresslvl"].isna().sum() == 0
+
+
+def test_missing_values_warning(sample_data):
+    # Introduce missing values in sample data
+    sample_data.loc[0, "age"] = None
+
+    engine = StaticProcessEngine(behavior=False, scale=False, encoding=None)
+
+    # Ensure a warning is raised for missing values
+    with pytest.warns(UserWarning, match="Missing values found in the following columns"):
+        engine._impute_missing_values(sample_data)
+
+
 # Test for missing required columns
 @patch("os.path.join")
 @patch("pandas.read_excel")
@@ -132,19 +212,3 @@ def test_missing_required_columns(mock_read_excel, mock_path_join):
 
     with pytest.raises(ValueError):
         engine.load_data("dummy_path", "dummy_file.xlsx")
-
-
-# Test for missing value handling
-def test_missing_values(sample_data):
-    # Introduce missing values
-    sample_data.loc[0, "age"] = None
-    sample_data.loc[1, "boprevaluation"] = None
-
-    engine = StaticProcessEngine(behavior=False, scale=False, encoding="one_hot")
-
-    # Process the data and check for the missing value warning
-    with pytest.warns(UserWarning, match="Missing values found in the following columns"):
-        df_processed = engine.process_data(sample_data)
-
-    assert "age" in df_processed.columns
-    assert "boprevaluation" in df_processed.columns

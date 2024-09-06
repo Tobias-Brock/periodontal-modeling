@@ -58,6 +58,29 @@ class StaticProcessEngine:
             "PdRevaluation",
             "BOPRevaluation",
         ]
+        self.cat_vars = [
+            "side",
+            "restoration",
+            "periofamilyhistory",
+            "diabetes",
+            "toothtype",
+            "tooth",
+            "furcationbaseline",
+            "smokingtype",
+            "stresslvl",
+        ]
+        self.bin_var = [
+            "antibiotictreatment",
+            "boprevaluation",
+            "plaque",
+            "bop",
+            "mobility",
+            "percussion-sensitivity",
+            "sensitivity",
+            "rootnumber",
+            "gender",
+        ]
+        self.scale_vars = ["pdbaseline", "age", "bodymassindex", "recbaseline", "cigarettenumber"]
         self.behavior_columns = {
             "binary": ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"],
             "categorical": ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"],
@@ -121,10 +144,9 @@ class StaticProcessEngine:
         pd.DataFrame
             The DataFrame with scaled numeric columns.
         """
-        scale_vars = ["pdbaseline", "age", "bodymassindex", "recbaseline", "cigarettenumber"]
-        df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
+        df[self.scale_vars] = df[self.scale_vars].apply(pd.to_numeric, errors="coerce")
         scaler = StandardScaler()
-        df[scale_vars] = scaler.fit_transform(df[scale_vars])
+        df[self.scale_vars] = scaler.fit_transform(df[self.scale_vars])
 
         return df
 
@@ -151,26 +173,15 @@ class StaticProcessEngine:
             return df
 
         elif self.encoding == "one_hot":
-            cat_vars = [
-                "side",
-                "restoration",
-                "periofamilyhistory",
-                "diabetes",
-                "toothtype",
-                "tooth",
-                "furcationbaseline",
-                "smokingtype",
-                "stresslvl",
-            ]
             if self.behavior:
-                cat_vars += [col.lower() for col in self.behavior_columns["categorical"]]
+                self.cat_vars += [col.lower() for col in self.behavior_columns["categorical"]]
 
             df_reset = df.reset_index(drop=True)
-            df_reset[cat_vars] = df_reset[cat_vars].astype(str)
+            df_reset[self.cat_vars] = df_reset[self.cat_vars].astype(str)
             encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-            encoded_columns = encoder.fit_transform(df_reset[cat_vars])
-            encoded_df = pd.DataFrame(encoded_columns, columns=encoder.get_feature_names_out(cat_vars))
-            df_final = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
+            encoded_columns = encoder.fit_transform(df_reset[self.cat_vars])
+            encoded_df = pd.DataFrame(encoded_columns, columns=encoder.get_feature_names_out(self.cat_vars))
+            df_final = pd.concat([df_reset.drop(self.cat_vars, axis=1), encoded_df], axis=1)
 
         elif self.encoding == "target":
             df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
@@ -195,7 +206,12 @@ class StaticProcessEngine:
         pd.DataFrame
             The DataFrame with missing values imputed.
         """
+        if df.isnull().values.any():
+            missing_values = df.isnull().sum()
+            warnings.warn(f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}")
+
         df["boprevaluation"] = df["boprevaluation"].replace(["", "NA", "-", " "], np.nan).astype(float)
+        df.loc[:, "boprevaluation"] = pd.to_numeric(df["boprevaluation"], errors="coerce")
         df.loc[:, "boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
         df.loc[:, "recbaseline"] = df["recbaseline"].fillna(1).astype(float)
         df.loc[:, "bop"] = df["bop"].fillna(1).astype(float)
@@ -213,6 +229,7 @@ class StaticProcessEngine:
         df.loc[:, "stresslvl"] = pd.to_numeric(df["stresslvl"], errors="coerce")
         median_stress = df["stresslvl"].median()
         df.loc[:, "stresslvl"] = df["stresslvl"].fillna(median_stress).astype(float)
+        df["stresslvl"] = df["stresslvl"].astype(object)
 
         conditions_stress = [
             df["stresslvl"] <= 3,
@@ -247,6 +264,65 @@ class StaticProcessEngine:
         df.loc[:, "improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
         return df
 
+    def _check_scaled_columns(self, df):
+        """
+        Verifies that all required columns are correctly scaled, one-hot encoded, and processed.
+        """
+        numeric_columns = ["pdbaseline", "age", "bodymassindex", "recbaseline", "cigarettenumber"]
+
+        if self.scale:
+            for col in numeric_columns:
+                scaled_min = df[col].min()
+                scaled_max = df[col].max()
+                if scaled_min < -5 or scaled_max > 15:
+                    raise ValueError(f"Column {col} is not correctly scaled.")
+
+        print("All required columns are correctly processed and present in the DataFrame.")
+
+    def _check_encoded_columns(self, df):
+        """
+        Verifies that the categorical columns were correctly one-hot encoded if encoding is 'one_hot'.
+        Handles cases when encoding is 'target' or None.
+
+        Parameters:
+        ----------
+        df : pd.DataFrame
+            The DataFrame to check for correct encoding of categorical columns.
+
+        Raises:
+        ------
+        ValueError
+            If the columns are not correctly one-hot encoded when 'one_hot' encoding is specified.
+        """
+        if self.encoding == "one_hot":
+            if self.behavior:
+                self.cat_vars += [col.lower() for col in self.behavior_columns["categorical"]]
+
+            # Verify that original categorical columns are no longer present
+            for col in self.cat_vars:
+                if col in df.columns:
+                    raise ValueError(
+                        f"Column '{col}' was not correctly one-hot encoded and still exists in the DataFrame."
+                    )
+
+            # Verify that new one-hot encoded columns are present
+            for col in self.cat_vars:
+                matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
+                if len(matching_columns) == 0:
+                    raise ValueError(f"Column '{col}' does not have one-hot encoded columns in the DataFrame.")
+            print("One-hot encoding was successful and all categorical columns were correctly encoded.")
+
+        elif self.encoding == "target":
+            if "toothside" not in df.columns:
+                raise ValueError("'toothside' column was not correctly created during target encoding.")
+            print("Target encoding was successful and 'toothside' column is present.")
+
+        elif self.encoding is None:
+            print("No encoding was applied, as None was selected.")
+
+        else:
+            raise ValueError(f"Invalid encoding '{self.encoding}' specified.")
+
     def process_data(self, df):
         """
         Processes the input dataset by performing data cleaning, imputations, scaling, and encoding.
@@ -261,43 +337,37 @@ class StaticProcessEngine:
         pd.DataFrame
             The processed DataFrame.
         """
-        function_preprocessor = FunctionPreprocessor(df)
+        function_preprocessor = FunctionPreprocessor()
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
         df = df[df["age"] >= 18].replace(" ", pd.NA)
-        df["boprevaluation"].replace(["", "NA", "-", " "], np.nan, inplace=True)
-        df.loc[:, "boprevaluation"] = pd.to_numeric(df["boprevaluation"], errors="coerce")
-        df.loc[:, "boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
+
+        # Impute missing values
+        df = self._impute_missing_values(df)
         df.loc[:, "side_infected"] = df.apply(
             lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["boprevaluation"]), axis=1
         )
         df.loc[:, "tooth_infected"] = (
             df.groupby(["id_patient", "tooth"])["side_infected"].transform(lambda x: (x == 1).any()).astype(int)
         )
+
         df = function_preprocessor.get_adjacent_infected_teeth_count(df, "id_patient", "tooth", "tooth_infected")
         side_infected = df["side_infected"].copy()
         tooth_infected = df["tooth_infected"].copy()
         infected_neighbors = df["infected_neighbors"].copy()
 
-        df = self._impute_missing_values(df)
-        df = function_preprocessor.plaque_imputation()
-        df = function_preprocessor.fur_imputation()
         df = self._create_outcome_variables(df)
 
-        bin_var = [
-            "antibiotictreatment",
-            "boprevaluation",
-            "plaque",
-            "bop",
-            "mobility",
-            "percussion-sensitivity",
-            "sensitivity",
-            "rootnumber",
-            "gender",
-        ]
         if self.behavior:
-            bin_var += [col.lower() for col in self.behavior_columns["binary"]]
-        df[bin_var] = df[bin_var].replace({1: 0, 2: 1})
+            self.bin_var += [col.lower() for col in self.behavior_columns["binary"]]
+
+        df[self.bin_var] = df[self.bin_var].replace({1: 0, 2: 1})
+
+        df.replace("", np.nan, inplace=True)
+        df.replace(" ", np.nan, inplace=True)
+
+        df = function_preprocessor.fur_imputation(df)
+        df = function_preprocessor.plaque_imputation(df)
 
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
@@ -307,12 +377,15 @@ class StaticProcessEngine:
                     missing_patients = df[df[col].isna()]["id_patient"].unique().tolist()
                     print(f"Patients with missing {col}: {missing_patients}")
         else:
-            print("No missing values found.")
+            print("No missing values present in the dataset after imputation")
 
         if self.scale:
             df = self._scale_numeric_columns(df)
+            self._check_scaled_columns(df)
 
         df = self._encode_categorical_columns(df)
+        self._check_encoded_columns(df)
+
         df["side_infected"] = side_infected
         df["tooth_infected"] = tooth_infected
         df["infected_neighbors"] = infected_neighbors

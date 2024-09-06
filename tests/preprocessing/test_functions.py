@@ -16,13 +16,14 @@ def sample_data():
         "plaque": [None, 1, 2, None, 1],
         "furcationbaseline": [None, 1, None, None, None],
         "side_infected": [None, None, None, None, None],
+        "boprevaluation": [0, 0, 0, 0, 0],  # Required for the methods
     }
     return pd.DataFrame(data)
 
 
 # Test check_infection method
 def test_check_infection(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
+    preprocessor = FunctionPreprocessor()
 
     # Test various pocket depths and boprevaluation values
     assert preprocessor.check_infection(2, 1) == 0  # Depth = 2, boprevaluation = 1 (Healthy)
@@ -32,17 +33,17 @@ def test_check_infection(sample_data):
 
 # Test tooth_neighbor method
 def test_tooth_neighbor(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
+    preprocessor = FunctionPreprocessor()
 
     # Test if neighbors are correct
     assert np.array_equal(preprocessor.tooth_neighbor(11), [12, 21])
     assert np.array_equal(preprocessor.tooth_neighbor(12), [11, 13])
-    assert preprocessor.tooth_neighbor(50) == "No tooth."  # Invalid tooth
+    assert preprocessor.tooth_neighbor(50) == "No tooth"  # Invalid tooth
 
 
 # Test get_adjacent_infected_teeth_count method
 def test_get_adjacent_infected_teeth_count(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
+    preprocessor = FunctionPreprocessor()
 
     # Modify sample data to mark some teeth as infected
     sample_data.loc[0, "side_infected"] = 1  # Tooth 11 infected
@@ -56,7 +57,7 @@ def test_get_adjacent_infected_teeth_count(sample_data):
 
 # Test plaque_values method
 def test_plaque_values(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
+    preprocessor = FunctionPreprocessor()
 
     modes_dict = {(11, 1, 0): 1, (12, 2, 0): 2}  # Simulate mode calculation
     row = {"plaque_all_na": 1, "tooth": 11, "side": 1, "pdbaseline_grouped": 0, "plaque": np.nan}
@@ -66,11 +67,10 @@ def test_plaque_values(sample_data):
 
 # Test plaque_imputation method
 def test_plaque_imputation(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
-    preprocessor.data = sample_data
+    preprocessor = FunctionPreprocessor()
 
     # Run plaque imputation
-    data_imputed = preprocessor.plaque_imputation()
+    data_imputed = preprocessor.plaque_imputation(sample_data)
 
     # Check if the imputation has worked (non-NaN values in the 'plaque' column)
     assert data_imputed["plaque"].isna().sum() == 0  # No missing values left
@@ -79,7 +79,7 @@ def test_plaque_imputation(sample_data):
 
 # Test fur_values method
 def test_fur_values(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
+    preprocessor = FunctionPreprocessor()
 
     row = {
         "tooth": 16,
@@ -106,11 +106,10 @@ def test_fur_values(sample_data):
 
 # Test fur_imputation method
 def test_fur_imputation(sample_data):
-    preprocessor = FunctionPreprocessor(sample_data)
-    preprocessor.data = sample_data
+    preprocessor = FunctionPreprocessor()
 
     # Run furcation imputation
-    data_imputed = preprocessor.fur_imputation()
+    data_imputed = preprocessor.fur_imputation(sample_data)
 
     # Ensure that no missing values remain
     assert data_imputed["furcationbaseline"].isna().sum() == 0
