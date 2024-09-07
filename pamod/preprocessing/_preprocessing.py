@@ -260,8 +260,10 @@ class StaticProcessEngine:
             lambda row: 0 if row["pdbaseline"] == 4 and row["boprevaluation"] == 2 or row["pdbaseline"] > 4 else 1,
             axis=1,
         )
-        df.loc[:, "pdbase"] = df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
-        df.loc[:, "pdgroup"] = df["pdrevaluation"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        df.loc[:, "pdgroupbase"] = df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        df.loc[:, "pdgrouprevaluation"] = df["pdrevaluation"].apply(
+            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+        )
         df.loc[:, "improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
         return df
 
@@ -342,7 +344,7 @@ class StaticProcessEngine:
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
         df = df[df["age"] >= 18].replace(" ", pd.NA)
-        df = df[df["pregnant"]!=2]
+        df = df[df["pregnant"] != 2]
         df = df.drop(columns=["pregnant"])
 
         # Impute missing values
