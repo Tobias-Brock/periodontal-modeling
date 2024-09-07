@@ -1,2 +1,5 @@
 defaults:
   - preprocess: preprocess
+  - resample : resample
+  - mlp : mlp
+  - tuning : tuning
