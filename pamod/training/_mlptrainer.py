@@ -1,28 +1,29 @@
 import numpy as np
+import pandas as pd
 import hydra
 from pamod.resampling import MetricEvaluator
 
 
 class MLPTrainer:
-    def __init__(self, max_iter, classification_type):
+    def __init__(self, classification: str, criterion: str) -> None:
         """
         Initializes the MLPTrainer with metric evaluator and training parameters.
 
         Args:
             metric_evaluator (MetricEvaluator): An instance of MetricEvaluator for evaluating metrics.
-            max_iter (int): Maximum number of iterations for training.
             tol (float): Tolerance for improvement. Stops training if improvement is less than tol.
             n_iter_no_change (int): Number of iterations with no improvement to wait before stopping.
         """
         with hydra.initialize(config_path="../../config", version_base="1.2"):
             cfg = hydra.compose(config_name="config")
 
-        self.metric_evaluator = MetricEvaluator(classification_type)
-        self.max_iter = max_iter
+        self.classification = classification
+        self.criterion = criterion
+        self.metric_evaluator = MetricEvaluator(self.classification)
         self.tol = cfg.mlp.mlp_tol
         self.n_iter_no_change = cfg.mlp.mlp_no_improve
 
-    def train(self, mlp_model, X_train, y_train, X_val, y_val, criterion):
+    def train(self, mlp_model, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series):
         """
         Trains an MLPClassifier using early stopping logic, with an option for binary or multiclass evaluation.
 
@@ -37,12 +38,12 @@ class MLPTrainer:
         Returns:
             tuple: The best validation score, trained MLPClassifier, and the optimal threshold (if applicable).
         """
-        if self.metric_evaluator.classification_type == "binary":
-            return self._train_model(mlp_model, X_train, y_train, X_val, y_val, criterion, binary=True)
+        if self.classification == "binary":
+            return self._train_model(mlp_model, X_train, y_train, X_val, y_val, binary=True)
         else:
-            return self._train_model(mlp_model, X_train, y_train, X_val, y_val, criterion, binary=False)
+            return self._train_model(mlp_model, X_train, y_train, X_val, y_val, binary=False)
 
-    def _train_model(self, mlp_model, X_train, y_train, X_val, y_val, criterion, binary):
+    def _train_model(self, mlp_model, X_train, y_train, X_val, y_val, binary):
         """
         Generalized method for training MLPClassifier with early stopping and evaluation for both binary and multiclass.
 
@@ -58,16 +59,16 @@ class MLPTrainer:
         Returns:
             tuple: The best validation score, trained MLPClassifier, and the optimal threshold (None for multiclass).
         """
-        best_val_score, best_threshold = self._initialize_best_score(criterion, binary)
+        best_val_score, best_threshold = self._initialize_best_score(binary)
         no_improvement_count = 0
 
-        for _ in range(self.max_iter):
+        for _ in range(mlp_model.max_iter):
             self._fit_model(mlp_model, X_train, y_train, binary)
 
             probs = self._get_probabilities(mlp_model, X_val, binary)
-            score, best_threshold = self.metric_evaluator.evaluate(y_val, probs, criterion)
+            score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
 
-            if self._is_improvement(score, best_val_score, criterion):
+            if self._is_improvement(score, best_val_score):
                 best_val_score = score
                 no_improvement_count = 0
             else:
@@ -78,7 +79,7 @@ class MLPTrainer:
 
         return best_val_score, mlp_model, best_threshold if binary else None
 
-    def _initialize_best_score(self, criterion, binary):
+    def _initialize_best_score(self, binary):
         """
         Initializes the best score and threshold for tracking improvements.
 
@@ -89,11 +90,11 @@ class MLPTrainer:
         Returns:
             tuple: Best initial score and default threshold.
         """
-        best_val_score = -float("inf") if criterion in ["f1", "macro_f1"] else float("inf")
+        best_val_score = -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         best_threshold = 0.5 if binary else None
         return best_val_score, best_threshold
 
-    def _fit_model(self, mlp_model, X_train, y_train, binary):
+    def _fit_model(self, mlp_model, X_train, y_train):
         """
         Fits the MLP model using partial_fit.
 
@@ -122,7 +123,7 @@ class MLPTrainer:
         else:
             return mlp_model.predict_proba(X_val)
 
-    def _is_improvement(self, score, best_val_score, criterion):
+    def _is_improvement(self, score, best_val_score):
         """
         Determines if there is an improvement in the validation score.
 
@@ -134,7 +135,7 @@ class MLPTrainer:
         Returns:
             bool: Whether the current score is an improvement.
         """
-        if criterion in ["f1", "macro_f1"]:
+        if self.criterion in ["f1", "macro_f1"]:
             return score > best_val_score + self.tol
         else:
             return score < best_val_score - self.tol

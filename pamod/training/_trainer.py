@@ -1,19 +1,26 @@
 from sklearn.neural_network import MLPClassifier
 from pamod.training import MLPTrainer
 from pamod.resampling import MetricEvaluator
+from typing import Tuple, Union
+import pandas as pd
+import numpy as np
 
 
 class Trainer:
-    def __init__(self, classification_type):
+    def __init__(self, classification: str, criterion: str) -> None:
         """
         Initializes the Trainer with a classification type.
 
         Args:
-            classification_type (str): The type of classification ('binary' or 'multiclass').
+            classification (str): The type of classification ('binary' or 'multiclass').
         """
-        self.classification_type = classification_type
+        self.classification = classification
+        self.criterion = criterion
+        self.metric_evaluator = MetricEvaluator(self.classification)
 
-    def train(self, model, X_train, y_train, X_val, y_val, criterion):
+    def train(
+        self, model, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series
+    ) -> Tuple[float, object, Union[float, None]]:
         """
         General method to train models. Detects if the model is MLP or a standard model and applies appropriate training logic.
 
@@ -23,61 +30,84 @@ class Trainer:
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
             y_val (pd.Series): Validation labels.
-            criterion (str): The evaluation criterion - 'f1', 'brier_score', 'macro_f1', etc.
 
         Returns:
             tuple: The evaluation score, trained model, and threshold (if applicable for binary classification).
         """
         # Handle MLP models with custom training logic
         if isinstance(model, MLPClassifier):
-            mlp_trainer = MLPTrainer(max_iter=model.max_iter, classification_type=self.classification_type)
-            score, trained_model, best_threshold = mlp_trainer.train(model, X_train, y_train, X_val, y_val, criterion)
+            mlp_trainer = MLPTrainer(max_iter=model.max_iter, classification=self.classification)
+            score, trained_model, best_threshold = mlp_trainer.train(
+                model, X_train, y_train, X_val, y_val, self.criterion
+            )
         else:
             # For non-MLP models, perform standard training and evaluation
             model.fit(X_train, y_train)
             probs = model.predict_proba(X_val)
 
-            # Handle binary vs multiclass cases
-            if self.classification_type == "binary":
-                score, best_threshold = self._evaluate_binary(model, probs, y_val, criterion)
-            else:
-                score, best_threshold = self._evaluate_multiclass(model, probs, y_val, criterion)
+            # Generalized evaluation for binary or multiclass cases
+            score, best_threshold = self._evaluate(probs, y_val)
 
             trained_model = model
 
         return score, trained_model, best_threshold
 
-    def _evaluate_binary(self, probs, y_val, criterion):
+    def _evaluate(self, probs: np.ndarray, y_val: pd.Series) -> Tuple[float, Union[float, None]]:
         """
-        Evaluates the binary model based on probabilities and criterion.
+        Generalized evaluation for both binary and multiclass models based on probabilities and criterion.
 
         Args:
-            model (sklearn estimator): The trained binary classification model.
-            probs (array-like): Probability predictions from the model.
+            probs (np.ndarray): Probability predictions from the model.
             y_val (pd.Series): Validation labels.
-            criterion (str): Criterion for evaluation ('f1', 'brier_score').
 
         Returns:
-            tuple: The evaluation score and the best threshold (for F1 optimization).
+            tuple: The evaluation score and the best threshold (if applicable for binary classification).
         """
-        probs = probs[:, 1]  # Extract probabilities for the positive class
-        metric_evaluator = MetricEvaluator("binary")
-        score, best_threshold = metric_evaluator.evaluate(y_val, probs, criterion)
+        if self.classification == "binary":
+            # For binary classification, extract probabilities for the positive class
+            probs = probs[:, 1]  # Extract probabilities for the positive class
+            score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+        else:
+            # For multiclass classification, evaluate without threshold optimization
+            score, _ = self.metric_evaluator.evaluate(y_val, probs)
+            best_threshold = None
+
         return score, best_threshold
 
-    def _evaluate_multiclass(self, probs, y_val, criterion):
+    def evaluate_cv(self, model, fold: Tuple) -> float:
         """
-        Evaluates the multiclass model based on probabilities and criterion.
+        Evaluates a given machine learning model on a specific training-validation fold,
+        based on a chosen performance criterion.
 
         Args:
-            model (sklearn estimator): The trained multiclass classification model.
-            probs (array-like): Probability predictions from the model.
-            y_val (pd.Series): Validation labels.
-            criterion (str): Criterion for evaluation ('macro_f1', 'brier_score').
+            model (sklearn estimator): The machine learning model used for evaluation.
+            fold (tuple): A tuple containing two tuples: the first for the training data (features and labels)
+                        and the second for the validation data (features and labels). Specifically, it is
+                        structured as ((X_train, y_train), (X_val, y_val)), where X_train and X_val are the
+                        feature matrices, and y_train and y_val are the target vectors.
 
         Returns:
-            tuple: The evaluation score and None (no threshold needed for multiclass).
+            float: The calculated score of the model on the validation data according to the specified criterion.
+                Higher scores indicate better performance for 'f1', while lower scores are better
+                for 'brier_score'.
+
+        Raises:
+            ValueError: If an invalid evaluation criterion is specified.
         """
-        metric_evaluator = MetricEvaluator("multiclass")
-        score, _ = metric_evaluator.evaluate(y_val, probs, criterion)
-        return score, None
+        # Destructure the training and validation data from the provided fold
+        metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        (X_train, y_train), (X_val, y_val) = fold
+
+        if isinstance(model, MLPClassifier):
+            # For MLPClassifier, use a specialized function that may include early stopping
+            mlptrainer = MLPTrainer(self.classification, self.criterion)
+            score, _, _ = mlptrainer.train(model, X_train, y_train, X_val, y_val, self.criterion)
+        else:
+            # Fit the model to the training data
+            model.fit(X_train, y_train)
+            # Obtain probability estimates or decisions from the model
+            probs = model.predict_proba(X_val)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_val)
+
+            score = metric_evaluator.evaluate_score_cv(model, y_val, probs)
+
+        return score

@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from pamod.preprocessing._functions import FunctionPreprocessor
+from pamod.data._functions import FunctionPreprocessor
 
 
 # Create some sample data
