@@ -1,5 +1,5 @@
 defaults:
-  - preprocess: preprocess
+  - data: data
   - resample : resample
   - mlp : mlp
   - tuning : tuning

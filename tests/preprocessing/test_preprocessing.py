@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 from unittest.mock import patch
-from pamod.preprocessing import StaticProcessEngine
+from pamod.data import StaticProcessEngine
 
 
 # Sample data for testing

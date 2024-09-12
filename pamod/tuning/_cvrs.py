@@ -1,27 +1,33 @@
 import random
 import numpy as np
+import hydra
 from sklearn.base import clone
 from joblib import Parallel, delayed
 from copy import deepcopy
 
+from pamod.resampling import MetricEvaluator
+from pamod.training import Trainer
+from pamod.tuning._thresholdopt import ThresholdOptimizer
+
 
 class CrossValidationEvaluator:
-    def __init__(self, trainer, classification_type, metric_evaluator):
+    def __init__(self, classification: str, criterion: str) -> None:
         """
         Initializes the CrossValidationEvaluator with the provided trainer, classification type, and metric evaluator.
 
         Args:
             trainer (Trainer): An instance of the Trainer class responsible for training models.
-            classification_type (str): The type of classification ('binary' or 'multiclass').
-            metric_evaluator (MetricEvaluator): An instance of the MetricEvaluator class for calculating evaluation metrics.
+            classification (str): The type of classification ('binary' or 'multiclass').
         """
-        self.trainer = trainer
-        self.classification_type = classification_type
-        self.metric_evaluator = metric_evaluator
+        with hydra.initialize(config_path="../../config", version_base="1.2"):
+            cfg = hydra.compose(config_name="config")
+        self.classification = classification
+        self.criterion = criterion
+        self.random_state = cfg.resample.random_state_cv
+        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.trainer = Trainer(self.classification, self.criterion)
 
-    def evaluate_with_cv(
-        self, model, param_grid, outer_splits, n_configs, racing_folds, criterion, n_jobs, verbosity, random_state
-    ):
+    def evaluate_with_cv(self, model, param_grid, outer_splits, n_configs, racing_folds, n_jobs, verbosity):
         """
         Performs cross-validation with an optional racing strategy and hyperparameter optimization to evaluate a model.
 
@@ -34,19 +40,18 @@ class CrossValidationEvaluator:
             criterion (str): Metric used for evaluation (choices: 'f1', 'brier_score', 'macro_f1').
             n_jobs (int): The number of parallel jobs to run for evaluation.
             verbosity (bool): Activates verbosity during model evaluation process if set to True.
-            random_state (int): Seed for reproducibility.
 
         Returns:
             tuple: Contains the best score achieved, the best hyperparameters, and (for binary classification) the optimal threshold.
         """
-        random.seed(random_state)
-        best_score = -float("inf") if criterion in ["f1", "macro_f1"] else float("inf")
+        random.seed(self.random_state)
+        best_score = -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         best_params = None
         optimal_threshold = None
 
         # Iterate through the specified number of hyperparameter configurations
         for i in range(n_configs):
-            iteration_seed = random_state + i if random_state is not None else None
+            iteration_seed = self.random_state + i if self.random_state is not None else None
 
             # Sample hyperparameters
             params = self._sample_params(param_grid, iteration_seed)
@@ -56,23 +61,24 @@ class CrossValidationEvaluator:
                 model_clone.set_params(n_jobs=n_jobs)
 
             # Evaluate across folds using standard CV or racing strategy
-            scores = self._evaluate_folds(model_clone, outer_splits, racing_folds, criterion, n_jobs)
+            scores = self._evaluate_folds(model_clone, best_score, outer_splits, racing_folds, n_jobs)
 
             avg_score = np.mean(scores)  # Calculate average score across all evaluated folds
 
             # Update best score and parameters if current configuration is better
-            if (criterion in ["f1", "macro_f1"] and avg_score > best_score) or (
-                criterion == "brier_score" and avg_score < best_score
+            if (self.criterion in ["f1", "macro_f1"] and avg_score > best_score) or (
+                self.criterion == "brier_score" and avg_score < best_score
             ):
                 best_score = avg_score
                 best_params = params
 
             if verbosity:
-                self._print_iteration_info(i, model_clone, params, avg_score, criterion)
+                self._print_iteration_info(i, model_clone, params, avg_score, self.criterion)
 
         # If binary classification, perform threshold optimization
-        if self.classification_type == "binary":
-            optimal_threshold = self._threshold_optimization(model, best_params, outer_splits, criterion)
+        if self.classification == "binary" and self.criterion == "f1":
+            threshold_optimizer = ThresholdOptimizer(self.criterion, self.classification)
+            optimal_threshold = threshold_optimizer.optimize_threshold(model, best_params, outer_splits)
 
         return best_score, best_params, optimal_threshold
 
@@ -97,7 +103,7 @@ class CrossValidationEvaluator:
                 params[k] = random.choice(v)
         return params
 
-    def _evaluate_folds(self, model_clone, outer_splits, racing_folds, criterion, n_jobs):
+    def _evaluate_folds(self, model_clone, best_score, outer_splits, racing_folds, n_jobs):
         """
         Evaluates the model across the specified folds using either standard cross-validation or racing strategy.
 
@@ -115,33 +121,25 @@ class CrossValidationEvaluator:
         if racing_folds is None or racing_folds >= num_folds:
             # Standard cross-validation evaluation
             scores = Parallel(n_jobs=n_jobs)(
-                delayed(self.trainer.train)(
-                    deepcopy(model_clone), fold[0][0], fold[0][1], fold[1][0], fold[1][1], criterion
-                )
-                for fold in outer_splits
+                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold, self.criterion) for fold in outer_splits
             )
         else:
             # Racing strategy: evaluate on a subset of folds first
             selected_indices = random.sample(range(num_folds), racing_folds)
             selected_folds = [outer_splits[i] for i in selected_indices]
-            remaining_folds = [outer_splits[i] for i in range(num_folds) if i not in selected_indices]
-
             initial_scores = Parallel(n_jobs=n_jobs)(
-                delayed(self.trainer.train)(
-                    deepcopy(model_clone), fold[0][0], fold[0][1], fold[1][0], fold[1][1], criterion
-                )
+                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold, self.criterion)
                 for fold in selected_folds
             )
             avg_initial_score = np.mean(initial_scores)
 
             # Continue evaluation on remaining folds if initial score is promising
-            if (criterion == "macro_f1" and avg_initial_score > best_score) or (
-                criterion == "brier_score" and avg_initial_score < best_score
+            if (self.criterion in ["f1", "macro_f1"] and avg_initial_score > best_score) or (
+                self.criterion == "brier_score" and avg_initial_score < best_score
             ):
+                remaining_folds = [outer_splits[i] for i in range(num_folds) if i not in selected_indices]
                 continued_scores = Parallel(n_jobs=n_jobs)(
-                    delayed(self.trainer.train)(
-                        deepcopy(model_clone), fold[0][0], fold[0][1], fold[1][0], fold[1][1], criterion
-                    )
+                    delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold, self.criterion)
                     for fold in remaining_folds
                 )
                 scores = initial_scores + continued_scores
@@ -149,22 +147,6 @@ class CrossValidationEvaluator:
                 scores = initial_scores
 
         return scores
-
-    def _threshold_optimization(self, model, best_params, outer_splits, criterion):
-        """
-        Performs threshold optimization for the best model parameters across folds.
-
-        Args:
-            model (sklearn estimator): The machine learning model used for evaluation.
-            best_params (dict): The best hyperparameters obtained during optimization.
-            outer_splits (list of tuples): A list of tuples containing the train and validation data for each fold.
-            criterion (str): The evaluation criterion.
-
-        Returns:
-            float: The optimal threshold (for binary classification) or None (for multiclass).
-        """
-        # Implement threshold optimization using a similar strategy as shown previously
-        return threshold_optimization(model, best_params, outer_splits, criterion)
 
     def _print_iteration_info(self, iteration, model, params, score, criterion):
         """

@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from pamod.preprocessing import FunctionPreprocessor
+from pamod.data import FunctionPreprocessor
 from pamod.config import RAW_DATA_DIR, PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR
 import os
 import warnings
+from typing import Union
 
 import hydra
 from omegaconf import DictConfig
@@ -15,7 +16,7 @@ class StaticProcessEngine:
     A class used to preprocess periodontal dataset for machine learning.
     """
 
-    def __init__(self, behavior=False, scale=False, encoding=None):
+    def __init__(self, behavior: bool, scale: bool, encoding: str) -> None:
         """
         Initializes the StaticProcessEngine with the given parameters, behavior flag, and options for scaling/encoding.
 
@@ -87,7 +88,7 @@ class StaticProcessEngine:
             "categorical": ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"],
         }
 
-    def load_data(self, path=RAW_DATA_DIR, name="Periodontitis_ML_Dataset_Renamed.xlsx"):
+    def load_data(self, path: str = RAW_DATA_DIR, name: str = "Periodontitis_ML_Dataset_Renamed.xlsx") -> pd.DataFrame:
         """
         Loads the dataset from the provided directory and validates required columns.
 
@@ -131,7 +132,7 @@ class StaticProcessEngine:
 
         return df[actual_required_columns]
 
-    def _scale_numeric_columns(self, df):
+    def _scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Scales numeric columns in the DataFrame using StandardScaler.
 
@@ -151,7 +152,7 @@ class StaticProcessEngine:
 
         return df
 
-    def _encode_categorical_columns(self, df):
+    def _encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Encodes categorical columns in the DataFrame based on the specified encoding type.
 
@@ -193,7 +194,7 @@ class StaticProcessEngine:
 
         return df_final
 
-    def _impute_missing_values(self, df):
+    def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Imputes missing values in the DataFrame.
 
@@ -242,7 +243,7 @@ class StaticProcessEngine:
 
         return df
 
-    def _create_outcome_variables(self, df):
+    def _create_outcome_variables(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Adds outcome variables to the DataFrame: pocketclosure, pdgroup, and improve.
 
@@ -257,7 +258,9 @@ class StaticProcessEngine:
             The DataFrame with new outcome variables.
         """
         df.loc[:, "pocketclosure"] = df.apply(
-            lambda row: 0 if row["pdbaseline"] == 4 and row["boprevaluation"] == 2 or row["pdbaseline"] > 4 else 1,
+            lambda row: 0
+            if row["pdrevaluation"] == 4 and row["boprevaluation"] == 2 or row["pdrevaluation"] > 4
+            else 1,
             axis=1,
         )
         df.loc[:, "pdgroupbase"] = df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
@@ -267,7 +270,7 @@ class StaticProcessEngine:
         df.loc[:, "improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
         return df
 
-    def _check_scaled_columns(self, df):
+    def _check_scaled_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Verifies that all required columns are correctly scaled, one-hot encoded, and processed.
         """
@@ -282,7 +285,7 @@ class StaticProcessEngine:
 
         print("All required columns are correctly processed and present in the DataFrame.")
 
-    def _check_encoded_columns(self, df):
+    def _check_encoded_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Verifies that the categorical columns were correctly one-hot encoded if encoding is 'one_hot'.
         Handles cases when encoding is 'target' or None.
@@ -326,7 +329,7 @@ class StaticProcessEngine:
         else:
             raise ValueError(f"Invalid encoding '{self.encoding}' specified.")
 
-    def process_data(self, df):
+    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Processes the input dataset by performing data cleaning, imputations, scaling, and encoding.
 
@@ -350,7 +353,7 @@ class StaticProcessEngine:
         # Impute missing values
         df = self._impute_missing_values(df)
         df.loc[:, "side_infected"] = df.apply(
-            lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["boprevaluation"]), axis=1
+            lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["bop"]), axis=1
         )
         df.loc[:, "tooth_infected"] = (
             df.groupby(["id_patient", "tooth"])["side_infected"].transform(lambda x: (x == 1).any()).astype(int)
@@ -397,7 +400,7 @@ class StaticProcessEngine:
 
         return df
 
-    def save_processed_data(self, df, file_path=None):
+    def save_processed_data(self, df: pd.DataFrame, file: Union[str, None] = None) -> None:
         """
         Saves the processed DataFrame to a CSV file.
 
@@ -412,13 +415,13 @@ class StaticProcessEngine:
             raise ValueError("Data must be processed and not empty before saving.")
 
         if self.behavior:
-            if file_path is None:
-                file_path = "processed_data_b.csv"
-            processed_file_path = os.path.join(PROCESSED_BEHAVIOR_DIR, file_path)
+            if file is None:
+                file = "processed_data_b.csv"
+            processed_file_path = os.path.join(PROCESSED_BEHAVIOR_DIR, file)
         else:
-            if file_path is None:
-                file_path = "processed_data.csv"
-            processed_file_path = os.path.join(PROCESSED_BASE_DIR, file_path)
+            if file is None:
+                file = "processed_data.csv"
+            processed_file_path = os.path.join(PROCESSED_BASE_DIR, file)
 
         directory = os.path.dirname(processed_file_path)
         if not os.path.exists(directory):
@@ -430,9 +433,7 @@ class StaticProcessEngine:
 
 @hydra.main(config_path="../../config", config_name="config", version_base="1.2")
 def main(cfg: DictConfig):
-    engine = StaticProcessEngine(
-        behavior=cfg.preprocess.behavior, scale=cfg.preprocess.scale, encoding=cfg.preprocess.encoding
-    )
+    engine = StaticProcessEngine(behavior=cfg.data.behavior, scale=cfg.data.scale, encoding=cfg.data.encoding)
     df = engine.load_data()
     df = engine.process_data(df)
     engine.save_processed_data(df)
