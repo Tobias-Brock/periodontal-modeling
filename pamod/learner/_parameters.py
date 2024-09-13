@@ -2,10 +2,6 @@ import numpy as np
 from scipy.stats import uniform, randint, loguniform
 
 
-# List of categorical variables required for target encoding
-cat_vars = ["ZE", "Fam_Anam", "Diabetes", "ZT", "toothside", "FUR", "Rauchart", "Stresslvl", "inf_neighs"]
-
-
 ###### Random Search search spaces
 
 # XGBoost parameter grid

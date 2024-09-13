@@ -1,35 +1,35 @@
 import random
-import hydra
 from sklearn.base import clone
 from typing import Tuple, Dict, Union
 
+from pamod.base import BaseEvaluator
 from pamod.training import Trainer
+from pamod.learner import Model
 
 
-class RandomSearchHoldout:
-    def __init__(self, classification: str, criterion: str, n_configs: int, n_jobs: int, verbosity: bool) -> None:
+class RandomSearchHoldout(BaseEvaluator):
+    def __init__(self, classification: str, criterion: str) -> None:
         """
         Initializes the RandomSearchHoldout for hyperparameter tuning using a holdout set.
 
         Args:
             classification (str): The type of classification ('binary' or 'multiclass').
             criterion (str): The evaluation criterion ('f1', 'brier_score', 'macro_f1').
-            n_configs (int): The number of configurations to evaluate during random search.
-            n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during random search.
         """
-        with hydra.initialize(config_path="../../config", version_base="1.2"):
-            cfg = hydra.compose(config_name="config")
-        self.classification = classification
-        self.criterion = criterion
-        self.n_configs = n_configs
-        self.n_jobs = n_jobs
-        self.verbosity = verbosity
-        self.random_state = cfg.tuning.random_state_val
-        self.trainer = Trainer(self.classification)
+        super().__init__(classification, criterion)
+        self.random_state = self.random_state_val
+        self.trainer = Trainer(self.classification, self.criterion)
 
     def holdout_rs(
-        self, model, param_grid: Dict[str, Union[list, object]], X_train_h, y_train_h, X_val, y_val
+        self,
+        learner,
+        X_train_h,
+        y_train_h,
+        X_val,
+        y_val,
+        n_configs: int,
+        n_jobs: int,
+        verbosity: bool,
     ) -> Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
         """
         Performs random search on the holdout validation set for both binary and multiclass models.
@@ -52,18 +52,17 @@ class RandomSearchHoldout:
         best_score = -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         best_params = None
         best_threshold = None  # Threshold is only applicable for binary classification
+        model, param_grid = Model.get(learner, self.classification)
 
-        for i in range(self.n_configs):
+        for i in range(n_configs):
             # Sample hyperparameters from the grid
             params = self._sample_params(param_grid, i)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
-                model_clone.set_params(n_jobs=self.n_jobs)
+                model_clone.set_params(n_jobs=n_jobs)
 
             # Train and evaluate the model using the provided Trainer class
-            score, model_clone, threshold = self.trainer.train(
-                model_clone, X_train_h, y_train_h, X_val, y_val, self.criterion
-            )
+            score, model_clone, threshold = self.trainer.train(model_clone, X_train_h, y_train_h, X_val, y_val)
 
             # Update best score and params if current is better
             if (self.criterion in ["f1", "macro_f1"] and score > best_score) or (
@@ -74,7 +73,7 @@ class RandomSearchHoldout:
                 best_threshold = threshold if self.classification == "binary" else None
 
             # Verbosity
-            if self.verbosity:
+            if verbosity:
                 model_name = model.__class__.__name__
                 params_str = ", ".join([f"{key}={value}" for key, value in params.items()])
                 print(

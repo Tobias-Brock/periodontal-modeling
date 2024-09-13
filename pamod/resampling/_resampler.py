@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
-import hydra
 from imblearn.over_sampling import RandomOverSampler, SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from typing import Tuple, Union
+from pamod.base import BaseValidator
 
 
-class Resampler:
+class Resampler(BaseValidator):
     def __init__(self, classification: str) -> None:
         """
         Initializes the Resampler class by loading Hydra config values and setting parameters
@@ -16,16 +16,7 @@ class Resampler:
         Args:
             classification (str): The type of classification ('binary' or 'multiclass').
         """
-        with hydra.initialize(config_path="../../config", version_base="1.2"):
-            cfg = hydra.compose(config_name="config")
-
-        self.random_state_sampling = cfg.resample.random_state_sampling
-        self.random_state_split = cfg.resample.random_state_split
-        self.random_state_cv = cfg.resample.random_state_cv
-        self.test_set_size = cfg.resample.test_set_size
-        self.group_col = cfg.resample.group_col
-        self.n_folds = cfg.resample.n_folds
-        self.classification = classification
+        super().__init__(classification)
 
     def apply_sampling(
         self, X: pd.DataFrame, y: pd.Series, sampling: str, sampling_factor: float
@@ -45,38 +36,31 @@ class Resampler:
         Raises:
             ValueError: If an invalid sampling method or classification method is specified.
         """
+        self.validate_sampling_strategy(sampling)
         if sampling == "smote":
             if self.classification == "multiclass":
                 smote_strategy = {1: sum(y == 1) * sampling_factor, 2: sum(y == 2) * sampling_factor}
             elif self.classification == "binary":
                 smote_strategy = {1: sum(y == 1) * sampling_factor}
-            else:
-                raise ValueError("Invalid classification method specified.")
             smote_sampler = SMOTE(sampling_strategy=smote_strategy, random_state=self.random_state_sampling)
-            X_resampled, y_resampled = smote_sampler.fit_resample(X, y)
+            return smote_sampler.fit_resample(X, y)
 
         elif sampling == "upsampling":
             if self.classification == "multiclass":
                 up_strategy = {1: sum(y == 1) * sampling_factor, 2: sum(y == 2) * sampling_factor}
             elif self.classification == "binary":
                 up_strategy = {1: sum(y == 1) * sampling_factor}
-            else:
-                raise ValueError("Invalid classification method specified.")
             up_sampler = RandomOverSampler(sampling_strategy=up_strategy, random_state=self.random_state_sampling)
-            X_resampled, y_resampled = up_sampler.fit_resample(X, y)
+            return up_sampler.fit_resample(X, y)
 
         elif sampling == "downsampling":
             if self.classification in ["binary", "multiclass"]:
                 down_strategy = {0: sum(y == 0) // sampling_factor}
-            else:
-                raise ValueError("Invalid classification method specified.")
             down_sampler = RandomUnderSampler(sampling_strategy=down_strategy, random_state=self.random_state_sampling)
-            X_resampled, y_resampled = down_sampler.fit_resample(X, y)
+            return down_sampler.fit_resample(X, y)
 
         else:
-            X_resampled, y_resampled = X, y
-
-        return X_resampled, y_resampled
+            return X, y
 
     def split_train_test_df(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -92,13 +76,7 @@ class Resampler:
             ValueError: If required columns are missing from the input DataFrame.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        required_columns = ["y", self.group_col]
-        for col in required_columns:
-            if col not in df.columns:
-                raise ValueError(f"Column '{col}' not found in DataFrame.")
-
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError("Input 'df' must be a pandas DataFrame.")
+        self.validate_dataframe(df, ["y", self.group_col])
 
         gss = GroupShuffleSplit(n_splits=1, test_size=self.test_set_size, random_state=self.random_state_split)
         train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
@@ -163,15 +141,8 @@ class Resampler:
         """
         np.random.seed(self.random_state_cv)
 
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError("Input 'df' must be a pandas DataFrame.")
-        if "y" not in df.columns:
-            raise ValueError("Column 'y' not found in DataFrame.")
-        if self.group_col not in df.columns:
-            raise ValueError(f"Group column '{self.group_col}' not found in DataFrame.")
-        if not isinstance(self.n_folds, int) or self.n_folds <= 0:
-            raise ValueError("'n_folds' must be a positive integer.")
-
+        self.validate_dataframe(df, ["y", self.group_col])
+        self.validate_n_folds(self.n_folds)
         train_df, _ = self.split_train_test_df(df)
         gkf = GroupKFold(n_splits=self.n_folds)
 

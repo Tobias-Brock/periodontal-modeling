@@ -3,21 +3,19 @@ from sklearn.base import clone
 from sklearn.metrics import f1_score
 from sklearn.neural_network import MLPClassifier
 
+from pamod.base import BaseEvaluator
 from pamod.training import MLPTrainer
 
 
-class ThresholdOptimizer:
-    def __init__(self, criterion, classification):
+class ThresholdOptimizer(BaseEvaluator):
+    def __init__(self, classification, criterion):
         """
         Initializes the ThresholdOptimizer with the criterion for thresholding.
 
         Args:
             criterion (str): The criterion for optimization ('f1' or 'brier_score').
         """
-        if criterion not in ["f1", "brier_score"]:
-            raise ValueError("Unsupported criterion. Choose either 'f1' or 'brier_score'.")
-        self.criterion = criterion
-        self.classification = classification
+        super().__init__(classification, criterion)
 
     def find_optimal_threshold(self, true_labels, probabilities):
         """
@@ -62,7 +60,7 @@ class ThresholdOptimizer:
         for (X_train, y_train), (X_val, y_val) in outer_splits:
             # Custom logic for training MLPClassifier if necessary
             if isinstance(model, MLPClassifier):
-                mlptrainer = MLPTrainer(self.classification)
+                mlptrainer = MLPTrainer(self.classification, self.criterion)
                 _, trained_model, _ = mlptrainer.train(best_model, X_train, y_train, X_val, y_val, self.criterion)
                 probs = trained_model.predict_proba(X_val)[:, 1]
             else:

@@ -1,5 +1,6 @@
 defaults:
   - data: data
+  - learner: learner
   - resample : resample
   - mlp : mlp
   - tuning : tuning
