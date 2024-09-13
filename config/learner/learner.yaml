@@ -1,0 +1,8 @@
+random_state_model: 0
+xgb_obj_binary: 'binary:logistic'
+xgb_loss_binary: 'logloss'
+xgb_obj_multi: 'multi:softmax'
+xgb_loss_multi: 'mlogloss'
+lr_solver_binary: 'saga'
+lr_solver_multi: 'saga'
+lr_multi_loss: 'multinomial'

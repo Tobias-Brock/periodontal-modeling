@@ -1,12 +1,13 @@
 from sklearn.neural_network import MLPClassifier
 from pamod.training import MLPTrainer
 from pamod.resampling import MetricEvaluator
+from pamod.base import BaseEvaluator
 from typing import Tuple, Union
 import pandas as pd
 import numpy as np
 
 
-class Trainer:
+class Trainer(BaseEvaluator):
     def __init__(self, classification: str, criterion: str) -> None:
         """
         Initializes the Trainer with a classification type.
@@ -14,9 +15,8 @@ class Trainer:
         Args:
             classification (str): The type of classification ('binary' or 'multiclass').
         """
-        self.classification = classification
-        self.criterion = criterion
-        self.metric_evaluator = MetricEvaluator(self.classification)
+        super().__init__(classification, criterion)
+        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
 
     def train(
         self, model, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series
@@ -64,11 +64,9 @@ class Trainer:
             tuple: The evaluation score and the best threshold (if applicable for binary classification).
         """
         if self.classification == "binary":
-            # For binary classification, extract probabilities for the positive class
             probs = probs[:, 1]  # Extract probabilities for the positive class
             score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
         else:
-            # For multiclass classification, evaluate without threshold optimization
             score, _ = self.metric_evaluator.evaluate(y_val, probs)
             best_threshold = None
 
@@ -94,20 +92,19 @@ class Trainer:
         Raises:
             ValueError: If an invalid evaluation criterion is specified.
         """
-        # Destructure the training and validation data from the provided fold
-        metric_evaluator = MetricEvaluator(self.classification, self.criterion)
         (X_train, y_train), (X_val, y_val) = fold
 
         if isinstance(model, MLPClassifier):
-            # For MLPClassifier, use a specialized function that may include early stopping
             mlptrainer = MLPTrainer(self.classification, self.criterion)
-            score, _, _ = mlptrainer.train(model, X_train, y_train, X_val, y_val, self.criterion)
+            _, model, _ = mlptrainer.train(model, X_train, y_train, X_val, y_val, self.criterion)
         else:
-            # Fit the model to the training data
             model.fit(X_train, y_train)
-            # Obtain probability estimates or decisions from the model
-            probs = model.predict_proba(X_val)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_val)
+        if self.classification == "binary":
+            preds = model.predict_proba(X_val)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_val)
+        elif self.classification == "multiclass":
+            if self.criterion == "macro_f1":
+                preds = model.predict(X_val)
+            elif self.criterion == "brier_score":
+                preds = model.predict_proba(X_val) if hasattr(model, "predict_proba") else None
 
-            score = metric_evaluator.evaluate_score_cv(model, y_val, probs)
-
-        return score
+        return self.metric_evaluator.evaluate_score_cv(model, y_val, preds)
