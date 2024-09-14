@@ -4,11 +4,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 
 from pamod.base import BaseValidator
-from pamod.learner._parameters import xgb_param_grid, rf_param_grid, lr_param_grid_oh, mlp_param_grid
+from pamod.learner._parameters import (get_lr_params_hebo_oh,
+                                       get_mlp_params_hebo, get_rf_params_hebo,
+                                       get_xgb_params_hebo, lr_param_grid_oh,
+                                       lr_search_space_hebo_oh, mlp_param_grid,
+                                       mlp_search_space_hebo, rf_param_grid,
+                                       rf_search_space_hebo, xgb_param_grid,
+                                       xgb_search_space_hebo)
 
 
 class Model(BaseValidator):
-    def __init__(self, learner: str, classification: str) -> None:
+    def __init__(self, learner: str, classification: str, hpo: str = None) -> None:
         """
         Initializes the Model with the learner type and classification.
 
@@ -16,7 +22,7 @@ class Model(BaseValidator):
             learner (str): The machine learning algorithm to use (e.g., 'RandomForest', 'MLP', 'XGB', 'LogisticRegression').
             classification (str): The type of classification ('binary' or 'multiclass').
         """
-        super().__init__(classification)
+        super().__init__(classification, hpo)
         self.learner = learner
 
     def _get_model_instance(self):
@@ -62,28 +68,44 @@ class Model(BaseValidator):
             raise ValueError(f"Unsupported learner type: {self.learner}")
 
     @classmethod
-    def get(cls, learner: str, classification: str):
+    def get(cls, learner: str, classification: str, hpo: str):
         """
-        Returns the machine learning model and parameter grid based on the learner and classification type.
+        Returns the machine learning model and parameter grid or HEBO search space based on the learner and classification type.
 
         Args:
             learner (str): The machine learning algorithm to use.
             classification (str): The type of classification ('binary' or 'multiclass').
+            hebo (bool): Whether the parameters are for HEBO tuning.
 
         Returns:
-            tuple: The model instance and parameter grid.
+            tuple: If hebo is False, return the model and parameter grid. If hebo is True, return the model,
+                   HEBO search space, and HEBO parameter transformation function.
         """
         instance = cls(learner, classification)
         model = instance._get_model_instance()
 
-        if learner == "RandomForest":
-            return model, rf_param_grid
-        elif learner == "MLP":
-            return model, mlp_param_grid
-        elif learner == "XGB":
-            return model, xgb_param_grid
-        elif learner == "LogisticRegression":
-            return model, lr_param_grid_oh
+        if hpo == "HEBO":
+            if learner == "RandomForest":
+                return model, rf_search_space_hebo, get_rf_params_hebo
+            elif learner == "MLP":
+                return model, mlp_search_space_hebo, get_mlp_params_hebo
+            elif learner == "XGB":
+                return model, xgb_search_space_hebo, get_xgb_params_hebo
+            elif learner == "LogisticRegression":
+                return model, lr_search_space_hebo_oh, get_lr_params_hebo_oh
+            else:
+                raise ValueError(f"Unsupported learner type: {learner}")
+        elif hpo == "RS":
+            if learner == "RandomForest":
+                return model, rf_param_grid
+            elif learner == "MLP":
+                return model, mlp_param_grid
+            elif learner == "XGB":
+                return model, xgb_param_grid
+            elif learner == "LogisticRegression":
+                return model, lr_param_grid_oh
+            else:
+                raise ValueError(f"Unsupported learner type: {learner}")
 
     @classmethod
     def get_model(cls, learner: str, classification: str):

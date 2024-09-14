@@ -1,10 +1,15 @@
-from sklearn.neural_network import MLPClassifier
-from pamod.training import MLPTrainer
-from pamod.resampling import MetricEvaluator
-from pamod.base import BaseEvaluator
-from typing import Tuple, Union
-import pandas as pd
+from copy import deepcopy
+from typing import List, Tuple, Union
+
 import numpy as np
+import pandas as pd
+from joblib import Parallel, delayed
+from sklearn.base import BaseEstimator
+from sklearn.neural_network import MLPClassifier
+
+from pamod.base import BaseEvaluator
+from pamod.resampling import MetricEvaluator
+from pamod.training import MLPTrainer
 
 
 class Trainer(BaseEvaluator):
@@ -19,7 +24,12 @@ class Trainer(BaseEvaluator):
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
 
     def train(
-        self, model, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series
+        self,
+        model,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
     ) -> Tuple[float, object, Union[float, None]]:
         """
         General method to train models. Detects if the model is MLP or a standard model and applies appropriate training logic.
@@ -44,8 +54,6 @@ class Trainer(BaseEvaluator):
             # For non-MLP models, perform standard training and evaluation
             model.fit(X_train, y_train)
             probs = model.predict_proba(X_val)
-
-            # Generalized evaluation for binary or multiclass cases
             score, best_threshold = self._evaluate(probs, y_val)
 
             trained_model = model
@@ -100,11 +108,59 @@ class Trainer(BaseEvaluator):
         else:
             model.fit(X_train, y_train)
         if self.classification == "binary":
-            preds = model.predict_proba(X_val)[:, 1] if hasattr(model, "predict_proba") else model.predict(X_val)
+            preds = (
+                model.predict_proba(X_val)[:, 1]
+                if hasattr(model, "predict_proba")
+                else model.predict(X_val)
+            )
         elif self.classification == "multiclass":
             if self.criterion == "macro_f1":
                 preds = model.predict(X_val)
             elif self.criterion == "brier_score":
                 preds = model.predict_proba(X_val) if hasattr(model, "predict_proba") else None
 
-        return self.metric_evaluator.evaluate_score_cv(model, y_val, preds)
+        return self.metric_evaluator.evaluate_metric(model, y_val, preds)
+
+    def evaluate_objective(
+        self,
+        tuning: str,
+        model_clone: BaseEstimator,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        outer_splits: List[tuple],
+        n_jobs: int,
+    ) -> float:
+        """
+        Evaluates the model's performance based on the tuning strategy (holdout or cross-validation).
+
+        Args:
+            tuning (str): The tuning method, either 'holdout' or 'cv' (cross-validation).
+            model_clone (BaseEstimator): The cloned machine learning model to be evaluated.
+            X_train (pd.DataFrame): Training features for the holdout set.
+            y_train (pd.Series): Training labels for the holdout set.
+            X_val (pd.DataFrame): Validation features for the holdout set (used for 'holdout' tuning).
+            y_val (pd.Series): Validation labels for the holdout set (used for 'holdout' tuning).
+            outer_splits (List[tuple]): List of cross-validation folds, each a tuple containing (X_train_fold, y_train_fold).
+            n_jobs (int): Number of parallel jobs to use for cross-validation.
+
+        Returns:
+            float: The model's performance metric based on the specified tuning strategy.
+        """
+        if tuning == "holdout":
+            model_clone.fit(X_train, y_train)
+            probs = model_clone.predict_proba(X_val)
+
+            if self.classification == "binary":
+                probs = probs[:, 1]
+                return self.metric_evaluator.evaluate_metric(model_clone, y_val, probs)
+            elif self.classification == "multiclass":
+                preds = np.argmax(probs, axis=1)
+                return self.metric_evaluator.evaluate_metric(model_clone, y_val, preds)
+
+        elif tuning == "cv":
+            scores = Parallel(n_jobs=n_jobs)(
+                delayed(self.evaluate_cv)(deepcopy(model_clone), fold) for fold in outer_splits
+            )
+            return np.mean(scores)

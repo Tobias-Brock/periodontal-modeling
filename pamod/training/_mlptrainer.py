@@ -18,7 +18,14 @@ class MLPTrainer(BaseEvaluator):
         super().__init__(classification, criterion)
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
 
-    def train(self, mlp_model, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series):
+    def train(
+        self,
+        mlp_model,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ):
         """
         Generalized method for training MLPClassifier with early stopping and evaluation for both binary and multiclass.
 
@@ -52,7 +59,11 @@ class MLPTrainer(BaseEvaluator):
             if no_improvement_count >= self.n_iter_no_change:
                 break  # Stop early
 
-        return best_val_score, mlp_model, best_threshold if self.classification == "binary" else None
+        return (
+            best_val_score,
+            mlp_model,
+            best_threshold if self.classification == "binary" else None,
+        )
 
     def _get_probabilities(self, mlp_model, X_val):
         """

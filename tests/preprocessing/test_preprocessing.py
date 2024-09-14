@@ -1,6 +1,8 @@
-import pytest
-import pandas as pd
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from pamod.data import StaticProcessEngine
 
 
@@ -86,7 +88,9 @@ def test_no_encoding(sample_data):
     df_no_encoding = engine._encode_categorical_columns(sample_data)
 
     assert isinstance(df_no_encoding, pd.DataFrame)
-    assert not any(col.startswith("side_") for col in df_no_encoding.columns)  # Ensure no one-hot encoding
+    assert not any(
+        col.startswith("side_") for col in df_no_encoding.columns
+    )  # Ensure no one-hot encoding
 
 
 # Test for data processing
@@ -108,9 +112,13 @@ def test_behavior_columns(sample_data):
     df = engine.process_data(sample_data)
 
     # Ensure that behavior columns are included when the behavior flag is set
-    for col in engine.behavior_columns.get("binary", []) + engine.behavior_columns.get("categorical", []):
+    for col in engine.behavior_columns.get("binary", []) + engine.behavior_columns.get(
+        "categorical", []
+    ):
         one_hot_columns = [c for c in df.columns if c.startswith(col.lower())]
-        assert len(one_hot_columns) > 0, f"Expected one-hot encoded columns for {col.lower()} but not found in df."
+        assert (
+            len(one_hot_columns) > 0
+        ), f"Expected one-hot encoded columns for {col.lower()} but not found in df."
 
 
 # Test for invalid encoding type
@@ -161,7 +169,9 @@ def test_behavior_column_encoding(sample_data):
     # Ensure that behavior columns are included and one-hot encoded
     for col in engine.behavior_columns["binary"] + engine.behavior_columns["categorical"]:
         one_hot_columns = [c for c in df_behavior_encoded.columns if c.startswith(col.lower())]
-        assert len(one_hot_columns) > 0, f"Expected one-hot encoded columns for {col.lower()} but not found."
+        assert (
+            len(one_hot_columns) > 0
+        ), f"Expected one-hot encoded columns for {col.lower()} but not found."
 
 
 def test_create_outcome_variables(sample_data):

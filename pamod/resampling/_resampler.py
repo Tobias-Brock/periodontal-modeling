@@ -1,9 +1,11 @@
+from typing import Tuple, Union
+
 import numpy as np
 import pandas as pd
-from imblearn.over_sampling import RandomOverSampler, SMOTE
+from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
-from typing import Tuple, Union
+
 from pamod.base import BaseValidator
 
 
@@ -39,10 +41,15 @@ class Resampler(BaseValidator):
         self.validate_sampling_strategy(sampling)
         if sampling == "smote":
             if self.classification == "multiclass":
-                smote_strategy = {1: sum(y == 1) * sampling_factor, 2: sum(y == 2) * sampling_factor}
+                smote_strategy = {
+                    1: sum(y == 1) * sampling_factor,
+                    2: sum(y == 2) * sampling_factor,
+                }
             elif self.classification == "binary":
                 smote_strategy = {1: sum(y == 1) * sampling_factor}
-            smote_sampler = SMOTE(sampling_strategy=smote_strategy, random_state=self.random_state_sampling)
+            smote_sampler = SMOTE(
+                sampling_strategy=smote_strategy, random_state=self.random_state_sampling
+            )
             return smote_sampler.fit_resample(X, y)
 
         elif sampling == "upsampling":
@@ -50,13 +57,17 @@ class Resampler(BaseValidator):
                 up_strategy = {1: sum(y == 1) * sampling_factor, 2: sum(y == 2) * sampling_factor}
             elif self.classification == "binary":
                 up_strategy = {1: sum(y == 1) * sampling_factor}
-            up_sampler = RandomOverSampler(sampling_strategy=up_strategy, random_state=self.random_state_sampling)
+            up_sampler = RandomOverSampler(
+                sampling_strategy=up_strategy, random_state=self.random_state_sampling
+            )
             return up_sampler.fit_resample(X, y)
 
         elif sampling == "downsampling":
             if self.classification in ["binary", "multiclass"]:
                 down_strategy = {0: sum(y == 0) // sampling_factor}
-            down_sampler = RandomUnderSampler(sampling_strategy=down_strategy, random_state=self.random_state_sampling)
+            down_sampler = RandomUnderSampler(
+                sampling_strategy=down_strategy, random_state=self.random_state_sampling
+            )
             return down_sampler.fit_resample(X, y)
 
         else:
@@ -78,7 +89,9 @@ class Resampler(BaseValidator):
         """
         self.validate_dataframe(df, ["y", self.group_col])
 
-        gss = GroupShuffleSplit(n_splits=1, test_size=self.test_set_size, random_state=self.random_state_split)
+        gss = GroupShuffleSplit(
+            n_splits=1, test_size=self.test_set_size, random_state=self.random_state_split
+        )
         train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
 
         train_df = df.iloc[train_idx].reset_index(drop=True)
@@ -92,7 +105,11 @@ class Resampler(BaseValidator):
         return train_df, test_df
 
     def split_x_y(
-        self, train_df: pd.DataFrame, test_df: pd.DataFrame, sampling: Union[str, None], factor: Union[float, None]
+        self,
+        train_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        sampling: Union[str, None],
+        factor: Union[float, None],
     ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
         """
         Splits the train and test DataFrames into feature and label sets (X_train, y_train, X_test, y_test).
@@ -119,10 +136,18 @@ class Resampler(BaseValidator):
         if sampling is not None:
             X_train, y_train = self.apply_sampling(X_train, y_train, sampling, factor)
 
-        return X_train.drop([self.group_col], axis=1), y_train, X_test.drop([self.group_col], axis=1), y_test
+        return (
+            X_train.drop([self.group_col], axis=1),
+            y_train,
+            X_test.drop([self.group_col], axis=1),
+            y_test,
+        )
 
     def cv_folds(
-        self, df: pd.DataFrame, sampling: Union[str, None] = None, factor: Union[float, None] = None
+        self,
+        df: pd.DataFrame,
+        sampling: Union[str, None] = None,
+        factor: Union[float, None] = None,
     ) -> Tuple[list, list]:
         """
         Performs cross-validation with group constraints, applying optional resampling strategies.
@@ -156,16 +181,24 @@ class Resampler(BaseValidator):
             X_test_fold = train_df.iloc[test_idx].drop(["y"], axis=1)
             y_test_fold = train_df.iloc[test_idx]["y"]
 
-            original_validation_data.append(train_df.iloc[test_idx].drop(["y"], axis=1).reset_index(drop=True))
+            original_validation_data.append(
+                train_df.iloc[test_idx].drop(["y"], axis=1).reset_index(drop=True)
+            )
 
             if sampling is not None:
-                X_train_fold, y_train_fold = self.apply_sampling(X_train_fold, y_train_fold, sampling, factor)
+                X_train_fold, y_train_fold = self.apply_sampling(
+                    X_train_fold, y_train_fold, sampling, factor
+                )
 
             cv_folds_indices.append((train_idx, test_idx))
             outer_splits.append(((X_train_fold, y_train_fold), (X_test_fold, y_test_fold)))
 
-        for original_test_data, (_, (X_test_fold, _)) in zip(original_validation_data, outer_splits):
+        for original_test_data, (_, (X_test_fold, _)) in zip(
+            original_validation_data, outer_splits
+        ):
             if not original_test_data.equals(X_test_fold.reset_index(drop=True)):
-                raise ValueError("Validation folds' data are not consistent after applying sampling strategies.")
+                raise ValueError(
+                    "Validation folds' data are not consistent after applying sampling strategies."
+                )
 
         return outer_splits, cv_folds_indices

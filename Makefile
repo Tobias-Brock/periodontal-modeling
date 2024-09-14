@@ -16,7 +16,7 @@ PYTHON_INTERPRETER = python
 requirements:
 	$(PYTHON_INTERPRETER) -m pip install -U pip
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
-	
+
 
 
 
@@ -44,11 +44,11 @@ format:
 ## Set up python interpreter environment
 .PHONY: create_environment
 create_environment:
-	
+
 	conda create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) -y
-	
+
 	@echo ">>> conda env created. Activate with:\nconda activate $(PROJECT_NAME)"
-	
+
 
 
 

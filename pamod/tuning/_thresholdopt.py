@@ -61,7 +61,9 @@ class ThresholdOptimizer(BaseEvaluator):
             # Custom logic for training MLPClassifier if necessary
             if isinstance(model, MLPClassifier):
                 mlptrainer = MLPTrainer(self.classification, self.criterion)
-                _, trained_model, _ = mlptrainer.train(best_model, X_train, y_train, X_val, y_val, self.criterion)
+                _, trained_model, _ = mlptrainer.train(
+                    best_model, X_train, y_train, X_val, y_val, self.criterion
+                )
                 probs = trained_model.predict_proba(X_val)[:, 1]
             else:
                 # Standard model training and evaluation
@@ -78,3 +80,30 @@ class ThresholdOptimizer(BaseEvaluator):
 
         # Find and return the optimal threshold
         return self.find_optimal_threshold(all_true_labels, all_probs)
+
+    def bo_threshold_optimization(self, probs, y_val):
+        """
+        Refits the given model with the best parameters found from Bayesian Optimization and
+        finds the optimal decision threshold for a specified criterion.
+
+        Args:
+            model (sklearn estimator): The machine learning model used for evaluation.
+            X_train_h (pd.DataFrame): Training features.
+            y_train_h (pd.Series): Training labels.
+            X_val (pd.DataFrame): Validation features.
+            y_val (pd.Series): Validation labels.
+            best_params (dict): The best hyperparameters obtained during optimization.
+
+        Returns:
+            float or None: The optimal threshold value for the specified criterion if applicable,
+                        otherwise None if the criterion does not use a threshold (e.g., 'brier_score').
+        """
+        if self.criterion == "f1":
+            thresholds = np.linspace(0, 1, 101)
+            scores = [f1_score(y_val, probs >= th, pos_label=0) for th in thresholds]
+            best_threshold = thresholds[np.argmax(scores)]
+        else:
+            # For criteria that do not use a threshold, return None
+            best_threshold = None
+
+        return best_threshold

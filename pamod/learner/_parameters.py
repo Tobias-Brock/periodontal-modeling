@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.stats import uniform, randint, loguniform
-
+from scipy.stats import loguniform, randint, uniform
 
 ###### Random Search search spaces
 
@@ -49,7 +48,15 @@ lr_param_grid_t = {
 
 # MLP parameter grid
 mlp_param_grid = {
-    "hidden_layer_sizes": [(50,), (100,), (150,), (50, 50), (100, 100), (50, 100, 50), (100, 50, 100)],
+    "hidden_layer_sizes": [
+        (50,),
+        (100,),
+        (150,),
+        (50, 50),
+        (100, 100),
+        (50, 100, 50),
+        (100, 50, 100),
+    ],
     "activation": ["tanh", "relu", "logistic"],
     "solver": ["sgd", "adam"],
     "alpha": loguniform(0.0001, 0.1),
@@ -135,13 +142,34 @@ def get_rf_params_hebo(params_row):
 # Random forest HEBO search space
 rf_search_space_hebo = [
     {"name": "n_estimators", "type": "cat", "categories": [300, 400, 500]},
-    {"name": "max_depth", "type": "cat", "categories": [None, 10, 20, 30, 40]},  # Adjust according to your needs
+    {
+        "name": "max_depth",
+        "type": "cat",
+        "categories": [None, 10, 20, 30, 40],
+    },  # Adjust according to your needs
     {"name": "min_samples_split", "type": "int", "lb": 2, "ub": 10},
     {"name": "min_samples_leaf", "type": "int", "lb": 1, "ub": 4},
-    {"name": "max_features", "type": "num", "lb": 0.1, "ub": 1.0},  # Treat as fraction of total features
-    {"name": "class_weight", "type": "cat", "categories": [None, "balanced", "balanced_subsample"]},
-    {"name": "criterion", "type": "cat", "categories": ["gini"]},  # Assuming you're open to optimizing this
-    {"name": "max_leaf_nodes", "type": "cat", "categories": [None, 10, 20, 30, 40]},  # Adjust according to your needs
+    {
+        "name": "max_features",
+        "type": "num",
+        "lb": 0.1,
+        "ub": 1.0,
+    },  # Treat as fraction of total features
+    {
+        "name": "class_weight",
+        "type": "cat",
+        "categories": [None, "balanced", "balanced_subsample"],
+    },
+    {
+        "name": "criterion",
+        "type": "cat",
+        "categories": ["gini"],
+    },  # Assuming you're open to optimizing this
+    {
+        "name": "max_leaf_nodes",
+        "type": "cat",
+        "categories": [None, 10, 20, 30, 40],
+    },  # Adjust according to your needs
 ]
 
 

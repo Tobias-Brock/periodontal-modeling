@@ -1,21 +1,17 @@
-from pamod.resampling import Resampler, brier_loss_multi
-from pamod.data import ProcessedDataLoader
-from pamod.tuning import RandomSearchTuner
-from pamod.learner import Model
-
 from sklearn.base import clone
-from sklearn.metrics import (
-    accuracy_score,
-    brier_score_loss,
-    f1_score,
-    roc_auc_score,
-    confusion_matrix,
-    precision_score,
-    recall_score,
-)
+from sklearn.metrics import (accuracy_score, brier_score_loss,
+                             confusion_matrix, f1_score, precision_score,
+                             recall_score, roc_auc_score)
+
+from pamod.data import ProcessedDataLoader
+from pamod.learner import Model
+from pamod.resampling import Resampler, brier_loss_multi
+from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
-def train_final_model(df, classification, final_model, sampling, factor, criterion, n_jobs, verbosity):
+def train_final_model(
+    df, classification, final_model, sampling, factor, criterion, n_jobs, verbosity
+):
     """
     Trains the final model on the entire training set with the best parameters found, evaluates it on the test set for binary classification,
     and performs threshold optimization based on the specified criterion (F1, Brier score, or ROC AUC).
@@ -51,10 +47,16 @@ def train_final_model(df, classification, final_model, sampling, factor, criteri
     final_model.fit(X_train, y_train)
 
     if classification == "binary":
-        final_probs = final_model.predict_proba(X_test)[:, 1] if hasattr(final_model, "predict_proba") else None
+        final_probs = (
+            final_model.predict_proba(X_test)[:, 1]
+            if hasattr(final_model, "predict_proba")
+            else None
+        )
     elif classification == "multiclass":
         # For multiclass, don't select only one column, retain the full probability matrix
-        final_probs = final_model.predict_proba(X_test) if hasattr(final_model, "predict_proba") else None
+        final_probs = (
+            final_model.predict_proba(X_test) if hasattr(final_model, "predict_proba") else None
+        )
 
     if criterion in ["f1"] and final_probs is not None:
         final_predictions = (final_probs >= best_threshold).astype(int)
@@ -66,7 +68,9 @@ def train_final_model(df, classification, final_model, sampling, factor, criteri
         precision = precision_score(y_test, final_predictions, pos_label=0)
         recall = recall_score(y_test, final_predictions, pos_label=0)
         accuracy = accuracy_score(y_test, final_predictions)
-        brier_score_value = brier_score_loss(y_test, final_probs) if final_probs is not None else None
+        brier_score_value = (
+            brier_score_loss(y_test, final_probs) if final_probs is not None else None
+        )
         roc_auc_value = roc_auc_score(y_test, final_probs) if final_probs is not None else None
         conf_matrix = confusion_matrix(y_test, final_predictions)
 
@@ -104,7 +108,7 @@ def perform_model_evaluation(
     df,
     classification,
     learner,
-    method,
+    tuning,
     sampling,
     factor,
     n_configs,
@@ -123,9 +127,9 @@ def perform_model_evaluation(
         classification (str): Determines classification type for sampling strategy.
         model (sklearn estimator): The machine learning model used for evaluation.
         param_grid (dict): Hyperparameter grid for tuning the model with Random Search.
-        method (str): Method for model evaluation, one of 'cv' or 'val_split'.
+        tuning (str): tuning for model evaluation, one of 'cv' or 'val_split'.
         n_configs (int): The number of configurations to evaluate during HPO.
-        hpo (str): Hyperparameter optimization method, one of 'RS' (Random Search) or 'HEBO'.
+        hpo (str): Hyperparameter optimization tuning, one of 'RS' (Random Search) or 'HEBO'.
         racing_folds (int or None): Number of folds to use for initial evaluation in the racing strategy.
                                     If None, standard CV is performed on all folds.
         criterion (str): Criterion for optimization - 'macro_f1' or 'brier_score'.
@@ -136,33 +140,31 @@ def perform_model_evaluation(
         dict: A dictionary containing the trained model and its evaluation metrics.
 
     Raises:
-        ValueError: If an invalid evaluation method is specified.
+        ValueError: If an invalid evaluation tuning is specified.
     """
     resampler = Resampler(classification)
     train_df, _ = resampler.split_train_test_df(df)
 
-    # Determine the evaluation strategy
-
     if hpo == "RS":
-        # Initialize the tuner only for Random Search HPO
-        tuner = RandomSearchTuner(classification, criterion)
+        tuner = RandomSearchTuner(classification, criterion, tuning)
+    elif hpo == "HEBO":
+        tuner = HEBOTuner(classification, criterion, tuning, hpo)
 
-        if method == "split":
-            train_df_h, test_df_h = resampler.split_train_test_df(train_df)
-            X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(train_df_h, test_df_h, sampling, factor)
+    if tuning == "holdout":
+        # Perform resampling for holdout validation
+        train_df_h, test_df_h = resampler.split_train_test_df(train_df)
+        X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
+            train_df_h, test_df_h, sampling, factor
+        )
+        _, best_params, best_threshold = tuner.holdout(
+            learner, X_train_h, y_train_h, X_val, y_val, n_configs, n_jobs, verbosity
+        )
 
-            # Perform Random Search on holdout validation set
-            _, best_params, best_threshold = tuner.holdout(
-                learner, X_train_h, y_train_h, X_val, y_val, n_configs, n_jobs, verbosity
-            )
-
-        elif method == "cv":
-            outer_splits, _ = resampler.cv_folds(df, sampling, factor)
-
-            _, best_params, best_threshold = tuner.cv(learner, outer_splits, n_configs, racing_folds, n_jobs, verbosity)
-
-        else:
-            raise ValueError("Invalid evaluation method specified. Choose 'cv' or 'split'.")
+    elif tuning == "cv":
+        outer_splits, _ = resampler.cv_folds(df, sampling, factor)
+        _, best_params, best_threshold = tuner.cv(
+            learner, outer_splits, racing_folds, n_configs, n_jobs, verbosity
+        )
 
     final_model = (learner, best_params, best_threshold)
 
@@ -182,21 +184,21 @@ def perform_model_evaluation(
 
 
 def main():
-    dataloader = ProcessedDataLoader("pdgrouprevaluation")  # Correct the target name
+    dataloader = ProcessedDataLoader("pocketclosure")  # Correct the target name
     df = dataloader.load_data()  # Load the dataset
     df = dataloader.transform_target(df)  # Transform the target column
 
     # Call model evaluation
     perform_model_evaluation(
         df=df,
-        classification="multiclass",
+        classification="binary",
         learner="XGB",
-        method="split",
+        tuning="holdout",
         sampling=None,
         factor=None,
-        n_configs=3,
+        n_configs=2,
         hpo="RS",
-        criterion="macro_f1",
+        criterion="f1",
         racing_folds=5,
         n_jobs=None,
     )

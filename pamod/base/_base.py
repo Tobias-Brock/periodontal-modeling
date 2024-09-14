@@ -1,5 +1,5 @@
-import pandas as pd
 import hydra
+import pandas as pd
 
 
 def validate_classification(classification: str) -> None:
@@ -13,8 +13,19 @@ def validate_classification(classification: str) -> None:
         raise ValueError("Invalid classification type. Choose 'binary' or 'multiclass'.")
 
 
+def validate_hpo(hpo: str) -> None:
+    """
+    Validates the hpo.
+
+    Args:
+        hpo (str): The type of hpo ('RS' or 'HEBO').
+    """
+    if hpo not in [None, "RS", "HEBO"]:
+        raise ValueError("Unsupported HPO. Choose either 'RS' or 'HEBO'.")
+
+
 class BaseValidator:
-    def __init__(self, classification: str) -> None:
+    def __init__(self, classification: str, hpo: str = None) -> None:
         """
         Base class to provide validation and error handling for other classes,
         particularly for DataFrame validation, column checking, and numerical input checking.
@@ -25,7 +36,9 @@ class BaseValidator:
         with hydra.initialize(config_path="../../config", version_base="1.2"):
             cfg = hydra.compose(config_name="config")
         validate_classification(classification)
+        validate_hpo(hpo)
         self.classification = classification
+        self.hpo = hpo
         self.random_state_sampling = cfg.resample.random_state_sampling
         self.random_state_split = cfg.resample.random_state_split
         self.random_state_cv = cfg.resample.random_state_cv
@@ -59,7 +72,9 @@ class BaseValidator:
 
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            raise ValueError(f"The following required columns are missing: {', '.join(missing_columns)}.")
+            raise ValueError(
+                f"The following required columns are missing: {', '.join(missing_columns)}."
+            )
 
     def validate_n_folds(self, n_folds: int) -> None:
         """
@@ -86,11 +101,15 @@ class BaseValidator:
         """
         valid_strategies = ["smote", "upsampling", "downsampling", None]
         if sampling not in valid_strategies:
-            raise ValueError(f"Invalid sampling strategy: {sampling}. Valid options are {valid_strategies}.")
+            raise ValueError(
+                f"Invalid sampling strategy: {sampling}. Valid options are {valid_strategies}."
+            )
 
 
 class BaseEvaluator:
-    def __init__(self, classification: str, criterion: str) -> None:
+    def __init__(
+        self, classification: str, criterion: str, tuning: str = None, hpo: str = None
+    ) -> None:
         """
         Base class to initialize classification and criterion.
 
@@ -100,11 +119,14 @@ class BaseEvaluator:
         """
         with hydra.initialize(config_path="../../config", version_base="1.2"):
             self.cfg = hydra.compose(config_name="config")
-
         validate_classification(classification)
         self._validate_criterion(criterion)
+        validate_hpo(hpo)
+        self._validate_tuning(tuning)
         self.classification = classification
         self.criterion = criterion
+        self.hpo = hpo
+        self.tuning = tuning
         self.random_state = self.cfg.resample.random_state_cv
         self.random_state_val = self.cfg.tuning.random_state_val
         self.tol = self.cfg.mlp.mlp_tol
@@ -119,3 +141,13 @@ class BaseEvaluator:
         """
         if criterion not in ["f1", "macro_f1", "brier_score"]:
             raise ValueError("Unsupported criterion. Choose either 'f1' or 'brier_score'.")
+
+    def _validate_tuning(self, tuning: str) -> None:
+        """
+        Validates the tuning.
+
+        Args:
+            tuning (str): The type of tuning ('holdout' or 'cv').
+        """
+        if tuning not in [None, "holdout", "cv"]:
+            raise ValueError("Unsupported tuning method. Choose either 'holdout' or 'cv'.")

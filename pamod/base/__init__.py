@@ -1,3 +1,3 @@
-from pamod.base._base import BaseValidator, BaseEvaluator
+from pamod.base._base import BaseEvaluator, BaseValidator
 
 __all__ = ["BaseValidator", "BaseEvaluator"]

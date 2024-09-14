@@ -1,7 +1,9 @@
-import numpy as np
-from sklearn.metrics import f1_score, brier_score_loss
-from sklearn.preprocessing import label_binarize
 from typing import Tuple, Union
+
+import numpy as np
+from sklearn.metrics import brier_score_loss, f1_score
+from sklearn.preprocessing import label_binarize
+
 from pamod.base import BaseEvaluator
 
 
@@ -52,7 +54,9 @@ class MetricEvaluator(BaseEvaluator):
         else:
             return self._evaluate_multiclass(y_val, probs)
 
-    def _evaluate_binary(self, y_val: np.ndarray, probs: np.ndarray) -> Tuple[float, Union[float, None]]:
+    def _evaluate_binary(
+        self, y_val: np.ndarray, probs: np.ndarray
+    ) -> Tuple[float, Union[float, None]]:
         """
         Evaluates binary classification metrics based on probabilities.
 
@@ -95,7 +99,7 @@ class MetricEvaluator(BaseEvaluator):
         elif self.criterion == "brier_score":
             return brier_loss_multi(y_val, probs), None
 
-    def evaluate_score_cv(self, model, y_val: np.ndarray, preds: np.ndarray) -> float:
+    def evaluate_metric(self, model, y_val: np.ndarray, preds: np.ndarray) -> float:
         """
         Evaluates the performance of model predictions against cross-validation data based on a specified criterion.
 
@@ -119,7 +123,9 @@ class MetricEvaluator(BaseEvaluator):
             return f1_score(y_val, preds, average="macro")
         elif self.criterion == "brier_score":
             if not hasattr(model, "predict_proba"):
-                raise ValueError("Model does not support probability estimates required for Brier score evaluation.")
+                raise ValueError(
+                    "Model does not support probability estimates required for Brier score evaluation."
+                )
             if self.classification == "binary":
                 return brier_score_loss(y_val, preds)
             elif self.classification == "multiclass":
