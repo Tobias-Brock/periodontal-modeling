@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 
@@ -46,7 +46,14 @@ class DescriptivesPlotter:
 
         # Plot the heatmap
         plt.figure(figsize=(8, 6), dpi=300)
-        sns.heatmap(normalized_cm, cmap=cmap, fmt="g", linewidths=0.5, square=True, cbar_kws={"label": "Percent"})
+        sns.heatmap(
+            normalized_cm,
+            cmap=cmap,
+            fmt="g",
+            linewidths=0.5,
+            square=True,
+            cbar_kws={"label": "Percent"},
+        )
 
         for i in range(len(cm)):
             for j in range(len(cm)):
@@ -212,7 +219,9 @@ class DescriptivesPlotter:
             Column name for pocket depth after therapy.
         """
         # Create a 2D histogram
-        heatmap, xedges, yedges = np.histogram2d(self.df[column_before], self.df[column_after], bins=(12, 12))
+        heatmap, xedges, yedges = np.histogram2d(
+            self.df[column_before], self.df[column_after], bins=(12, 12)
+        )
 
         # Plot heatmap
         plt.figure(figsize=(10, 8), dpi=300)

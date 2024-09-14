@@ -1,10 +1,11 @@
 import random
+from typing import Dict, Tuple, Union
+
 from sklearn.base import clone
-from typing import Tuple, Dict, Union
 
 from pamod.base import BaseEvaluator
-from pamod.training import Trainer
 from pamod.learner import Model
+from pamod.training import Trainer
 
 
 class RandomSearchHoldout(BaseEvaluator):
@@ -62,7 +63,9 @@ class RandomSearchHoldout(BaseEvaluator):
                 model_clone.set_params(n_jobs=n_jobs)
 
             # Train and evaluate the model using the provided Trainer class
-            score, model_clone, threshold = self.trainer.train(model_clone, X_train_h, y_train_h, X_val, y_val)
+            score, model_clone, threshold = self.trainer.train(
+                model_clone, X_train_h, y_train_h, X_val, y_val
+            )
 
             # Update best score and params if current is better
             if (self.criterion in ["f1", "macro_f1"] and score > best_score) or (

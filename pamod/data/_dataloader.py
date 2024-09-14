@@ -1,9 +1,8 @@
 import os
-import pandas as pd
-from pamod.config import PROCESSED_BASE_DIR
 
-import os
 import pandas as pd
+
+from pamod.config import PROCESSED_BASE_DIR
 
 
 class ProcessedDataLoader:
@@ -16,7 +15,9 @@ class ProcessedDataLoader:
         """
         self.target = target
 
-    def load_data(self, path: str = PROCESSED_BASE_DIR, name: str = "processed_data.csv") -> pd.DataFrame:
+    def load_data(
+        self, path: str = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
+    ) -> pd.DataFrame:
         """
         Loads the processed data from the specified path.
 
@@ -46,9 +47,13 @@ class ProcessedDataLoader:
 
         target_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
 
-        columns_to_drop = [col for col in target_columns if col != self.target and col in df.columns]
+        columns_to_drop = [
+            col for col in target_columns if col != self.target and col in df.columns
+        ]
         df = df.drop(columns=columns_to_drop)
-        df = df.drop(columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"], errors="ignore")
+        df = df.drop(
+            columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"], errors="ignore"
+        )
         df = df.rename(columns={self.target: "y"})
 
         if "y" not in df.columns:

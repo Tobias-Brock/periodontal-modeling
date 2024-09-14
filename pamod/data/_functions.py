@@ -1,6 +1,7 @@
+from typing import Union
+
 import numpy as np
 import pandas as pd
-from typing import Union
 
 
 class FunctionPreprocessor:
@@ -104,9 +105,9 @@ class FunctionPreprocessor:
                 neighbors = self.tooth_neighbor(tooth)
                 return sum(1 for neighbor in neighbors if neighbor in infected_teeth)
 
-            df.loc[df[patient_col] == patient_id, "infected_neighbors"] = patient_data[tooth_col].apply(
-                count_infected_neighbors
-            )
+            df.loc[df[patient_col] == patient_id, "infected_neighbors"] = patient_data[
+                tooth_col
+            ].apply(count_infected_neighbors)
 
         return df
 
@@ -162,7 +163,9 @@ class FunctionPreprocessor:
         choices_baseline = [0, 1, 2]
         df["pdbaseline_grouped"] = np.select(conditions_baseline, choices_baseline, default=-1)
         patients_with_all_nas = df.groupby("id_patient")["plaque"].apply(lambda x: all(pd.isna(x)))
-        df["plaque_all_na"] = df["id_patient"].isin(patients_with_all_nas[patients_with_all_nas].index)
+        df["plaque_all_na"] = df["id_patient"].isin(
+            patients_with_all_nas[patients_with_all_nas].index
+        )
         grouped_data = df.groupby(["tooth", "side", "pdbaseline_grouped"])
 
         modes_dict = {}
@@ -172,7 +175,9 @@ class FunctionPreprocessor:
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
         temp_data = df[["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]].copy()
-        temp_data["plaque"] = temp_data.apply(lambda row: self.plaque_values(row, modes_dict), axis=1)
+        temp_data["plaque"] = temp_data.apply(
+            lambda row: self.plaque_values(row, modes_dict), axis=1
+        )
 
         df["plaque"] = temp_data["plaque"]
         df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
@@ -219,7 +224,9 @@ class FunctionPreprocessor:
         """
         tooth_fur = [14, 16, 17, 18, 24, 26, 27, 28, 36, 37, 38, 46, 47, 48]
         if pd.isna(row["pdbaseline"]) or pd.isna(row["recbaseline"]):
-            raise ValueError("NaN found in pdbaseline or recbaseline. Check RecBaseline imputation.")
+            raise ValueError(
+                "NaN found in pdbaseline or recbaseline. Check RecBaseline imputation."
+            )
 
         if row["furcationbaseline_all_na"] == 1:
             if row["tooth"] in tooth_fur:
@@ -253,11 +260,22 @@ class FunctionPreprocessor:
         if "furcationbaseline" not in df.columns:
             raise KeyError("'furcationbaseline' column not found in the DataFrame")
 
-        patients_with_all_nas = df.groupby("id_patient")["furcationbaseline"].apply(lambda x: all(pd.isna(x)))
-        df["furcationbaseline_all_na"] = df["id_patient"].isin(patients_with_all_nas[patients_with_all_nas].index)
+        patients_with_all_nas = df.groupby("id_patient")["furcationbaseline"].apply(
+            lambda x: all(pd.isna(x))
+        )
+        df["furcationbaseline_all_na"] = df["id_patient"].isin(
+            patients_with_all_nas[patients_with_all_nas].index
+        )
 
         temp_data = df[
-            ["furcationbaseline", "tooth", "side", "pdbaseline", "recbaseline", "furcationbaseline_all_na"]
+            [
+                "furcationbaseline",
+                "tooth",
+                "side",
+                "pdbaseline",
+                "recbaseline",
+                "furcationbaseline_all_na",
+            ]
         ].copy()
 
         temp_data["furcationbaseline"] = temp_data.apply(self.fur_values, axis=1)

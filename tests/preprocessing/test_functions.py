@@ -1,6 +1,7 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
+
 from pamod.data._functions import FunctionPreprocessor
 
 
@@ -48,7 +49,9 @@ def test_get_adjacent_infected_teeth_count(sample_data):
     # Modify sample data to mark some teeth as infected
     sample_data.loc[0, "side_infected"] = 1  # Tooth 11 infected
     sample_data.loc[2, "side_infected"] = 1  # Tooth 13 infected
-    sample_data = preprocessor.get_adjacent_infected_teeth_count(sample_data, "id_patient", "tooth", "side_infected")
+    sample_data = preprocessor.get_adjacent_infected_teeth_count(
+        sample_data, "id_patient", "tooth", "side_infected"
+    )
 
     assert (
         sample_data.loc[sample_data["tooth"] == 12, "infected_neighbors"].values[0] == 2

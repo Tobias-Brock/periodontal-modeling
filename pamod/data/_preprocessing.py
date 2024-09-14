@@ -1,14 +1,16 @@
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from pamod.data import FunctionPreprocessor
-from pamod.config import RAW_DATA_DIR, PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR
 import os
 import warnings
 from typing import Union
 
 import hydra
+import numpy as np
+import pandas as pd
 from omegaconf import DictConfig
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+from pamod.config import (PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR,
+                          RAW_DATA_DIR)
+from pamod.data import FunctionPreprocessor
 
 
 class StaticProcessEngine:
@@ -88,7 +90,9 @@ class StaticProcessEngine:
             "categorical": ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"],
         }
 
-    def load_data(self, path: str = RAW_DATA_DIR, name: str = "Periodontitis_ML_Dataset_Renamed.xlsx") -> pd.DataFrame:
+    def load_data(
+        self, path: str = RAW_DATA_DIR, name: str = "Periodontitis_ML_Dataset_Renamed.xlsx"
+    ) -> pd.DataFrame:
         """
         Loads the dataset from the provided directory and validates required columns.
 
@@ -110,14 +114,20 @@ class StaticProcessEngine:
             If the dataset is missing any required columns.
         """
         input_file = os.path.join(path, name)
-        df = pd.read_excel(input_file, header=[1])  # Load the dataset using the second row as headers
+        df = pd.read_excel(
+            input_file, header=[1]
+        )  # Load the dataset using the second row as headers
 
         actual_columns_lower = {col.lower(): col for col in df.columns}
         required_columns_lower = [col.lower() for col in self.required_columns]
 
-        missing_columns = [col for col in required_columns_lower if col not in actual_columns_lower]
+        missing_columns = [
+            col for col in required_columns_lower if col not in actual_columns_lower
+        ]
         if missing_columns:
-            raise ValueError(f"The following required columns are missing: {', '.join(missing_columns)}")
+            raise ValueError(
+                f"The following required columns are missing: {', '.join(missing_columns)}"
+            )
 
         actual_required_columns = [actual_columns_lower[col] for col in required_columns_lower]
 
@@ -125,10 +135,16 @@ class StaticProcessEngine:
             behavior_columns_lower = [col.lower() for col in self.behavior_columns["binary"]] + [
                 col.lower() for col in self.behavior_columns["categorical"]
             ]
-            missing_behavior_columns = [col for col in behavior_columns_lower if col not in actual_columns_lower]
+            missing_behavior_columns = [
+                col for col in behavior_columns_lower if col not in actual_columns_lower
+            ]
             if missing_behavior_columns:
-                raise ValueError(f"The following behavior columns are missing: {', '.join(missing_behavior_columns)}")
-            actual_required_columns += [actual_columns_lower[col] for col in behavior_columns_lower]
+                raise ValueError(
+                    f"The following behavior columns are missing: {', '.join(missing_behavior_columns)}"
+                )
+            actual_required_columns += [
+                actual_columns_lower[col] for col in behavior_columns_lower
+            ]
 
         return df[actual_required_columns]
 
@@ -182,7 +198,9 @@ class StaticProcessEngine:
             df_reset[self.cat_vars] = df_reset[self.cat_vars].astype(str)
             encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
             encoded_columns = encoder.fit_transform(df_reset[self.cat_vars])
-            encoded_df = pd.DataFrame(encoded_columns, columns=encoder.get_feature_names_out(self.cat_vars))
+            encoded_df = pd.DataFrame(
+                encoded_columns, columns=encoder.get_feature_names_out(self.cat_vars)
+            )
             df_final = pd.concat([df_reset.drop(self.cat_vars, axis=1), encoded_df], axis=1)
 
         elif self.encoding == "target":
@@ -190,7 +208,9 @@ class StaticProcessEngine:
             df_final = df.drop(columns=["tooth", "side"])
 
         else:
-            raise ValueError(f"Invalid encoding '{self.encoding}' specified. Choose 'one_hot', 'target', or None.")
+            raise ValueError(
+                f"Invalid encoding '{self.encoding}' specified. Choose 'one_hot', 'target', or None."
+            )
 
         return df_final
 
@@ -210,9 +230,13 @@ class StaticProcessEngine:
         """
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
-            warnings.warn(f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}")
+            warnings.warn(
+                f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}"
+            )
 
-        df["boprevaluation"] = df["boprevaluation"].replace(["", "NA", "-", " "], np.nan).astype(float)
+        df["boprevaluation"] = (
+            df["boprevaluation"].replace(["", "NA", "-", " "], np.nan).astype(float)
+        )
         df.loc[:, "boprevaluation"] = pd.to_numeric(df["boprevaluation"], errors="coerce")
         df.loc[:, "boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
         df.loc[:, "recbaseline"] = df["recbaseline"].fillna(1).astype(float)
@@ -239,7 +263,9 @@ class StaticProcessEngine:
             df["stresslvl"] >= 7,
         ]
         choices_stress = ["low", "medium", "high"]
-        df.loc[:, "stresslvl"] = np.select(conditions_stress, choices_stress, default="Not Specified")
+        df.loc[:, "stresslvl"] = np.select(
+            conditions_stress, choices_stress, default="Not Specified"
+        )
 
         return df
 
@@ -263,7 +289,9 @@ class StaticProcessEngine:
             else 1,
             axis=1,
         )
-        df.loc[:, "pdgroupbase"] = df["pdbaseline"].apply(lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2))
+        df.loc[:, "pdgroupbase"] = df["pdbaseline"].apply(
+            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+        )
         df.loc[:, "pdgrouprevaluation"] = df["pdrevaluation"].apply(
             lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
         )
@@ -315,12 +343,18 @@ class StaticProcessEngine:
             for col in self.cat_vars:
                 matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
                 if len(matching_columns) == 0:
-                    raise ValueError(f"Column '{col}' does not have one-hot encoded columns in the DataFrame.")
-            print("One-hot encoding was successful and all categorical columns were correctly encoded.")
+                    raise ValueError(
+                        f"Column '{col}' does not have one-hot encoded columns in the DataFrame."
+                    )
+            print(
+                "One-hot encoding was successful and all categorical columns were correctly encoded."
+            )
 
         elif self.encoding == "target":
             if "toothside" not in df.columns:
-                raise ValueError("'toothside' column was not correctly created during target encoding.")
+                raise ValueError(
+                    "'toothside' column was not correctly created during target encoding."
+                )
             print("Target encoding was successful and 'toothside' column is present.")
 
         elif self.encoding is None:
@@ -353,13 +387,18 @@ class StaticProcessEngine:
         # Impute missing values
         df = self._impute_missing_values(df)
         df.loc[:, "side_infected"] = df.apply(
-            lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["bop"]), axis=1
+            lambda row: function_preprocessor.check_infection(row["pdbaseline"], row["bop"]),
+            axis=1,
         )
         df.loc[:, "tooth_infected"] = (
-            df.groupby(["id_patient", "tooth"])["side_infected"].transform(lambda x: (x == 1).any()).astype(int)
+            df.groupby(["id_patient", "tooth"])["side_infected"]
+            .transform(lambda x: (x == 1).any())
+            .astype(int)
         )
 
-        df = function_preprocessor.get_adjacent_infected_teeth_count(df, "id_patient", "tooth", "tooth_infected")
+        df = function_preprocessor.get_adjacent_infected_teeth_count(
+            df, "id_patient", "tooth", "tooth_infected"
+        )
         side_infected = df["side_infected"].copy()
         tooth_infected = df["tooth_infected"].copy()
         infected_neighbors = df["infected_neighbors"].copy()
@@ -379,7 +418,9 @@ class StaticProcessEngine:
 
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
-            warnings.warn(f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}")
+            warnings.warn(
+                f"Missing values found in the following columns: \n{missing_values[missing_values > 0]}"
+            )
             for col in df.columns:
                 if df[col].isna().sum() > 0:
                     missing_patients = df[df[col].isna()]["id_patient"].unique().tolist()
@@ -433,7 +474,9 @@ class StaticProcessEngine:
 
 @hydra.main(config_path="../../config", config_name="config", version_base="1.2")
 def main(cfg: DictConfig):
-    engine = StaticProcessEngine(behavior=cfg.data.behavior, scale=cfg.data.scale, encoding=cfg.data.encoding)
+    engine = StaticProcessEngine(
+        behavior=cfg.data.behavior, scale=cfg.data.scale, encoding=cfg.data.encoding
+    )
     df = engine.load_data()
     df = engine.process_data(df)
     engine.save_processed_data(df)
