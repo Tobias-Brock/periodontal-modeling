@@ -1,33 +1,45 @@
-import xgboost as xgb
+from typing import Optional
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
+import xgboost as xgb
 
 from pamod.base import BaseValidator
-from pamod.learner._parameters import (get_lr_params_hebo_oh,
-                                       get_mlp_params_hebo, get_rf_params_hebo,
-                                       get_xgb_params_hebo, lr_param_grid_oh,
-                                       lr_search_space_hebo_oh, mlp_param_grid,
-                                       mlp_search_space_hebo, rf_param_grid,
-                                       rf_search_space_hebo, xgb_param_grid,
-                                       xgb_search_space_hebo)
+from pamod.learner._parameters import (
+    get_lr_params_hebo_oh,
+    get_mlp_params_hebo,
+    get_rf_params_hebo,
+    get_xgb_params_hebo,
+    lr_param_grid_oh,
+    lr_search_space_hebo_oh,
+    mlp_param_grid,
+    mlp_search_space_hebo,
+    rf_param_grid,
+    rf_search_space_hebo,
+    xgb_param_grid,
+    xgb_search_space_hebo,
+)
 
 
 class Model(BaseValidator):
-    def __init__(self, learner: str, classification: str, hpo: str = None) -> None:
-        """
-        Initializes the Model with the learner type and classification.
+    def __init__(
+        self, learner: str, classification: str, hpo: Optional[str] = None
+    ) -> None:
+        """Initializes the Model with the learner type and classification.
 
         Args:
-            learner (str): The machine learning algorithm to use (e.g., 'RandomForest', 'MLP', 'XGB', 'LogisticRegression').
+            learner (str): The machine learning algorithm to use
+                (e.g., 'RandomForest', 'MLP', 'XGB', 'LogisticRegression').
             classification (str): The type of classification ('binary' or 'multiclass').
+            hpo (str, optional): The hyperparameter optimization method to use
+                (default None).
         """
         super().__init__(classification, hpo)
         self.learner = learner
 
     def _get_model_instance(self):
-        """
-        Returns only the machine learning model based on the learner and classification type.
+        """Return the machine learning model based on the learner and classification.
 
         Returns:
             model instance.
@@ -68,21 +80,23 @@ class Model(BaseValidator):
             raise ValueError(f"Unsupported learner type: {self.learner}")
 
     @classmethod
-    def get(cls, learner: str, classification: str, hpo: str):
-        """
-        Returns the machine learning model and parameter grid or HEBO search space based on the learner and classification type.
+    def get(cls, learner: str, classification: str, hpo: Optional[str] = None):
+        """Return the machine learning model and parameter grid or HEBO search space.
 
         Args:
             learner (str): The machine learning algorithm to use.
             classification (str): The type of classification ('binary' or 'multiclass').
-            hebo (bool): Whether the parameters are for HEBO tuning.
+            hpo (str): The hyperparameter optimization method ('HEBO' or 'RS').
 
         Returns:
-            tuple: If hebo is False, return the model and parameter grid. If hebo is True, return the model,
-                   HEBO search space, and HEBO parameter transformation function.
+            tuple: If hpo is 'RS', return model and parameter grid. If hpo is 'HEBO',
+                return the model, HEBO search space, and transformation function.
         """
         instance = cls(learner, classification)
         model = instance._get_model_instance()
+
+        if hpo is None:
+            raise ValueError("hpo must be provided as 'HEBO' or 'RS'")
 
         if hpo == "HEBO":
             if learner == "RandomForest":
@@ -109,12 +123,11 @@ class Model(BaseValidator):
 
     @classmethod
     def get_model(cls, learner: str, classification: str):
-        """
-        Returns only the machine learning model based on the learner and classification type.
+        """Return only the machine learning model based on learner and classification.
 
         Args:
             learner (str): The machine learning algorithm to use.
-            classification (str): The type of classification ('binary' or 'multiclass').
+            classification (str): Type of classification ('binary' or 'multiclass').
 
         Returns:
             model instance.

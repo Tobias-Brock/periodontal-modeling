@@ -1,7 +1,13 @@
 from sklearn.base import clone
-from sklearn.metrics import (accuracy_score, brier_score_loss,
-                             confusion_matrix, f1_score, precision_score,
-                             recall_score, roc_auc_score)
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 from pamod.data import ProcessedDataLoader
 from pamod.learner import Model
@@ -12,9 +18,9 @@ from pamod.tuning import HEBOTuner, RandomSearchTuner
 def train_final_model(
     df, classification, final_model, sampling, factor, criterion, n_jobs, verbosity
 ):
-    """
-    Trains the final model on the entire training set with the best parameters found, evaluates it on the test set for binary classification,
-    and performs threshold optimization based on the specified criterion (F1, Brier score, or ROC AUC).
+    """Trains the final model on the entire training set with the best parameters found,
+    evaluates it on the test set for binary classification, and performs threshold
+    optimization based on the specified criterion (F1, Brier score, or ROC AUC).
 
     Args:
         df (pandas.DataFrame): The dataset used for model evaluation.
@@ -42,7 +48,9 @@ def train_final_model(
 
     train_df, test_df = resampler.split_train_test_df(df)
 
-    X_train, y_train, X_test, y_test = resampler.split_x_y(train_df, test_df, sampling, factor)
+    X_train, y_train, X_test, y_test = resampler.split_x_y(
+        train_df, test_df, sampling, factor
+    )
 
     final_model.fit(X_train, y_train)
 
@@ -55,7 +63,9 @@ def train_final_model(
     elif classification == "multiclass":
         # For multiclass, don't select only one column, retain the full probability matrix
         final_probs = (
-            final_model.predict_proba(X_test) if hasattr(final_model, "predict_proba") else None
+            final_model.predict_proba(X_test)
+            if hasattr(final_model, "predict_proba")
+            else None
         )
 
     if criterion in ["f1"] and final_probs is not None:
@@ -71,7 +81,9 @@ def train_final_model(
         brier_score_value = (
             brier_score_loss(y_test, final_probs) if final_probs is not None else None
         )
-        roc_auc_value = roc_auc_score(y_test, final_probs) if final_probs is not None else None
+        roc_auc_value = (
+            roc_auc_score(y_test, final_probs) if final_probs is not None else None
+        )
         conf_matrix = confusion_matrix(y_test, final_predictions)
 
         final_metrics = {
@@ -118,9 +130,8 @@ def perform_model_evaluation(
     n_jobs,
     verbosity=True,
 ):
-    """
-    Perform model evaluation specifically for binary classification using Random Search (RS)
-    for hyperparameter optimization.
+    """Perform model evaluation specifically for binary classification using Random Search
+    (RS) for hyperparameter optimization.
 
     Args:
         df (pandas.DataFrame): The dataset used for model evaluation.
@@ -156,15 +167,20 @@ def perform_model_evaluation(
         X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
             train_df_h, test_df_h, sampling, factor
         )
-        _, best_params, best_threshold = tuner.holdout(
+        best_params, best_threshold = tuner.holdout(
             learner, X_train_h, y_train_h, X_val, y_val, n_configs, n_jobs, verbosity
         )
 
     elif tuning == "cv":
         outer_splits, _ = resampler.cv_folds(df, sampling, factor)
-        _, best_params, best_threshold = tuner.cv(
-            learner, outer_splits, racing_folds, n_configs, n_jobs, verbosity
-        )
+        if hpo == "RS":
+            best_params, best_threshold = tuner.cv(
+                learner, outer_splits, n_configs, racing_folds, n_jobs, verbosity
+            )
+        else:
+            best_params, best_threshold = tuner.cv(
+                learner, outer_splits, n_configs, n_jobs, verbosity
+            )
 
     final_model = (learner, best_params, best_threshold)
 
@@ -197,8 +213,8 @@ def main():
         sampling=None,
         factor=None,
         n_configs=2,
-        hpo="RS",
-        criterion="f1",
+        hpo="HEBO",
+        criterion="brier_score",
         racing_folds=5,
         n_jobs=None,
     )

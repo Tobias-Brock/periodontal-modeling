@@ -1,9 +1,9 @@
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
-import numpy as np
-import pandas as pd
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+import numpy as np
+import pandas as pd
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 
 from pamod.base import BaseValidator
@@ -11,9 +11,10 @@ from pamod.base import BaseValidator
 
 class Resampler(BaseValidator):
     def __init__(self, classification: str) -> None:
-        """
-        Initializes the Resampler class by loading Hydra config values and setting parameters
-        for random states, test sizes, and other relevant settings, including classification type.
+        """Initializes the Resampler class.
+
+        Loads Hydra config values and sets parameters for random states, test sizes,
+        and other relevant settings, including classification type.
 
         Args:
             classification (str): The type of classification ('binary' or 'multiclass').
@@ -21,22 +22,28 @@ class Resampler(BaseValidator):
         super().__init__(classification)
 
     def apply_sampling(
-        self, X: pd.DataFrame, y: pd.Series, sampling: str, sampling_factor: float
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        sampling: str,
+        sampling_factor: Optional[float] = None,
     ) -> Tuple[pd.DataFrame, pd.Series]:
-        """
-        Applies resampling strategies to the dataset, such as SMOTE, upsampling, or downsampling.
+        """Applies resampling strategies to the dataset.
+
+        Methods such as SMOTE, upsampling, or downsampling are applied.
 
         Args:
             X (pd.DataFrame): The feature set of the dataset.
             y (pd.Series): The target variable containing class labels.
-            sampling (str): The type of sampling to apply. Options are 'smote', 'upsampling', 'downsampling', or None.
-            sampling_factor (float): The factor by which to upsample or downsample the data.
+            sampling (str): The type of sampling to apply. Options are 'smote',
+                'upsampling', 'downsampling', or None.
+            sampling_factor (float): The factor by which to upsample or downsample.
 
         Returns:
             tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
 
         Raises:
-            ValueError: If an invalid sampling method or classification method is specified.
+            ValueError: If an invalid sampling or classification method is specified.
         """
         self.validate_sampling_strategy(sampling)
         if sampling == "smote":
@@ -48,13 +55,17 @@ class Resampler(BaseValidator):
             elif self.classification == "binary":
                 smote_strategy = {1: sum(y == 1) * sampling_factor}
             smote_sampler = SMOTE(
-                sampling_strategy=smote_strategy, random_state=self.random_state_sampling
+                sampling_strategy=smote_strategy,
+                random_state=self.random_state_sampling,
             )
             return smote_sampler.fit_resample(X, y)
 
         elif sampling == "upsampling":
             if self.classification == "multiclass":
-                up_strategy = {1: sum(y == 1) * sampling_factor, 2: sum(y == 2) * sampling_factor}
+                up_strategy = {
+                    1: sum(y == 1) * sampling_factor,
+                    2: sum(y == 2) * sampling_factor,
+                }
             elif self.classification == "binary":
                 up_strategy = {1: sum(y == 1) * sampling_factor}
             up_sampler = RandomOverSampler(
@@ -73,15 +84,17 @@ class Resampler(BaseValidator):
         else:
             return X, y
 
-    def split_train_test_df(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Splits the dataset into train_df and test_df based on group identifiers.
+    def split_train_test_df(
+        self, df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Splits the dataset into train_df and test_df based on group identifiers.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
 
         Returns:
-            tuple: Tuple containing the training and test DataFrames (train_df, test_df).
+            tuple: Tuple containing the training and test DataFrames
+                (train_df, test_df).
 
         Raises:
             ValueError: If required columns are missing from the input DataFrame.
@@ -90,7 +103,9 @@ class Resampler(BaseValidator):
         self.validate_dataframe(df, ["y", self.group_col])
 
         gss = GroupShuffleSplit(
-            n_splits=1, test_size=self.test_set_size, random_state=self.random_state_split
+            n_splits=1,
+            test_size=self.test_set_size,
+            random_state=self.random_state_split,
         )
         train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
 
@@ -100,7 +115,9 @@ class Resampler(BaseValidator):
         train_patient_ids = set(train_df[self.group_col])
         test_patient_ids = set(test_df[self.group_col])
         if not train_patient_ids.isdisjoint(test_patient_ids):
-            raise ValueError("Overlapping group values between the train and test sets.")
+            raise ValueError(
+                "Overlapping group values between the train and test sets."
+            )
 
         return train_df, test_df
 
@@ -111,20 +128,24 @@ class Resampler(BaseValidator):
         sampling: Union[str, None],
         factor: Union[float, None],
     ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
-        """
-        Splits the train and test DataFrames into feature and label sets (X_train, y_train, X_test, y_test).
+        """Splits the train and test DataFrames into feature and label sets.
+
+        Splits into (X_train, y_train, X_test, y_test).
 
         Args:
             train_df (pd.DataFrame): The training DataFrame.
             test_df (pd.DataFrame): The testing DataFrame.
-            sampling (str, optional): Resampling method to apply (e.g., 'upsampling', 'downsampling', 'smote').
-            factor (float, optional): Factor for resampling, applied to upsample, downsample, or SMOTE.
+            sampling (str, optional): Resampling method to apply (e.g.,
+                'upsampling', 'downsampling', 'smote').
+            factor (float, optional): Factor for resampling, applied to upsample,
+                downsample, or SMOTE.
 
         Returns:
-            tuple: Tuple containing feature and label sets (X_train, y_train, X_test, y_test).
+            tuple: Tuple containing feature and label sets
+                (X_train, y_train, X_test, y_test).
 
         Raises:
-            ValueError: If required columns are missing from the input DataFrame or sampling method is invalid.
+            ValueError: If required columns are missing or sampling method is invalid.
         """
         # Split into features and labels
         X_train = train_df.drop(["y"], axis=1)
@@ -149,22 +170,25 @@ class Resampler(BaseValidator):
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
     ) -> Tuple[list, list]:
-        """
-        Performs cross-validation with group constraints, applying optional resampling strategies.
+        """Performs cross-validation with group constraints.
+
+        Applies optional resampling strategies.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
-            sampling (str, optional): Resampling method to apply (e.g., 'upsampling', 'downsampling', 'smote').
-            factor (float, optional): Factor for resampling, applied to upsample, downsample, or SMOTE.
+            sampling (str, optional): Resampling method to apply (e.g.,
+                'upsampling', 'downsampling', 'smote').
+            factor (float, optional): Factor for resampling, applied to upsample,
+                downsample, or SMOTE.
 
         Returns:
             tuple: A tuple containing outer splits and cross-validation fold indices.
 
         Raises:
-            ValueError: If required columns are missing or validation folds are inconsistent.
+            ValueError: If required columns are missing or folds are inconsistent.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        np.random.seed(self.random_state_cv)
+        np.random.default_rng(self.random_state_cv)
 
         self.validate_dataframe(df, ["y", self.group_col])
         self.validate_n_folds(self.n_folds)
@@ -191,14 +215,17 @@ class Resampler(BaseValidator):
                 )
 
             cv_folds_indices.append((train_idx, test_idx))
-            outer_splits.append(((X_train_fold, y_train_fold), (X_test_fold, y_test_fold)))
+            outer_splits.append(
+                ((X_train_fold, y_train_fold), (X_test_fold, y_test_fold))
+            )
 
         for original_test_data, (_, (X_test_fold, _)) in zip(
-            original_validation_data, outer_splits
+            original_validation_data, outer_splits, strict=False
         ):
             if not original_test_data.equals(X_test_fold.reset_index(drop=True)):
                 raise ValueError(
-                    "Validation folds' data are not consistent after applying sampling strategies."
+                    "Validation folds' data are not consistent after applying sampling "
+                    "strategies."
                 )
 
         return outer_splits, cv_folds_indices

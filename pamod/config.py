@@ -1,3 +1,5 @@
+"""File containing paths."""
+
 from pathlib import Path
 
 from dotenv import load_dotenv

@@ -6,8 +6,7 @@ from sklearn.metrics import confusion_matrix
 
 class DescriptivesPlotter:
     def __init__(self, df):
-        """
-        Initializes the DescriptivesClass with a DataFrame.
+        """Initializes the DescriptivesClass with a DataFrame.
 
         Parameters:
         ----------
@@ -16,9 +15,10 @@ class DescriptivesPlotter:
         """
         self.df = df
 
-    def plt_matrix(self, vertical, horizontal, cmap="Oranges", n=None, normalize="rows"):
-        """
-        Plots heatmap/confusion matrix.
+    def plt_matrix(
+        self, vertical, horizontal, cmap="Oranges", n=None, normalize="rows"
+    ):
+        """Plots heatmap/confusion matrix.
 
         Args:
         vertical (np.series): series of values to be represented on the vertical axis
@@ -58,7 +58,14 @@ class DescriptivesPlotter:
         for i in range(len(cm)):
             for j in range(len(cm)):
                 if normalized_cm[i, j] > 50:  # Value greater than 50%
-                    plt.text(j + 0.5, i + 0.5, cm[i, j], ha="center", va="center", color="white")
+                    plt.text(
+                        j + 0.5,
+                        i + 0.5,
+                        cm[i, j],
+                        ha="center",
+                        va="center",
+                        color="white",
+                    )
                 else:
                     plt.text(j + 0.5, i + 0.5, cm[i, j], ha="center", va="center")
 
@@ -70,8 +77,8 @@ class DescriptivesPlotter:
         plt.show()
 
     def pocket_comparison(self, column1, column2):
-        """
-        Creates two bar plots with vertical red lines and labels for before and after therapy.
+        """Creates two bar plots with vertical red lines and labels for before and after
+        therapy.
 
         Parameters:
         ----------
@@ -101,7 +108,9 @@ class DescriptivesPlotter:
         total_values_2 = sum(heights_2)
 
         # Create side-by-side bar plots
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300)
+        fig, (ax1, ax2) = plt.subplots(
+            1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300
+        )
 
         # Plotting the first bar plot
         ax1.bar(x_values_1, heights_1)
@@ -136,8 +145,8 @@ class DescriptivesPlotter:
         plt.show()
 
     def pocket_group_comparison(self, column_before, column_after):
-        """
-        Creates a side-by-side bar plot comparing two variables (before and after therapy).
+        """Creates a side-by-side bar plot comparing two variables (before and after
+        therapy).
 
         Parameters:
         ----------
@@ -163,7 +172,9 @@ class DescriptivesPlotter:
         total_values2 = sum(heights2)
 
         # Plotting the bar plots
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300)
+        fig, (ax1, ax2) = plt.subplots(
+            1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300
+        )
 
         # First plot
         bars1 = ax1.bar(x_values, heights)
@@ -208,8 +219,7 @@ class DescriptivesPlotter:
         plt.show()
 
     def histogram_2d(self, column_before, column_after):
-        """
-        Creates a 2D histogram plot based on two columns.
+        """Creates a 2D histogram plot based on two columns.
 
         Parameters:
         ----------

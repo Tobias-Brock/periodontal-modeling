@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -7,8 +8,7 @@ from pamod.config import PROCESSED_BASE_DIR
 
 class ProcessedDataLoader:
     def __init__(self, target: str) -> None:
-        """
-        Initializes the ProcessedDataLoader with the specified target column.
+        """Initializes the ProcessedDataLoader with the specified target column.
 
         Args:
             target (str): The target column name.
@@ -16,10 +16,9 @@ class ProcessedDataLoader:
         self.target = target
 
     def load_data(
-        self, path: str = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
+        self, path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
     ) -> pd.DataFrame:
-        """
-        Loads the processed data from the specified path.
+        """Loads the processed data from the specified path.
 
         Args:
             path (str): Directory path for the processed data.
@@ -32,18 +31,18 @@ class ProcessedDataLoader:
         return pd.read_csv(input_file)
 
     def transform_target(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Transforms the DataFrame by selecting the target column, renaming it to 'y',
-        and removing other target columns and specific columns.
+        """Select target column, rename to 'y', and delete remaining targets.
 
         Args:
             df (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            pd.DataFrame: The transformed DataFrame with the selected target column renamed to 'y'.
+            pd.DataFrame: DataFrame with the selected target 'y'.
         """
         if self.target not in df.columns:
-            raise ValueError(f"Target column '{self.target}' not found in the DataFrame.")
+            raise ValueError(
+                f"Target column '{self.target}' not found in the DataFrame."
+            )
 
         target_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
 
@@ -52,7 +51,8 @@ class ProcessedDataLoader:
         ]
         df = df.drop(columns=columns_to_drop)
         df = df.drop(
-            columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"], errors="ignore"
+            columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"],
+            errors="ignore",
         )
         df = df.rename(columns={self.target: "y"})
 
@@ -61,7 +61,7 @@ class ProcessedDataLoader:
 
         if any(col in df.columns for col in columns_to_drop):
             raise ValueError(
-                f"Not all unwanted target columns were successfully removed. Remaining columns: {columns_to_drop}"
+                f"Error reoving targets: Remaining columns: {columns_to_drop}"
             )
 
         return df

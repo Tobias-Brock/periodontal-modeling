@@ -62,7 +62,7 @@ mlp_param_grid = {
     "alpha": loguniform(0.0001, 0.1),
     "batch_size": ["auto", 64, 128],
     "learning_rate": ["constant", "invscaling", "adaptive"],
-    "learning_rate_init": uniform(0.001, 0.049),  #
+    "learning_rate_init": uniform(0.001, 0.049),
     "max_iter": [200, 300, 500],
     "shuffle": [True, False],
     "tol": uniform(0.0001, 0.0099),
@@ -72,20 +72,20 @@ mlp_param_grid = {
     "beta_2": uniform(0.99, 0.009),
 }
 
-
-###### HEBO sesarch spaces
+###### HEBO search spaces
 
 
 # HEBO XGBoost
 def get_xgb_params_hebo(params_row):
-    """
-    Extracts and transforms parameters from a HEBO optimization suggestion to be compatible with model parameter requirements.
+    """Extracts and transforms parameters from a HEBO optimization suggestion.
 
     Args:
-        params_row (pd.Series): A pandas Series containing one row of parameters suggested by HEBO.
+        params_row (pd.Series): A pandas Series containing one row of parameters
+        suggested by HEBO.
 
     Returns:
-        dict: A dictionary of the model parameters where numerical parameters are converted to their appropriate types (e.g., integers).
+        dict: A dictionary of the model parameters where numerical parameters are
+        converted to their appropriate types (e.g., integers).
 
     Note:
         The parameter names in `params_row` should match the expected parameter names.
@@ -118,14 +118,15 @@ xgb_search_space_hebo = [
 
 # HEBO random forest
 def get_rf_params_hebo(params_row):
-    """
-    Extracts and transforms parameters from a HEBO optimization suggestion to be compatible with model parameter requirements.
+    """Extracts and transforms parameters from a HEBO optimization suggestion.
 
     Args:
-        params_row (pd.Series): A pandas Series containing one row of parameters suggested by HEBO.
+        params_row (pd.Series): A pandas Series containing one row of parameters
+        suggested by HEBO.
 
     Returns:
-        dict: A dictionary of the model parameters where numerical parameters are converted to their appropriate types (e.g., integers).
+        dict: A dictionary of the model parameters where numerical parameters are
+        converted to their appropriate types (e.g., integers).
 
     Note:
         The parameter names in `params_row` should match the expected parameter names.
@@ -142,50 +143,31 @@ def get_rf_params_hebo(params_row):
 # Random forest HEBO search space
 rf_search_space_hebo = [
     {"name": "n_estimators", "type": "cat", "categories": [300, 400, 500]},
-    {
-        "name": "max_depth",
-        "type": "cat",
-        "categories": [None, 10, 20, 30, 40],
-    },  # Adjust according to your needs
+    {"name": "max_depth", "type": "cat", "categories": [None, 10, 20, 30, 40]},
     {"name": "min_samples_split", "type": "int", "lb": 2, "ub": 10},
     {"name": "min_samples_leaf", "type": "int", "lb": 1, "ub": 4},
-    {
-        "name": "max_features",
-        "type": "num",
-        "lb": 0.1,
-        "ub": 1.0,
-    },  # Treat as fraction of total features
+    {"name": "max_features", "type": "num", "lb": 0.1, "ub": 1.0},
     {
         "name": "class_weight",
         "type": "cat",
         "categories": [None, "balanced", "balanced_subsample"],
     },
-    {
-        "name": "criterion",
-        "type": "cat",
-        "categories": ["gini"],
-    },  # Assuming you're open to optimizing this
-    {
-        "name": "max_leaf_nodes",
-        "type": "cat",
-        "categories": [None, 10, 20, 30, 40],
-    },  # Adjust according to your needs
+    {"name": "criterion", "type": "cat", "categories": ["gini"]},
+    {"name": "max_leaf_nodes", "type": "cat", "categories": [None, 10, 20, 30, 40]},
 ]
 
 
 # HEBO for logistic regression
-
-
-# Logistic regression for one-hot encoded category variables
 def get_lr_params_hebo_oh(params_row):
-    """
-    Extracts and transforms parameters from a HEBO optimization suggestion to be compatible with model parameter requirements.
+    """Extracts and transforms parameters from a HEBO optimization suggestion.
 
     Args:
-        params_row (pd.Series): A pandas Series containing one row of parameters suggested by HEBO.
+        params_row (pd.Series): A pandas Series containing one row of parameters
+        suggested by HEBO.
 
     Returns:
-        dict: A dictionary of the model parameters where numerical parameters are converted to their appropriate types (e.g., integers).
+        dict: A dictionary of the model parameters where numerical parameters are
+        converted to their appropriate types (e.g., integers).
 
     Note:
         The parameter names in `params_row` should match the expected parameter names.
@@ -209,14 +191,15 @@ lr_search_space_hebo_oh = [
 
 # Logistic regression for target encoded category variables
 def get_lr_params_hebo_t(params_row):
-    """
-    Extracts and transforms parameters from a HEBO optimization suggestion to be compatible with model parameter requirements.
+    """Extracts and transforms parameters from a HEBO optimization suggestion.
 
     Args:
-        params_row (pd.Series): A pandas Series containing one row of parameters suggested by HEBO.
+        params_row (pd.Series): A pandas Series containing one row of parameters
+        suggested by HEBO.
 
     Returns:
-        dict: A dictionary of the model parameters where numerical parameters are converted to their appropriate types (e.g., integers).
+        dict: A dictionary of the model parameters where numerical parameters are
+        converted to their appropriate types (e.g., integers).
 
     Note:
         The parameter names in `params_row` should match the expected parameter names.
@@ -241,10 +224,6 @@ lr_search_space_hebo_t = [
     {"name": "l1_ratio", "type": "num", "lb": 0, "ub": 1},
 ]
 
-
-# HEBO for MLP
-
-# Options for hidden-layer sizes of MLP
 hidden_layer_sizes_options = {
     0: (50,),
     1: (100,),
@@ -258,14 +237,15 @@ hidden_layer_sizes_options = {
 
 # HEBO MLP
 def get_mlp_params_hebo(params_row):
-    """
-    Extracts and transforms parameters from a HEBO optimization suggestion to be compatible with model parameter requirements.
+    """Extracts and transforms parameters from a HEBO optimization suggestion.
 
     Args:
-        params_row (pd.Series): A pandas Series containing one row of parameters suggested by HEBO.
+        params_row (pd.Series): A pandas Series containing one row of parameters
+        suggested by HEBO.
 
     Returns:
-        dict: A dictionary of the model parameters where numerical parameters are converted to their appropriate types (e.g., integers).
+        dict: A dictionary of the model parameters where numerical parameters are
+        converted to their appropriate types (e.g., integers).
 
     Note:
         The parameter names in `params_row` should match the expected parameter names.
@@ -288,7 +268,7 @@ def get_mlp_params_hebo(params_row):
     if params["batch_size"] != "auto":
         params["batch_size"] = int(params["batch_size"])
 
-    # Remove 'hidden_layer_sizes_index' from the dictionary as it's not a valid parameter for the MLPClassifier
+    # Remove 'hidden_layer_sizes_index' as it's not a valid parameter for MLPClassifier.
     del params["hidden_layer_sizes_index"]
 
     return params
@@ -301,7 +281,11 @@ mlp_search_space_hebo = [
     {"name": "solver", "type": "cat", "categories": ["sgd", "adam"]},
     {"name": "alpha", "type": "num", "lb": 0.0001, "ub": 0.1, "scale": "log"},
     {"name": "batch_size", "type": "cat", "categories": ["auto", "64", "128"]},
-    {"name": "learning_rate", "type": "cat", "categories": ["constant", "invscaling", "adaptive"]},
+    {
+        "name": "learning_rate",
+        "type": "cat",
+        "categories": ["constant", "invscaling", "adaptive"],
+    },
     {"name": "learning_rate_init", "type": "num", "lb": 0.001, "ub": 0.05},
     {"name": "max_iter", "type": "cat", "categories": [200, 300, 500]},
     {"name": "shuffle", "type": "cat", "categories": [True, False]},

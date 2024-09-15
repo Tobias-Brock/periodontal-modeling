@@ -1,37 +1,43 @@
+from typing import Optional
+
 import hydra
 import pandas as pd
 
 
 def validate_classification(classification: str) -> None:
-    """
-    Validates the classification type.
+    """Validates the classification type.
 
     Args:
         classification (str): The type of classification ('binary' or 'multiclass').
     """
     if classification.lower().strip() not in ["binary", "multiclass"]:
-        raise ValueError("Invalid classification type. Choose 'binary' or 'multiclass'.")
+        raise ValueError(
+            "Invalid classification type. Choose 'binary' or 'multiclass'."
+        )
 
 
-def validate_hpo(hpo: str) -> None:
-    """
-    Validates the hpo.
+def validate_hpo(hpo: Optional[str]) -> None:
+    """Validates the hpo.
 
     Args:
-        hpo (str): The type of hpo ('RS' or 'HEBO').
+        hpo (Optional[str]): The type of hpo ('RS' or 'HEBO').
     """
     if hpo not in [None, "RS", "HEBO"]:
         raise ValueError("Unsupported HPO. Choose either 'RS' or 'HEBO'.")
 
 
 class BaseValidator:
-    def __init__(self, classification: str, hpo: str = None) -> None:
-        """
-        Base class to provide validation and error handling for other classes,
-        particularly for DataFrame validation, column checking, and numerical input checking.
+    def __init__(self, classification: str, hpo: Optional[str] = None) -> None:
+        """Base class to provide validation and error handling for other classes.
+
+        This class handles DataFrame validation, column checking, and numerical
+        input checking.
 
         Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
+            classification (str): The type of classification ('binary' or
+                'multiclass').
+            hpo (Optional[str], optional): The hyperparameter optimization type
+                ('RS' or 'HEBO'). Defaults to None.
         """
         with hydra.initialize(config_path="../../config", version_base="1.2"):
             cfg = hydra.compose(config_name="config")
@@ -56,29 +62,31 @@ class BaseValidator:
         self.lr_multi_loss = cfg.learner.lr_multi_loss
 
     def validate_dataframe(self, df: pd.DataFrame, required_columns: list) -> None:
-        """
-        Validates that the input is a pandas DataFrame and contains the required columns.
+        """Validates that the input is a pandas DataFrame and contains required columns.
 
         Args:
             df (pd.DataFrame): The DataFrame to validate.
-            required_columns (list): A list of column names that are required in the DataFrame.
+            required_columns (list): A list of column names that are required in the
+                DataFrame.
 
         Raises:
             TypeError: If the input is not a pandas DataFrame.
             ValueError: If required columns are missing from the DataFrame.
         """
         if not isinstance(df, pd.DataFrame):
-            raise TypeError(f"Expected input to be a pandas DataFrame, but got {type(df)}.")
+            raise TypeError(
+                f"Expected input to be a pandas DataFrame, but got {type(df)}."
+            )
 
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(
-                f"The following required columns are missing: {', '.join(missing_columns)}."
+                f"The following required columns are missing: "
+                f"{', '.join(missing_columns)}."
             )
 
     def validate_n_folds(self, n_folds: int) -> None:
-        """
-        Validates the number of folds used in cross-validation.
+        """Validates the number of folds used in cross-validation.
 
         Args:
             n_folds (int): The number of folds for cross-validation.
@@ -90,8 +98,7 @@ class BaseValidator:
             raise ValueError("'n_folds' must be a positive integer.")
 
     def validate_sampling_strategy(self, sampling: str) -> None:
-        """
-        Validates the sampling strategy.
+        """Validates the sampling strategy.
 
         Args:
             sampling (str): The sampling strategy to validate.
@@ -102,20 +109,29 @@ class BaseValidator:
         valid_strategies = ["smote", "upsampling", "downsampling", None]
         if sampling not in valid_strategies:
             raise ValueError(
-                f"Invalid sampling strategy: {sampling}. Valid options are {valid_strategies}."
+                f"Invalid sampling strategy: {sampling}. Valid options are "
+                f"{valid_strategies}."
             )
 
 
 class BaseEvaluator:
     def __init__(
-        self, classification: str, criterion: str, tuning: str = None, hpo: str = None
+        self,
+        classification: str,
+        criterion: str,
+        tuning: Optional[str] = None,
+        hpo: Optional[str] = None,
     ) -> None:
-        """
-        Base class to initialize classification and criterion.
+        """Base class to initialize classification, criterion, tuning, and hpo.
 
         Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
+            classification (str): The type of classification ('binary' or
+                'multiclass').
             criterion (str): The evaluation criterion.
+            tuning (Optional[str], optional): The tuning method ('holdout' or 'cv').
+                Defaults to None.
+            hpo (Optional[str], optional): The hyperparameter optimization type ('RS'
+                or 'HEBO'). Defaults to None.
         """
         with hydra.initialize(config_path="../../config", version_base="1.2"):
             self.cfg = hydra.compose(config_name="config")
@@ -133,21 +149,31 @@ class BaseEvaluator:
         self.n_iter_no_change = self.cfg.mlp.mlp_no_improve
 
     def _validate_criterion(self, criterion: str) -> None:
-        """
-        Validates the criterion.
+        """Validates the evaluation criterion.
 
         Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
+            criterion (str): The evaluation criterion ('f1', 'macro_f1', or
+                'brier_score').
+
+        Raises:
+            ValueError: If the criterion is unsupported.
         """
         if criterion not in ["f1", "macro_f1", "brier_score"]:
-            raise ValueError("Unsupported criterion. Choose either 'f1' or 'brier_score'.")
+            raise ValueError(
+                "Unsupported criterion. Choose either 'f1', 'macro_f1', or "
+                "'brier_score'."
+            )
 
-    def _validate_tuning(self, tuning: str) -> None:
-        """
-        Validates the tuning.
+    def _validate_tuning(self, tuning: Optional[str]) -> None:
+        """Validates the tuning method.
 
         Args:
-            tuning (str): The type of tuning ('holdout' or 'cv').
+            tuning (Optional[str]): The type of tuning ('holdout' or 'cv').
+
+        Raises:
+            ValueError: If the tuning method is unsupported.
         """
         if tuning not in [None, "holdout", "cv"]:
-            raise ValueError("Unsupported tuning method. Choose either 'holdout' or 'cv'.")
+            raise ValueError(
+                "Unsupported tuning method. Choose either 'holdout' or 'cv'."
+            )
