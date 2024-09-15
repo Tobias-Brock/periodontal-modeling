@@ -6,15 +6,12 @@ import pandas as pd
 
 class FunctionPreprocessor:
     def __init__(self):
-        """
-        Initialize the Preprocessor with helper data, but without storing the DataFrame.
-        """
+        """Initialize Preprocessor with helper data without storing the DataFrame."""
         self.teeth_neighbors = self.get_teeth_neighbors()
         self.sides_with_fur = self.get_side()
 
-    def check_infection(self, depth: str, boprevaluation: str) -> int:
-        """
-        Check if a given tooth side is infected.
+    def check_infection(self, depth: int, boprevaluation: int) -> int:
+        """Check if a given tooth side is infected.
 
         Args:
             depth: the depth of the pocket before the therapy
@@ -30,11 +27,10 @@ class FunctionPreprocessor:
         return 0
 
     def get_teeth_neighbors(self) -> dict:
-        """
-        Creates a dictionary assigning each tooth its neighbors.
+        """Creates a dictionary assigning each tooth its neighbors.
 
         Returns:
-            dict: A dictionary where keys are tooth numbers and values are lists of neighboring tooth numbers.
+            dict: Dict mapping tooth number to a list of neighboring tooth numbers.
         """
         return {
             11: [12, 21],
@@ -72,52 +68,61 @@ class FunctionPreprocessor:
         }
 
     def tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
-        """
-        Returns adjacent teeth for a given tooth.
+        """Returns adjacent teeth for a given tooth.
 
         Args:
             nr (int): tooth number (11-48)
 
         Returns:
-            Union[np.ndarray, str]: Array containing adjacent teeth, or 'No tooth' if input is invalid.
+            Union[np.ndarray, str]: Array of adjacent teeth, or 'No tooth'
+            if input is invalid.
         """
         return np.array(self.teeth_neighbors.get(nr, "No tooth"))
 
     def get_adjacent_infected_teeth_count(
         self, df: pd.DataFrame, patient_col: str, tooth_col: str, infection_col: str
     ) -> pd.DataFrame:
-        """
-        Adds a new column indicating the number of adjacent infected teeth.
+        """Adds a new column indicating the number of adjacent infected teeth.
 
         Args:
-            df (pd.DataFrame): the dataset to process.
-            patient_col (str): the name of the column containing the ID for patients in the dataset.
-            tooth_col (str): the name of the column containing the teeth represented in numbers.
-            infection_col (str): the name of the column indicating whether a tooth is healthy or not.
+            df (pd.DataFrame): Dataset to process.
+            patient_col (str): Name of column containing ID for patients.
+            tooth_col (str): Name of column containing teeth represented in numbers.
+            infection_col (str): Name of column indicating whether a tooth is healthy.
 
         Returns:
-            pd.DataFrame: The modified dataset now containing the new column 'infected_neighbors'.
+            pd.DataFrame: Modified dataset with new column 'infected_neighbors'.
         """
         for patient_id, patient_data in df.groupby(patient_col):
-            infected_teeth = set(patient_data[patient_data[infection_col] == 1][tooth_col])
+            infected_teeth = set(
+                patient_data[patient_data[infection_col] == 1][tooth_col]
+            )
 
-            def count_infected_neighbors(tooth):
+            def count_infected_neighbors(tooth, infected_teeth_local):
                 neighbors = self.tooth_neighbor(tooth)
-                return sum(1 for neighbor in neighbors if neighbor in infected_teeth)
+                return sum(
+                    1 for neighbor in neighbors if neighbor in infected_teeth_local
+                )
 
             df.loc[df[patient_col] == patient_id, "infected_neighbors"] = patient_data[
                 tooth_col
-            ].apply(count_infected_neighbors)
+            ].apply(
+                lambda tooth, infected_teeth=infected_teeth: sum(
+                    1
+                    for neighbor in self.tooth_neighbor(tooth)
+                    if neighbor in infected_teeth
+                )
+            )
 
         return df
 
     def plaque_values(self, row: pd.Series, modes_dict: dict) -> int:
-        """
-        Calculate new values for the Plaque column.
+        """Calculate new values for the Plaque column.
 
         Args:
             row (pd.Series): A row from the DataFrame.
-            modes_dict (dict): Dictionary mapping (tooth, side, pdbaseline_grouped) to the mode plaque value.
+            modes_dict (dict): Dict mapping (tooth, side, pdbaseline_grouped)
+            to the mode plaque value.
 
         Returns:
             int: Imputed plaque value for the given row.
@@ -140,8 +145,7 @@ class FunctionPreprocessor:
         return 1  # Default value if no other condition matches
 
     def plaque_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Imputes the values for the Plaque column without affecting other columns like boprevaluation.
+        """Imputes values for Plaque without affecting other columns.
 
         Args:
             df (pd.DataFrame): Input DataFrame with a 'plaque' column.
@@ -161,8 +165,12 @@ class FunctionPreprocessor:
             df["pdbaseline"] >= 6,
         ]
         choices_baseline = [0, 1, 2]
-        df["pdbaseline_grouped"] = np.select(conditions_baseline, choices_baseline, default=-1)
-        patients_with_all_nas = df.groupby("id_patient")["plaque"].apply(lambda x: all(pd.isna(x)))
+        df["pdbaseline_grouped"] = np.select(
+            conditions_baseline, choices_baseline, default=-1
+        )
+        patients_with_all_nas = df.groupby("id_patient")["plaque"].apply(
+            lambda x: all(pd.isna(x))
+        )
         df["plaque_all_na"] = df["id_patient"].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
@@ -174,7 +182,9 @@ class FunctionPreprocessor:
             mode_value = modes.iloc[0] if not modes.empty else None
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
-        temp_data = df[["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]].copy()
+        temp_data = df[
+            ["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]
+        ].copy()
         temp_data["plaque"] = temp_data.apply(
             lambda row: self.plaque_values(row, modes_dict), axis=1
         )
@@ -185,11 +195,10 @@ class FunctionPreprocessor:
         return df
 
     def get_side(self) -> dict:
-        """
-        Creates a dictionary containing tooth-side combinations which should have furcation.
+        """Dict containing tooth-side combinations which should have furcation.
 
         Returns:
-            dict: A dictionary mapping tooth numbers to the corresponding sides with furcation.
+            dict: Dict mapping tooth numbers to corresponding sides with furcation.
         """
         return {
             (14, 24): [1, 3],
@@ -198,14 +207,14 @@ class FunctionPreprocessor:
         }
 
     def fur_side(self, nr: int) -> Union[np.ndarray, str]:
-        """
-        Returns the sides for the input tooth that should have furcations.
+        """Returns the sides for the input tooth that should have furcations.
 
         Args:
             nr (int): Tooth number.
 
         Returns:
-            Union[np.ndarray, str]: Array of sides with furcations, or 'Tooth without Furkation' if not applicable.
+            Union[np.ndarray, str]: Sides with furcations, or 'without Furkation'
+            if not applicable.
         """
         for key, value in self.sides_with_fur.items():
             if nr in key:
@@ -213,8 +222,7 @@ class FunctionPreprocessor:
         return "Tooth without Furkation"
 
     def fur_values(self, row: pd.Series) -> int:
-        """
-        Calculate values for the FurcationBaseline column.
+        """Calculate values for the FurcationBaseline column.
 
         Args:
             row (pd.Series): A row from the DataFrame.
@@ -248,8 +256,7 @@ class FunctionPreprocessor:
                 return row["furcationbaseline"]
 
     def fur_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute the values in the FurcationBaseline column.
+        """Impute the values in the FurcationBaseline column.
 
         Args:
             df (pd.DataFrame): Input DataFrame.

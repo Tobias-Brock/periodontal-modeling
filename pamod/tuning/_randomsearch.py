@@ -1,10 +1,10 @@
-import random
 from copy import deepcopy
-from typing import Dict, Tuple, Union
+import random
+from typing import Dict, Optional, Tuple, Union
 
+from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
 from sklearn.base import clone
 
 from pamod.learner import Model
@@ -12,13 +12,16 @@ from pamod.tuning._basetuner import BaseTuner
 
 
 class RandomSearchTuner(BaseTuner):
-    def __init__(self, classification: str, criterion: str, tuning: str, hpo: str = "RS") -> None:
-        """
-        Initializes the CrossValidationEvaluator with the provided trainer, classification type, and metric evaluator.
+    def __init__(
+        self, classification: str, criterion: str, tuning: str, hpo: str = "RS"
+    ) -> None:
+        """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
 
         Args:
-            trainer (Trainer): An instance of the Trainer class responsible for training models.
             classification (str): The type of classification ('binary' or 'multiclass').
+            criterion (str): Evaluation criterion (e.g., 'f1', 'brier_score').
+            tuning (str): Type of tuning ('holdout' or 'cv').
+            hpo (str, optional): Hyperparameter optimization method (default is 'RS').
         """
         super().__init__(classification, criterion, tuning, hpo)
         self.random_state = self.random_state_val
@@ -33,9 +36,8 @@ class RandomSearchTuner(BaseTuner):
         n_configs: int,
         n_jobs: int,
         verbosity: bool,
-    ) -> Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
-        """
-        Performs random search on the holdout validation set for both binary and multiclass models.
+    ) -> Tuple[Dict[str, Union[float, int]], Union[float, None]]:
+        """Perform random search on the holdout set for binary and multiclass .
 
         Args:
             learner (str): The machine learning model used for evaluation.
@@ -43,7 +45,8 @@ class RandomSearchTuner(BaseTuner):
             y_train_h (pd.Series): Training labels for the holdout set.
             X_val (pd.DataFrame): Validation features for the holdout set.
             y_val (pd.Series): Validation labels for the holdout set.
-            n_configs (int): The number of configurations to evaluate during random search.
+            n_configs (int): The number of configurations to evaluate during random
+                search.
             n_jobs (int): The number of parallel jobs for model training.
             verbosity (bool): Whether to print detailed logs during random search.
 
@@ -53,12 +56,15 @@ class RandomSearchTuner(BaseTuner):
                 - Best hyperparameters (dict)
                 - Best threshold (float or None, applicable for binary classification).
         """
-        best_score, best_threshold, best_params, param_grid, model = self._initialize_search(
-            learner
-        )
+        (
+            best_score,
+            best_threshold,
+            best_params,
+            param_grid,
+            model,
+        ) = self._initialize_search(learner)
 
         for i in range(n_configs):
-            # Sample hyperparameters from the grid
             params = self._sample_params(param_grid, i)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
@@ -73,9 +79,11 @@ class RandomSearchTuner(BaseTuner):
             )
 
             if verbosity:
-                self._print_iteration_info(i, model_clone, params, score, best_threshold)
+                self._print_iteration_info(
+                    i, model_clone, params, score, best_threshold
+                )
 
-        return best_score, best_params, best_threshold
+        return best_params, best_threshold
 
     def cv(
         self,
@@ -85,22 +93,20 @@ class RandomSearchTuner(BaseTuner):
         racing_folds: Union[int, None],
         n_jobs: int,
         verbosity: bool,
-    ) -> Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
-        """
-        Performs cross-validation with an optional racing strategy and hyperparameter optimization to evaluate a model.
+    ) -> Tuple[dict, Union[float, None]]:
+        """Perform cross-validation with optional racing and hyperparameter tuning.
 
         Args:
-            model (sklearn estimator): The machine learning model used for evaluation.
-            param_grid (dict): Hyperparameter grid for tuning the model with Random Search.
-            outer_splits (list of tuples): Each tuple represents a cross-validation fold with training and validation data.
-            n_configs (int): The number of configurations to evaluate during hyperparameter optimization.
-            racing_folds (int or None): Specifies the number of folds to use for the racing strategy. If None, evaluates all folds without racing.
-            criterion (str): Metric used for evaluation (choices: 'f1', 'brier_score', 'macro_f1').
-            n_jobs (int): The number of parallel jobs to run for evaluation.
-            verbosity (bool): Activates verbosity during model evaluation process if set to True.
+            learner: The machine learning model to evaluate.
+            outer_splits: List of training and validation splits.
+            n_configs (int): Number of hyperparameter configurations to test.
+            racing_folds (int or None): Number of folds for racing; None uses all folds.
+            n_jobs (int): Number of parallel jobs to run.
+            verbosity (bool): If True, enable verbose output.
 
         Returns:
-            tuple: Contains the best score achieved, the best hyperparameters, and (for binary classification) the optimal threshold.
+            Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
+                Best hyperparameters, and optimal threshold (if applicable).
         """
         best_score, _, best_params, param_grid, model = self._initialize_search(learner)
 
@@ -113,7 +119,7 @@ class RandomSearchTuner(BaseTuner):
             scores = self._evaluate_folds(
                 model_clone, best_score, outer_splits, racing_folds, n_jobs
             )
-            avg_score = np.mean(scores)  # Calculate average score across all evaluated folds
+            avg_score = np.mean(scores)
 
             best_score, best_params, _ = self._update_best(
                 avg_score, params, None, best_score, best_params, None
@@ -122,7 +128,6 @@ class RandomSearchTuner(BaseTuner):
             if verbosity:
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
-        # If binary classification, perform threshold optimization
         if self.classification == "binary" and self.criterion == "f1":
             optimal_threshold = self.threshold_optimizer.optimize_threshold(
                 model, best_params, outer_splits
@@ -130,17 +135,18 @@ class RandomSearchTuner(BaseTuner):
         else:
             optimal_threshold = None
 
-        return best_score, best_params, optimal_threshold
+        return best_params, optimal_threshold
 
-    def _evaluate_folds(self, model_clone, best_score, outer_splits, racing_folds, n_jobs):
-        """
-        Evaluates the model across the specified folds using either standard cross-validation or racing strategy.
+    def _evaluate_folds(
+        self, model_clone, best_score, outer_splits, racing_folds, n_jobs
+    ):
+        """Evaluate the model across folds using cross-validation or racing strategy.
 
         Args:
             model_clone (sklearn estimator): The cloned model to evaluate.
+            best_score (float): The best score recorded so far.
             outer_splits (list of tuples): List of training/validation folds.
             racing_folds (int or None): Number of folds to use for the racing strategy.
-            criterion (str): The evaluation criterion.
             n_jobs (int): Number of parallel jobs.
 
         Returns:
@@ -164,11 +170,13 @@ class RandomSearchTuner(BaseTuner):
             avg_initial_score = np.mean(initial_scores)
 
             # Continue evaluation on remaining folds if initial score is promising
-            if (self.criterion in ["f1", "macro_f1"] and avg_initial_score > best_score) or (
-                self.criterion == "brier_score" and avg_initial_score < best_score
-            ):
+            if (
+                self.criterion in ["f1", "macro_f1"] and avg_initial_score > best_score
+            ) or (self.criterion == "brier_score" and avg_initial_score < best_score):
                 remaining_folds = [
-                    outer_splits[i] for i in range(num_folds) if i not in selected_indices
+                    outer_splits[i]
+                    for i in range(num_folds)
+                    if i not in selected_indices
                 ]
                 continued_scores = Parallel(n_jobs=n_jobs)(
                     delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
@@ -180,9 +188,10 @@ class RandomSearchTuner(BaseTuner):
 
         return scores
 
-    def _initialize_search(self, learner: str) -> Tuple[float, Union[float, None], dict, object]:
-        """
-        Initializes the search by setting up the random seed, best score, parameters, threshold, and model.
+    def _initialize_search(
+        self, learner: str
+    ) -> Tuple[float, Union[float, None], Dict[str, Union[float, int]], dict, object]:
+        """Initialize search with random seed, best score, parameters, and model.
 
         Args:
             learner (str): The learner type to be used for training the model.
@@ -190,14 +199,17 @@ class RandomSearchTuner(BaseTuner):
         Returns:
             Tuple:
                 - best_score: Initialized best score based on the criterion.
-                - best_threshold: None or a threshold placeholder for binary classification.
+                - best_threshold: None or a placeholder threshold for binary
+                    classification.
                 - param_grid: The parameter grid for the specified model.
                 - model: The model instance.
         """
         random.seed(self.random_state)
-        best_score = -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+        best_score = (
+            -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+        )
         best_threshold = None  # Threshold is only applicable for binary classification
-        best_params = None
+        best_params: Dict[str, Union[float, int]] = {}
         model, param_grid = Model.get(learner, self.classification, self.hpo)
 
         return best_score, best_threshold, best_params, param_grid, model
@@ -211,8 +223,7 @@ class RandomSearchTuner(BaseTuner):
         best_params: dict,
         best_threshold: Union[float, None],
     ) -> Tuple[float, dict, Union[float, None]]:
-        """
-        Updates the best score, parameters, and threshold if the current score is better.
+        """Update best score, parameters, and threshold if current score is better.
 
         Args:
             current_score (float): The current score obtained.
@@ -223,7 +234,7 @@ class RandomSearchTuner(BaseTuner):
             best_threshold (float or None): The best threshold recorded so far.
 
         Returns:
-            tuple: Updated best score, best parameters, and best threshold (if applicable).
+            tuple: Updated best score, best parameters, and best threshold (optional).
         """
         if (self.criterion in ["f1", "macro_f1"] and current_score > best_score) or (
             self.criterion == "brier_score" and current_score < best_score
@@ -235,15 +246,16 @@ class RandomSearchTuner(BaseTuner):
         return best_score, best_params, best_threshold
 
     def _sample_params(
-        self, param_grid: Dict[str, Union[list, object]], iteration: int = None
+        self,
+        param_grid: Dict[str, Union[list, object]],
+        iteration: Optional[int] = None,
     ) -> Dict[str, Union[float, int]]:
-        """
-        Samples a set of hyperparameters from the provided grid.
+        """Sample a set of hyperparameters from the provided grid.
 
         Args:
             param_grid (dict): Hyperparameter grid.
-            iteration (int, optional): Current iteration index for random seed adjustment.
-                                    If None, the iteration seed will not be adjusted.
+            iteration (Optional[int]): Current iteration index for random seed
+                adjustment. If None, the iteration seed will not be adjusted.
 
         Returns:
             dict: Sampled hyperparameters.
@@ -259,9 +271,11 @@ class RandomSearchTuner(BaseTuner):
         for k, v in param_grid.items():
             if hasattr(v, "rvs"):  # For distributions like scipy.stats distributions
                 params[k] = v.rvs(random_state=iteration_seed)
-            else:
+            elif isinstance(v, list):
                 if iteration_seed is not None:
                     random.seed(iteration_seed)
                 params[k] = random.choice(v)  # For list-based grids
+            else:
+                raise TypeError(f"Unsupported type for parameter '{k}': {type(v)}")
 
         return params

@@ -6,17 +6,29 @@ from pamod.resampling import MetricEvaluator
 
 
 class MLPTrainer(BaseEvaluator):
-    def __init__(self, classification: str, criterion: str) -> None:
-        """
-        Initializes the MLPTrainer with metric evaluator and training parameters.
+    def __init__(
+        self,
+        classification: str,
+        criterion: str,
+        tol: float = 1e-4,
+        n_iter_no_change: int = 10,
+    ) -> None:
+        """Initializes the MLPTrainer with training parameters.
 
         Args:
-            metric_evaluator (MetricEvaluator): An instance of MetricEvaluator for evaluating metrics.
-            tol (float): Tolerance for improvement. Stops training if improvement is less than tol.
-            n_iter_no_change (int): Number of iterations with no improvement to wait before stopping.
+            classification (str): The type of classification ('binary' or
+                'multiclass').
+            criterion (str): The performance criterion to optimize (e.g., 'f1',
+                'brier_score').
+            tol (float, optional): Tolerance for improvement. Stops training if
+                improvement is less than `tol`. Defaults to `1e-4`.
+            n_iter_no_change (int, optional): Number of iterations with no
+                improvement to wait before stopping. Defaults to `10`.
         """
         super().__init__(classification, criterion)
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.tol = tol
+        self.n_iter_no_change = n_iter_no_change
 
     def train(
         self,
@@ -26,8 +38,9 @@ class MLPTrainer(BaseEvaluator):
         X_val: pd.DataFrame,
         y_val: pd.Series,
     ):
-        """
-        Generalized method for training MLPClassifier with early stopping and evaluation for both binary and multiclass.
+        """General method for training MLPClassifier with early stopping.
+
+        Applies evaluation for both binary and multiclass classification.
 
         Args:
             mlp_model (MLPClassifier): The MLPClassifier to be trained.
@@ -35,12 +48,14 @@ class MLPTrainer(BaseEvaluator):
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
             y_val (pd.Series): Validation labels.
-            binary (bool): Whether it's binary classification.
 
         Returns:
-            tuple: The best validation score, trained MLPClassifier, and the optimal threshold (None for multiclass).
+            tuple: The best validation score, trained MLPClassifier, and the
+                optimal threshold (None for multiclass).
         """
-        best_val_score = -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+        best_val_score = (
+            -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+        )
         best_threshold = 0.5 if self.classification == "binary" else None
         no_improvement_count = 0
 
@@ -66,13 +81,11 @@ class MLPTrainer(BaseEvaluator):
         )
 
     def _get_probabilities(self, mlp_model, X_val):
-        """
-        Gets the predicted probabilities from the MLP model.
+        """Gets the predicted probabilities from the MLP model.
 
         Args:
             mlp_model (MLPClassifier): The trained MLPClassifier model.
             X_val (pd.DataFrame): Validation features.
-            binary (bool): Whether it's binary classification.
 
         Returns:
             array-like: Predicted probabilities.
@@ -83,13 +96,11 @@ class MLPTrainer(BaseEvaluator):
             return mlp_model.predict_proba(X_val)
 
     def _is_improvement(self, score, best_val_score):
-        """
-        Determines if there is an improvement in the validation score.
+        """Determines if there is an improvement in the validation score.
 
         Args:
             score (float): Current validation score.
             best_val_score (float): Best validation score so far.
-            criterion (str): Criterion for optimization.
 
         Returns:
             bool: Whether the current score is an improvement.

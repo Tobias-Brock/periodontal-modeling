@@ -1,3 +1,5 @@
+"""Package provides resampling techniques and metric evaluation."""
+
 from pamod.resampling._metrics import MetricEvaluator, brier_loss_multi
 from pamod.resampling._resampler import Resampler
 

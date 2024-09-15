@@ -5,9 +5,13 @@ import pytest
 from pamod.data._functions import FunctionPreprocessor
 
 
-# Create some sample data
 @pytest.fixture
 def sample_data():
+    """Create a sample DataFrame for testing.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing sample data for testing purposes.
+    """
     data = {
         "id_patient": [1, 1, 1, 2, 2],
         "tooth": [11, 12, 13, 21, 22],
@@ -22,18 +26,26 @@ def sample_data():
     return pd.DataFrame(data)
 
 
-# Test check_infection method
 def test_check_infection(sample_data):
+    """Test the `check_infection` method of `FunctionPreprocessor`.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
     # Test various pocket depths and boprevaluation values
-    assert preprocessor.check_infection(2, 1) == 0  # Depth = 2, boprevaluation = 1 (Healthy)
-    assert preprocessor.check_infection(4, 2) == 1  # Depth = 4, boprevaluation = 2 (Infected)
+    assert preprocessor.check_infection(2, 1) == 0  # Depth = 2, bop = 1 (Healthy)
+    assert preprocessor.check_infection(4, 2) == 1  # Depth = 4, bop = 2 (Infected)
     assert preprocessor.check_infection(5, 1) == 1  # Depth > 4 (Infected)
 
 
-# Test tooth_neighbor method
 def test_tooth_neighbor(sample_data):
+    """Test the `tooth_neighbor` method of `FunctionPreprocessor`.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
     # Test if neighbors are correct
@@ -42,8 +54,12 @@ def test_tooth_neighbor(sample_data):
     assert preprocessor.tooth_neighbor(50) == "No tooth"  # Invalid tooth
 
 
-# Test get_adjacent_infected_teeth_count method
 def test_get_adjacent_infected_teeth_count(sample_data):
+    """Test the `get_adjacent_infected_teeth_count` method.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
     # Modify sample data to mark some teeth as infected
@@ -53,37 +69,58 @@ def test_get_adjacent_infected_teeth_count(sample_data):
         sample_data, "id_patient", "tooth", "side_infected"
     )
 
+    # Tooth 12 should have two infected neighbors
     assert (
         sample_data.loc[sample_data["tooth"] == 12, "infected_neighbors"].values[0] == 2
-    )  # Tooth 12 has two infected neighbors
+    )
 
 
-# Test plaque_values method
 def test_plaque_values(sample_data):
+    """Test the `plaque_values` method of `FunctionPreprocessor`.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
     modes_dict = {(11, 1, 0): 1, (12, 2, 0): 2}  # Simulate mode calculation
-    row = {"plaque_all_na": 1, "tooth": 11, "side": 1, "pdbaseline_grouped": 0, "plaque": np.nan}
+    row = {
+        "plaque_all_na": 1,
+        "tooth": 11,
+        "side": 1,
+        "pdbaseline_grouped": 0,
+        "plaque": np.nan,
+    }
 
-    assert preprocessor.plaque_values(row, modes_dict) == 1  # Should return mode value 1
+    # Should return mode value 1
+    assert preprocessor.plaque_values(row, modes_dict) == 1
 
 
-# Test plaque_imputation method
 def test_plaque_imputation(sample_data):
+    """Test the `plaque_imputation` method of `FunctionPreprocessor`.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
     # Run plaque imputation
     data_imputed = preprocessor.plaque_imputation(sample_data)
 
-    # Check if the imputation has worked (non-NaN values in the 'plaque' column)
+    # Check if the imputation has worked
     assert data_imputed["plaque"].isna().sum() == 0  # No missing values left
     assert data_imputed["plaque"].iloc[0] == 1  # Check imputed values
 
 
-# Test fur_values method
 def test_fur_values(sample_data):
+    """Test the `fur_values` method of `FunctionPreprocessor`.
+
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
     preprocessor = FunctionPreprocessor()
 
+    # Test case where pdbaseline + recbaseline = 7
     row = {
         "tooth": 16,
         "side": 2,
@@ -92,9 +129,9 @@ def test_fur_values(sample_data):
         "furcationbaseline_all_na": 1,
         "furcationbaseline": np.nan,
     }
-    # pdbaseline + recbaseline = 5 + 2 = 7, which according to fur_values logic should return 2
-    assert preprocessor.fur_values(row) == 2  # Should return correct furcation score
+    assert preprocessor.fur_values(row) == 2  # Should return furcation score 2
 
+    # Test case where pdbaseline + recbaseline = 3
     row = {
         "tooth": 16,
         "side": 2,
@@ -103,16 +140,16 @@ def test_fur_values(sample_data):
         "furcationbaseline_all_na": 1,
         "furcationbaseline": np.nan,
     }
-    # pdbaseline + recbaseline = 2 + 1 = 3, which should return 0
-    assert preprocessor.fur_values(row) == 0  # Should return correct furcation score
+    assert preprocessor.fur_values(row) == 0  # Should return furcation score 0
 
 
-# Test fur_imputation method
 def test_fur_imputation(sample_data):
-    preprocessor = FunctionPreprocessor()
+    """Test the `fur_imputation` method of `FunctionPreprocessor`.
 
-    # Run furcation imputation
+    Args:
+        sample_data (pd.DataFrame): The sample data fixture.
+    """
+    preprocessor = FunctionPreprocessor()
     data_imputed = preprocessor.fur_imputation(sample_data)
 
-    # Ensure that no missing values remain
     assert data_imputed["furcationbaseline"].isna().sum() == 0
