@@ -1,20 +1,22 @@
-from copy import deepcopy
 from typing import List, Optional, Tuple, Union
 
-from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.metrics import f1_score
 from sklearn.neural_network import MLPClassifier
 
 from pamod.base import BaseEvaluator
-from pamod.resampling import MetricEvaluator
+from pamod.resampling import MetricEvaluator, get_probs
 from pamod.training import MLPTrainer
 
 
 class Trainer(BaseEvaluator):
     def __init__(
-        self, classification: str, criterion: str, tuning: Optional[str]
+        self,
+        classification: str,
+        criterion: str,
+        tuning: Optional[str],
+        hpo: Optional[str],
     ) -> None:
         """Initializes the Trainer with classification type and criterion.
 
@@ -23,9 +25,10 @@ class Trainer(BaseEvaluator):
                 'multiclass').
             criterion (str): The performance criterion to optimize (e.g., 'f1',
                 'brier_score').
-            tuning (Optional[str], optional): The tuning method ('holdout' or 'cv').
+            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
+            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
         """
-        super().__init__(classification, criterion, tuning)
+        super().__init__(classification, criterion, tuning, hpo)
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
 
     def train(
@@ -36,10 +39,7 @@ class Trainer(BaseEvaluator):
         X_val: pd.DataFrame,
         y_val: pd.Series,
     ) -> Tuple[float, object, Union[float, None]]:
-        """General method to train models.
-
-        Detects if the model is MLP or a standard model and applies appropriate
-        training logic.
+        """Trains either an MLP model with custom logic or a standard model.
 
         Args:
             model (sklearn estimator): The machine learning model to be trained.
@@ -49,50 +49,29 @@ class Trainer(BaseEvaluator):
             y_val (pd.Series): Validation labels.
 
         Returns:
-            tuple: The evaluation score, trained model, and threshold (if
-                applicable for binary classification).
+            Tuple: The evaluation score, trained model, and the best threshold.
         """
-        # Handle MLP models with custom training logic
         if isinstance(model, MLPClassifier):
             mlp_trainer = MLPTrainer(
-                self.classification, self.criterion, self.tol, self.n_iter_no_change
+                self.classification, self.criterion, self.tuning, self.hpo
             )
-            score, trained_model, best_threshold = mlp_trainer.train(
+            score, model, best_threshold = mlp_trainer.train(
                 model, X_train, y_train, X_val, y_val
             )
         else:
             # For non-MLP models, perform standard training and evaluation
             model.fit(X_train, y_train)
-            probs = model.predict_proba(X_val)
-            score, best_threshold = self._evaluate(probs, y_val)
-
-            trained_model = model
-
-        return score, trained_model, best_threshold
-
-    def _evaluate(
-        self, probs: np.ndarray, y_val: pd.Series
-    ) -> Tuple[float, Union[float, None]]:
-        """Generalized evaluation for both binary and multiclass models.
-
-        Based on probabilities and criterion.
-
-        Args:
-            probs (np.ndarray): Probability predictions from the model.
-            y_val (pd.Series): Validation labels.
-
-        Returns:
-            tuple: The evaluation score and the best threshold (if applicable
-                for binary classification).
-        """
-        if self.classification == "binary":
-            probs = probs[:, 1]  # Extract probabilities for the positive class
-            score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
-        else:
-            score, _ = self.metric_evaluator.evaluate(y_val, probs)
+            probs = get_probs(model, self.classification, X_val)
             best_threshold = None
 
-        return score, best_threshold
+            if self.classification == "binary" and (
+                self.tuning == "cv" or self.hpo == "HEBO"
+            ):
+                score = self.metric_evaluator.evaluate_metric(model, y_val, probs)
+            else:
+                score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+
+        return score, model, best_threshold
 
     def evaluate_cv(self, model, fold: Tuple) -> float:
         """Evaluates a model on a specific training-validation fold.
@@ -118,80 +97,74 @@ class Trainer(BaseEvaluator):
             ValueError: If an invalid evaluation criterion is specified.
         """
         (X_train, y_train), (X_val, y_val) = fold
+        score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
 
-        if isinstance(model, MLPClassifier):
-            mlptrainer = MLPTrainer(self.classification, self.criterion)
-            _, model, _ = mlptrainer.train(model, X_train, y_train, X_val, y_val)
-        else:
-            model.fit(X_train, y_train)
-        if self.classification == "binary":
-            preds = (
-                model.predict_proba(X_val)[:, 1]
-                if hasattr(model, "predict_proba")
-                else model.predict(X_val)
-            )
-        elif self.classification == "multiclass":
-            if self.criterion == "macro_f1":
-                preds = model.predict(X_val)
-            elif self.criterion == "brier_score":
-                preds = (
-                    model.predict_proba(X_val)
-                    if hasattr(model, "predict_proba")
-                    else None
-                )
+        return score
 
-        return self.metric_evaluator.evaluate_metric(model, y_val, preds)
+    def find_optimal_threshold(
+        self, true_labels: np.ndarray, probs: np.ndarray
+    ) -> Union[float, None]:
+        """Find the optimal threshold based on the criterion.
 
-    def evaluate_objective(
-        self,
-        model_clone: BaseEstimator,
-        X_train: pd.DataFrame,
-        y_train: pd.Series,
-        X_val: pd.DataFrame,
-        y_val: pd.Series,
-        outer_splits: Optional[List[Tuple[pd.DataFrame, pd.Series]]],
-        n_jobs: int,
-    ) -> float:
-        """Evaluates the model's performance based on the tuning strategy.
-
-        The tuning strategy can be either 'holdout' or 'cv' (cross-validation).
+        Converts probabilities into binary decisions.
 
         Args:
-            model_clone (BaseEstimator): The cloned machine learning model to be
-                evaluated.
-            X_train (pd.DataFrame): Training features for the holdout set.
-            y_train (pd.Series): Training labels for the holdout set.
-            X_val (pd.DataFrame): Validation features for the holdout set (used for
-                'holdout' tuning).
-            y_val (pd.Series): Validation labels for the holdout set (used for
-                'holdout' tuning).
-            outer_splits (List[tuple]): List of cross-validation folds, each a tuple
-                containing (X_train_fold, y_train_fold).
-            n_jobs (int): Number of parallel jobs to use for cross-validation.
+            true_labels (np.ndarray): The true labels for validation or test data.
+            probs (np.ndarray): Predicted probabilities for the positive class.
 
         Returns:
-            float: The model's performance metric based on tuning strategy.
+            float or None: The optimal threshold for 'f1', or None if the criterion is
+                'brier_score'.
         """
-        if self.tuning == "holdout":
-            model_clone.fit(X_train, y_train)
-            probs = model_clone.predict_proba(X_val)
+        if self.criterion == "brier_score":
+            return None  # Thresholding is not applicable for Brier score
 
-            if self.classification == "binary":
-                probs = probs[:, 1]
-                return self.metric_evaluator.evaluate_metric(model_clone, y_val, probs)
-            elif self.classification == "multiclass":
-                preds = np.argmax(probs, axis=1)
-                return self.metric_evaluator.evaluate_metric(model_clone, y_val, preds)
+        elif self.criterion == "f1":
+            thresholds = np.linspace(0, 1, 101)
+            scores = [
+                f1_score(true_labels, probs >= th, pos_label=0) for th in thresholds
+            ]
+            best_threshold = thresholds[np.argmax(scores)]
+            print(f"Best threshold: {best_threshold}, Best F1 score: {np.max(scores)}")
+            return best_threshold
+        raise ValueError(f"Invalid criterion: {self.criterion}")
 
-        elif self.tuning == "cv":
-            if outer_splits is None:
-                raise ValueError(
-                    "outer_splits cannot be None when using cross-validation."
+    def optimize_threshold(
+        self,
+        model,
+        outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
+    ) -> Union[float, None]:
+        """Optimize the decision threshold using cross-validation.
+
+        Aggregates probability predictions across cross-validation folds.
+
+        Args:
+            model (sklearn estimator): The trained machine learning model.
+            best_params (dict): The best hyperparameters obtained from optimization.
+            outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
+
+        Returns:
+            float or None: The optimal threshold for 'f1', or None if the criterion is
+                'brier_score'.
+        """
+        if outer_splits is None:
+            return None
+        all_true_labels = []
+        all_probs = []
+
+        for (X_train, y_train), (X_val, y_val) in outer_splits:
+            _, best_model, _ = self.train(model, X_train, y_train, X_val, y_val)
+            if hasattr(best_model, "predict_proba"):
+                probs = best_model.predict_proba(X_val)[:, 1]
+            else:
+                raise AttributeError(
+                    f"The model {type(best_model)} does not support predict_proba."
                 )
-            scores = Parallel(n_jobs=n_jobs)(
-                delayed(self.evaluate_cv)(deepcopy(model_clone), fold)
-                for fold in outer_splits
-            )
-            return np.mean(scores)
 
-        raise ValueError(f"Unsupported criterion: {self.tuning}")
+            all_probs.extend(probs)
+            all_true_labels.extend(y_val)
+
+        all_true_labels = np.array(all_true_labels)
+        all_probs = np.array(all_probs)
+
+        return self.find_optimal_threshold(all_true_labels, all_probs)

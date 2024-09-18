@@ -371,9 +371,6 @@ class StaticProcessEngine:
         df = function_preprocessor.get_adjacent_infected_teeth_count(
             df, "id_patient", "tooth", "tooth_infected"
         )
-        side_infected = df["side_infected"].copy()
-        tooth_infected = df["tooth_infected"].copy()
-        infected_neighbors = df["infected_neighbors"].copy()
 
         df = self._create_outcome_variables(df)
 
@@ -407,10 +404,6 @@ class StaticProcessEngine:
 
         df = self._encode_categorical_columns(df)
         self._check_encoded_columns(df)
-
-        df["side_infected"] = side_infected
-        df["tooth_infected"] = tooth_infected
-        df["infected_neighbors"] = infected_neighbors
 
         return df
 

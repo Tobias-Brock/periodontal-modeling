@@ -11,7 +11,7 @@ from sklearn.metrics import (
 
 from pamod.data import ProcessedDataLoader
 from pamod.learner import Model
-from pamod.resampling import Resampler, brier_loss_multi
+from pamod.resampling import Resampler, brier_loss_multi, get_probs
 from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
@@ -53,20 +53,7 @@ def train_final_model(
     )
 
     final_model.fit(X_train, y_train)
-
-    if classification == "binary":
-        final_probs = (
-            final_model.predict_proba(X_test)[:, 1]
-            if hasattr(final_model, "predict_proba")
-            else None
-        )
-    elif classification == "multiclass":
-        # For multiclass, don't select only one column, retain the full probability matrix
-        final_probs = (
-            final_model.predict_proba(X_test)
-            if hasattr(final_model, "predict_proba")
-            else None
-        )
+    final_probs = get_probs(final_model, classification, X_test)
 
     if criterion in ["f1"] and final_probs is not None:
         final_predictions = (final_probs >= best_threshold).astype(int)
@@ -159,7 +146,7 @@ def perform_model_evaluation(
     if hpo == "RS":
         tuner = RandomSearchTuner(classification, criterion, tuning)
     elif hpo == "HEBO":
-        tuner = HEBOTuner(classification, criterion, tuning, hpo)
+        tuner = HEBOTuner(classification, criterion, tuning)
 
     if tuning == "holdout":
         # Perform resampling for holdout validation
@@ -208,13 +195,13 @@ def main():
     perform_model_evaluation(
         df=df,
         classification="binary",
-        learner="XGB",
-        tuning="holdout",
+        learner="LogisticRegression",
+        tuning="cv",
         sampling=None,
         factor=None,
-        n_configs=2,
-        hpo="HEBO",
-        criterion="brier_score",
+        n_configs=10,
+        hpo="RS",
+        criterion="f1",
         racing_folds=5,
         n_jobs=None,
     )

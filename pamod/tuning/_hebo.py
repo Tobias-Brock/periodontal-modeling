@@ -1,16 +1,18 @@
+from copy import deepcopy
 from typing import Dict, List, Optional, Tuple, Union
 
 from hebo.design_space.design_space import DesignSpace
 from hebo.optimizers.hebo import HEBO
+from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
-from pamod.tuning._basetuner import BaseTuner
+from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
-class HEBOTuner(BaseTuner):
+class HEBOTuner(BaseTuner, MetaTuner):
     """Hyperparameter tuning class using HEBO (Bayesian Optimization)."""
 
     def __init__(
@@ -154,20 +156,19 @@ class HEBOTuner(BaseTuner):
         best_params_idx = optimizer.y.argmin()
         best_params_df = optimizer.X.iloc[best_params_idx]
         best_params = params_func(best_params_df)
-
         best_threshold = None
-        if self.classification == "binary" and self.criterion == "f1":
-            if self.tuning == "holdout":
-                model_clone = clone(model).set_params(**best_params)
-                model_clone.fit(X_train_h, y_train_h)
-                probs = model_clone.predict_proba(X_val)[:, 1]
-                best_threshold = self.threshold_optimizer.bo_threshold_optimization(
-                    probs, y_val
-                )
-            elif self.tuning == "cv":
-                best_threshold = self.threshold_optimizer.optimize_threshold(
-                    model, best_params, outer_splits
-                )
+        if self.classification == "binary":
+            model_clone = clone(model).set_params(**best_params)
+            if self.criterion == "f1":
+                if self.tuning == "holdout":
+                    model_clone.fit(X_train_h, y_train_h)
+                    probs = model_clone.predict_proba(X_val)[:, 1]
+                    _, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+
+                elif self.tuning == "cv":
+                    best_threshold = self.trainer.optimize_threshold(
+                        model, outer_splits
+                    )
 
         return best_params, best_threshold
 
@@ -209,7 +210,7 @@ class HEBOTuner(BaseTuner):
         if "n_jobs" in model_clone.get_params():
             model_clone.set_params(n_jobs=n_jobs if n_jobs is not None else 1)
 
-        score = self.trainer.evaluate_objective(
+        score = self.evaluate_objective(
             model_clone,
             X_train_h,
             y_train_h,
@@ -220,3 +221,53 @@ class HEBOTuner(BaseTuner):
         )
 
         return -score if self.criterion in ["f1", "macro_f1"] else score
+
+    def evaluate_objective(
+        self,
+        model_clone,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        outer_splits: Optional[List[Tuple[pd.DataFrame, pd.Series]]],
+        n_jobs: int,
+    ) -> float:
+        """Evaluates the model's performance based on the tuning strategy.
+
+        The tuning strategy can be either 'holdout' or 'cv' (cross-validation).
+
+        Args:
+            model_clone: The cloned machine learning model to be
+                evaluated.
+            X_train (pd.DataFrame): Training features for the holdout set.
+            y_train (pd.Series): Training labels for the holdout set.
+            X_val (pd.DataFrame): Validation features for the holdout set (used for
+                'holdout' tuning).
+            y_val (pd.Series): Validation labels for the holdout set (used for
+                'holdout' tuning).
+            outer_splits (List[tuple]): List of cross-validation folds, each a tuple
+                containing (X_train_fold, y_train_fold).
+            n_jobs (int): Number of parallel jobs to use for cross-validation.
+
+        Returns:
+            float: The model's performance metric based on tuning strategy.
+        """
+        if self.tuning == "holdout":
+            score, _, _ = self.trainer.train(
+                model_clone, X_train, y_train, X_val, y_val
+            )
+            return score
+
+        elif self.tuning == "cv":
+            if outer_splits is None:
+                raise ValueError(
+                    "outer_splits cannot be None when using cross-validation."
+                )
+            scores = Parallel(n_jobs=n_jobs)(
+                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
+                for fold in outer_splits
+            )
+            print(f"CV scores: {scores}.")
+            return np.mean(scores)
+
+        raise ValueError(f"Unsupported criterion: {self.tuning}")

@@ -8,10 +8,10 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
-from pamod.tuning._basetuner import BaseTuner
+from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
-class RandomSearchTuner(BaseTuner):
+class RandomSearchTuner(BaseTuner, MetaTuner):
     def __init__(
         self, classification: str, criterion: str, tuning: str, hpo: str = "RS"
     ) -> None:
@@ -120,7 +120,6 @@ class RandomSearchTuner(BaseTuner):
                 model_clone, best_score, outer_splits, racing_folds, n_jobs
             )
             avg_score = np.mean(scores)
-
             best_score, best_params, _ = self._update_best(
                 avg_score, params, None, best_score, best_params, None
             )
@@ -129,9 +128,7 @@ class RandomSearchTuner(BaseTuner):
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
         if self.classification == "binary" and self.criterion == "f1":
-            optimal_threshold = self.threshold_optimizer.optimize_threshold(
-                model, best_params, outer_splits
-            )
+            optimal_threshold = self.trainer.optimize_threshold(model, outer_splits)
         else:
             optimal_threshold = None
 

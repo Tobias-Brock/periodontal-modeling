@@ -1,8 +1,10 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
 from pamod.base import BaseEvaluator
-from pamod.resampling import MetricEvaluator
+from pamod.resampling import MetricEvaluator, get_probs
 
 
 class MLPTrainer(BaseEvaluator):
@@ -10,8 +12,8 @@ class MLPTrainer(BaseEvaluator):
         self,
         classification: str,
         criterion: str,
-        tol: float = 1e-4,
-        n_iter_no_change: int = 10,
+        tuning: Optional[str],
+        hpo: Optional[str],
     ) -> None:
         """Initializes the MLPTrainer with training parameters.
 
@@ -20,15 +22,11 @@ class MLPTrainer(BaseEvaluator):
                 'multiclass').
             criterion (str): The performance criterion to optimize (e.g., 'f1',
                 'brier_score').
-            tol (float, optional): Tolerance for improvement. Stops training if
-                improvement is less than `tol`. Defaults to `1e-4`.
-            n_iter_no_change (int, optional): Number of iterations with no
-                improvement to wait before stopping. Defaults to `10`.
+            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
+            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
         """
-        super().__init__(classification, criterion)
+        super().__init__(classification, criterion, tuning, hpo)
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
-        self.tol = tol
-        self.n_iter_no_change = n_iter_no_change
 
     def train(
         self,
@@ -56,14 +54,19 @@ class MLPTrainer(BaseEvaluator):
         best_val_score = (
             -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         )
-        best_threshold = 0.5 if self.classification == "binary" else None
+        best_threshold = None
         no_improvement_count = 0
 
         for _ in range(mlp_model.max_iter):
             mlp_model.partial_fit(X_train, y_train, classes=np.unique(y_train))
 
-            probs = self._get_probabilities(mlp_model, X_val)
-            score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+            probs = get_probs(mlp_model, self.classification, X_val)
+            if self.classification == "binary" and (
+                self.tuning == "cv" or self.hpo == "HEBO"
+            ):
+                score = self.metric_evaluator.evaluate_metric(mlp_model, y_val, probs)
+            else:
+                score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
 
             if self._is_improvement(score, best_val_score):
                 best_val_score = score
@@ -77,7 +80,7 @@ class MLPTrainer(BaseEvaluator):
         return (
             best_val_score,
             mlp_model,
-            best_threshold if self.classification == "binary" else None,
+            best_threshold,
         )
 
     def _get_probabilities(self, mlp_model, X_val):

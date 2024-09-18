@@ -1,13 +1,12 @@
 """Package provides tuning techniques."""
 
-from pamod.tuning._basetuner import BaseTuner
+from pamod.tuning._basetuner import BaseTuner, MetaTuner
 from pamod.tuning._hebo import HEBOTuner
 from pamod.tuning._randomsearch import RandomSearchTuner
-from pamod.tuning._thresholdopt import ThresholdOptimizer
 
 __all__ = [
+    "MetaTuner",
     "BaseTuner",
     "RandomSearchTuner",
     "HEBOTuner",
-    "ThresholdOptimizer",
 ]
