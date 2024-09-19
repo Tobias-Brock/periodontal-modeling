@@ -187,8 +187,8 @@ class Trainer(BaseEvaluator):
         df: pd.DataFrame,
         resampler: Resampler,
         model: Tuple,
-        sampling: str,
-        factor: float,
+        sampling: Optional[str],
+        factor: Optional[float],
         n_jobs: int,
         verbosity: bool = True,
     ):

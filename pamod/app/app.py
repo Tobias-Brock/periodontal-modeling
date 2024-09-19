@@ -1,34 +1,64 @@
+"""App."""
+
+from typing import Optional, Tuple
+
 import gradio as gr
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 
 from pamod.benchmarking import MultiBenchmarker
 
 
 def run_benchmarks(
-    tasks,
-    learners,
-    tuning_methods,
-    hpo_methods,
-    criteria,
-    sampling,
-    factor,
-    n_configs,
-    racing_folds,
-    n_jobs,
-):
-    # Adjust None inputs
+    tasks: str,
+    learners: str,
+    tuning_methods: str,
+    hpo_methods: str,
+    criteria: str,
+    sampling: Optional[str],
+    factor: Optional[float],
+    n_configs: int,
+    racing_folds: int,
+    n_jobs: int,
+) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
+    """Run benchmark evaluations with frontend.
+
+    Args:
+        tasks (str): Comma-separated string of tasks (e.g., 'pocketclosure, improve').
+        learners (str): Comma-separated string of learners (e.g., 'XGB, RandomForest').
+        tuning_methods (str): Comma-seperated string of tuning methods.
+        hpo_methods (str): Comma-separated string of HPO methods (e.g., 'HEBO, RS').
+        criteria (str): Comma-separated string of evaluation criteria
+            (e.g., 'f1, brier_score').
+        sampling (str): Sampling strategy to use ('smote', 'upsampling', 'None', etc.).
+        factor (float): Resampling factor as a string or 'None'.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        racing_folds (int): Number of racing folds for Random Search.
+        n_jobs (int): Number of parallel jobs to run.
+
+    Returns:
+        Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
+            - df_results: DataFrame containing benchmark results.
+            - metrics_plot: Matplotlib figure with key metrics comparison plot.
+            - conf_matrix_plot: Matplotlib figure with confusion matrix plot, or None.
+    """
     sampling = None if sampling == "None" else sampling
-    factor = None if factor == "None" else float(factor)
+    factor = None if factor == "None" else float(factor) if factor else None
+
+    tasks_list = [task.strip() for task in tasks.split(",")]
+    learners_list = [learner.strip() for learner in learners.split(",")]
+    tuning_methods_list = [tuning.strip() for tuning in tuning_methods.split(",")]
+    hpo_methods_list = [hpo.strip() for hpo in hpo_methods.split(",")]
+    criteria_list = [criterion.strip() for criterion in criteria.split(",")]
 
     # Instantiate and run the MultiBenchmarker
     benchmarker = MultiBenchmarker(
-        tasks=tasks.split(","),
-        learners=learners.split(","),
-        tuning_methods=tuning_methods.split(","),
-        hpo_methods=hpo_methods.split(","),
-        criteria=criteria.split(","),
+        tasks=tasks_list,
+        learners=learners_list,
+        tuning_methods=tuning_methods_list,
+        hpo_methods=hpo_methods_list,
+        criteria=criteria_list,
         sampling=sampling,
         factor=factor,
         n_configs=int(n_configs),
@@ -42,10 +72,11 @@ def run_benchmarks(
     if df_results.empty:
         return "No results to display", None, None
 
-    df_results = df_results.round(4)  # Round values for better readability
+    # Round values for better readability
+    df_results = df_results.round(4)
 
     # Plot key metrics
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10, 6), dpi=200)
     df_results.plot(
         x="Learner",
         y=["F1 Score", "Accuracy", "ROC AUC Score"],
@@ -64,10 +95,8 @@ def run_benchmarks(
     # Confusion Matrix Plot
     conf_matrix_plot = None
     if "Confusion Matrix" in df_results.columns:
-        cm = df_results["Confusion Matrix"].iloc[
-            0
-        ]  # Use the first result as an example
-        plt.figure(figsize=(6, 4))
+        cm = df_results["Confusion Matrix"].iloc[0]  # Use the first result as example
+        plt.figure(figsize=(6, 4), dpi=200)
         sns.heatmap(cm, annot=True, fmt="g", cmap="Blues")
         plt.title("Confusion Matrix")
         plt.xlabel("Predicted")
