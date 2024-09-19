@@ -1,6 +1,6 @@
 from copy import deepcopy
 import random
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from joblib import Parallel, delayed
 import numpy as np
@@ -87,8 +87,8 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
 
     def cv(
         self,
-        learner,
-        outer_splits,
+        learner: str,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         n_configs: int,
         racing_folds: Union[int, None],
         n_jobs: int,
@@ -115,7 +115,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=n_jobs)
-
             scores = self._evaluate_folds(
                 model_clone, best_score, outer_splits, racing_folds, n_jobs
             )
@@ -128,14 +127,21 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
         if self.classification == "binary" and self.criterion == "f1":
-            optimal_threshold = self.trainer.optimize_threshold(model, outer_splits)
+            optimal_threshold = self.trainer.optimize_threshold(
+                model_clone, outer_splits, n_jobs
+            )
         else:
             optimal_threshold = None
 
         return best_params, optimal_threshold
 
     def _evaluate_folds(
-        self, model_clone, best_score, outer_splits, racing_folds, n_jobs
+        self,
+        model_clone,
+        best_score: float,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
+        racing_folds: Union[int, None],
+        n_jobs: Union[int, None],
     ):
         """Evaluate the model across folds using cross-validation or racing strategy.
 
@@ -272,6 +278,10 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 if iteration_seed is not None:
                     random.seed(iteration_seed)
                 params[k] = random.choice(v)  # For list-based grids
+            elif isinstance(v, np.ndarray):  # Handle numpy arrays
+                if iteration_seed is not None:
+                    random.seed(iteration_seed)
+                params[k] = random.choice(v.tolist())  # Convert numpy array to list
             else:
                 raise TypeError(f"Unsupported type for parameter '{k}': {type(v)}")
 

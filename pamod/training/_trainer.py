@@ -1,13 +1,18 @@
 from typing import List, Optional, Tuple, Union
+import warnings
 
+from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
+from sklearn import clone
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.metrics import f1_score
 from sklearn.neural_network import MLPClassifier
 
 from pamod.base import BaseEvaluator
-from pamod.resampling import MetricEvaluator, get_probs
-from pamod.training import MLPTrainer
+from pamod.learner import Model
+from pamod.resampling import Resampler
+from pamod.training import MetricEvaluator, MLPTrainer, final_metrics, get_probs
 
 
 class Trainer(BaseEvaluator):
@@ -73,7 +78,9 @@ class Trainer(BaseEvaluator):
 
         return score, model, best_threshold
 
-    def evaluate_cv(self, model, fold: Tuple) -> float:
+    def evaluate_cv(
+        self, model, fold: Tuple, return_probs: bool = False
+    ) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
         """Evaluates a model on a specific training-validation fold.
 
         Based on a chosen performance criterion.
@@ -87,17 +94,30 @@ class Trainer(BaseEvaluator):
                 Specifically, it is structured as ((X_train, y_train), (X_val, y_val)),
                 where X_train and X_val are the feature matrices, and y_train and y_val
                 are the target vectors.
+            return_probs (bool): Return predicted probabilities with score if True.
 
         Returns:
-            float: The calculated score of the model on the validation data according
-                to the specified criterion. Higher scores indicate better performance
-                for 'f1', while lower scores are better for 'brier_score'.
-
-        Raises:
-            ValueError: If an invalid evaluation criterion is specified.
+            Union[float, Tuple[float, np.ndarray, np.ndarray]]: The calculated score of
+                the model on the validation data, and optionally the true labels and
+                predicted probabilities.
         """
         (X_train, y_train), (X_val, y_val) = fold
-        score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+            # Train the model and get the score
+            score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
+
+            if return_probs:
+                # Get predicted probabilities if requested
+                if hasattr(model, "predict_proba"):
+                    probs = model.predict_proba(X_val)[:, 1]
+                    return score, y_val, probs
+                else:
+                    raise AttributeError(
+                        f"The model {type(model)} does not support predict_proba."
+                    )
 
         return score
 
@@ -133,6 +153,7 @@ class Trainer(BaseEvaluator):
         self,
         model,
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
+        n_jobs: int,
     ) -> Union[float, None]:
         """Optimize the decision threshold using cross-validation.
 
@@ -142,6 +163,7 @@ class Trainer(BaseEvaluator):
             model (sklearn estimator): The trained machine learning model.
             best_params (dict): The best hyperparameters obtained from optimization.
             outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
+            n_jobs (int): Number of parallel jobs to use for cross-validation.
 
         Returns:
             float or None: The optimal threshold for 'f1', or None if the criterion is
@@ -149,22 +171,94 @@ class Trainer(BaseEvaluator):
         """
         if outer_splits is None:
             return None
-        all_true_labels = []
-        all_probs = []
 
-        for (X_train, y_train), (X_val, y_val) in outer_splits:
-            _, best_model, _ = self.train(model, X_train, y_train, X_val, y_val)
-            if hasattr(best_model, "predict_proba"):
-                probs = best_model.predict_proba(X_val)[:, 1]
-            else:
-                raise AttributeError(
-                    f"The model {type(best_model)} does not support predict_proba."
-                )
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(self.evaluate_cv)(model, fold, return_probs=True)
+            for fold in outer_splits
+        )
 
-            all_probs.extend(probs)
-            all_true_labels.extend(y_val)
-
-        all_true_labels = np.array(all_true_labels)
-        all_probs = np.array(all_probs)
+        all_true_labels = np.concatenate([y for _, y, _ in results])
+        all_probs = np.concatenate([probs for _, _, probs in results])
 
         return self.find_optimal_threshold(all_true_labels, all_probs)
+
+    def train_final_model(
+        self,
+        df: pd.DataFrame,
+        resampler: Resampler,
+        model: Tuple,
+        sampling: str,
+        factor: float,
+        n_jobs: int,
+        verbosity: bool = True,
+    ):
+        """Trains the final model.
+
+        Args:
+            df (pandas.DataFrame): The dataset used for model evaluation.
+            resampler: Resampling class.
+            model (sklearn estimator): The machine learning model used for evaluation.
+            sampling (str): The type of sampling to apply.
+            factor (float): The factor by which to upsample or downsample.
+            n_jobs (int): The number of parallel jobs to run for evaluation.
+            verbosity (bool): Verbosity during model evaluation process if set to True.
+
+        Returns:
+            dict: A dictionary containing the trained model and metrics.
+        """
+        learner, best_params, best_threshold = model
+        model = Model.get_model(learner, self.classification)
+        final_model = clone(model)
+        final_model.set_params(**best_params)
+
+        if "n_jobs" in final_model.get_params():
+            final_model.set_params(n_jobs=n_jobs)  # Set parallel jobs if supported
+
+        train_df, test_df = resampler.split_train_test_df(df)
+
+        X_train, y_train, X_test, y_test = resampler.split_x_y(
+            train_df, test_df, sampling, factor
+        )
+        if learner == "MLP":
+            mlp = MLPTrainer(self.classification, self.criterion, None, None)
+            train_df_h, test_df_h = resampler.split_train_test_df(train_df)
+
+            X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
+                train_df_h, test_df_h, sampling, factor
+            )
+            _, final_model, _ = mlp.train(
+                final_model, X_train_h, y_train_h, X_val, y_val, final=True
+            )
+        else:
+            final_model.fit(X_train, y_train)
+        final_probs = get_probs(final_model, self.classification, X_test)
+
+        if self.criterion in ["f1"] and final_probs is not None:
+            final_predictions = (final_probs >= best_threshold).astype(int)
+        else:
+            final_predictions = final_model.predict(X_test)
+
+        metrics = final_metrics(
+            self.classification, y_test, final_predictions, final_probs, best_threshold
+        )
+        if verbosity:
+            unpacked_metrics = {
+                k: round(v, 4) if isinstance(v, float) else v
+                for k, v in metrics.items()
+            }
+            results = {
+                "Learner": learner,
+                "Tuning": "final",
+                "HPO": self.hpo,  # Final model doesn't involve HPO
+                "Criterion": self.criterion,
+                **unpacked_metrics,  # Unpack rounded metrics here
+            }
+
+            df_results = pd.DataFrame([results])
+            pd.set_option("display.max_columns", None)
+            pd.set_option("display.width", 1000)
+
+            print("\nFinal Model Metrics Summary:")
+            print(df_results)
+
+        return {"model": final_model, "metrics": metrics}

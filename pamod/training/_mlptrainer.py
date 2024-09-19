@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from pamod.base import BaseEvaluator
-from pamod.resampling import MetricEvaluator, get_probs
+from pamod.training import MetricEvaluator, get_probs
 
 
 class MLPTrainer(BaseEvaluator):
@@ -35,6 +35,7 @@ class MLPTrainer(BaseEvaluator):
         y_train: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
+        final: bool = False,
     ):
         """General method for training MLPClassifier with early stopping.
 
@@ -46,6 +47,7 @@ class MLPTrainer(BaseEvaluator):
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
             y_val (pd.Series): Validation labels.
+            final (bool): Flag for final model training.
 
         Returns:
             tuple: The best validation score, trained MLPClassifier, and the
@@ -61,10 +63,11 @@ class MLPTrainer(BaseEvaluator):
             mlp_model.partial_fit(X_train, y_train, classes=np.unique(y_train))
 
             probs = get_probs(mlp_model, self.classification, X_val)
-            if self.classification == "binary" and (
-                self.tuning == "cv" or self.hpo == "HEBO"
-            ):
-                score = self.metric_evaluator.evaluate_metric(mlp_model, y_val, probs)
+            if self.classification == "binary":
+                if final or (self.tuning == "cv" or self.hpo == "HEBO"):
+                    score = self.metric_evaluator.evaluate_metric(
+                        mlp_model, y_val, probs
+                    )
             else:
                 score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
 
@@ -82,21 +85,6 @@ class MLPTrainer(BaseEvaluator):
             mlp_model,
             best_threshold,
         )
-
-    def _get_probabilities(self, mlp_model, X_val):
-        """Gets the predicted probabilities from the MLP model.
-
-        Args:
-            mlp_model (MLPClassifier): The trained MLPClassifier model.
-            X_val (pd.DataFrame): Validation features.
-
-        Returns:
-            array-like: Predicted probabilities.
-        """
-        if self.classification == "binary":
-            return mlp_model.predict_proba(X_val)[:, 1]
-        else:
-            return mlp_model.predict_proba(X_val)
 
     def _is_improvement(self, score, best_val_score):
         """Determines if there is an improvement in the validation score.

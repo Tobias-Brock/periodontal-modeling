@@ -351,9 +351,25 @@ class StaticProcessEngine:
         function_preprocessor = FunctionPreprocessor()
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
+        initial_patients = df["id_patient"].nunique()
+        initial_rows = len(df)
+        print(f"Initial number of patients: {initial_patients}")
+        print(f"Initial number of rows: {initial_rows}")
+
+        under_age_or_pregnant = df[(df["age"] < 18) | (df["pregnant"] == 2)]
+        removed_patients = under_age_or_pregnant["id_patient"].nunique()
+        removed_rows = len(under_age_or_pregnant)
+        print(f"Number of unique patients removed: {removed_patients}")
+        print(f"Number of rows removed: {removed_rows}")
+
         df = df[df["age"] >= 18].replace(" ", pd.NA)
         df = df[df["pregnant"] != 2]
         df = df.drop(columns=["pregnant"])
+
+        remaining_patients = df["id_patient"].nunique()
+        remaining_rows = len(df)
+        print(f"Remaining number of patients: {remaining_patients}")
+        print(f"Remaining number of rows: {remaining_rows}")
 
         df = self._impute_missing_values(df)
         df["side_infected"] = df.apply(
