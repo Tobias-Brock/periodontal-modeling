@@ -1,5 +1,5 @@
 import itertools
-from typing import Dict, List, Optional, Union
+from typing import List, Optional
 
 import pandas as pd
 
@@ -17,8 +17,8 @@ class Benchmarker(BaseEvaluator):
         criterion: str,
         tuning: Optional[str],
         hpo: Optional[str],
-        sampling: str,
-        factor: float,
+        sampling: Optional[str],
+        factor: Optional[float],
         n_configs: int,
         racing_folds: int,
         n_jobs: int,
@@ -97,7 +97,7 @@ class Benchmarker(BaseEvaluator):
         if self.tuning == "holdout":
             return self._evaluate_holdout(train_df, learner)
         elif self.tuning == "cv":
-            return self._evaluate_cv(self.df, learner)
+            return self._evaluate_cv(learner)
         else:
             raise ValueError(f"Unsupported tuning method: {self.tuning}")
 
@@ -174,8 +174,8 @@ class MultiBenchmarker:
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
-        sampling: str,
-        factor: float,
+        sampling: Optional[str],
+        factor: Optional[float],
         n_configs: int,
         racing_folds: int,
         n_jobs: int,
@@ -208,7 +208,7 @@ class MultiBenchmarker:
         self.n_jobs = n_jobs
         self.verbosity = verbosity
 
-    def run_all_benchmarks(self) -> None:
+    def run_all_benchmarks(self) -> pd.DataFrame:
         """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
         results = []
 
