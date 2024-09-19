@@ -4,8 +4,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 
 from pamod.base import BaseEvaluator
-from pamod.resampling import MetricEvaluator
-from pamod.training import Trainer
+from pamod.training import MetricEvaluator, Trainer
 
 
 class MetaTuner(ABC):
@@ -80,7 +79,7 @@ class BaseTuner(BaseEvaluator):
 
         if self.tuning == "holdout":
             print(
-                f"{self.hpo} val_split iteration {iteration + 1} {model_name}: "
+                f"{self.hpo} holdout iteration {iteration + 1} {model_name}: "
                 f"'{params_str}', {self.criterion}={score_value}, "
                 f"threshold={threshold}"
             )

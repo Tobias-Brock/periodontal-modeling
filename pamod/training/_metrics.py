@@ -1,14 +1,22 @@
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import brier_score_loss, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.preprocessing import label_binarize
 
 from pamod.base import BaseEvaluator
 
 
-def get_probs(model, classification: str, X_val: pd.DataFrame):
+def get_probs(model, classification: str, X_val: pd.DataFrame) -> np.ndarray:
     """Gets the predicted probabilities from the model.
 
     Args:
@@ -42,6 +50,63 @@ def brier_loss_multi(y_val: np.ndarray, probs: np.ndarray) -> float:
     return np.mean([brier_score_loss(y_bin[:, i], probs[:, i]) for i in range(g)]) * (
         g / 2
     )
+
+
+def final_metrics(
+    classification: str,
+    y_test: np.ndarray,
+    preds: np.ndarray,
+    probs: Union[np.ndarray, None],
+    threshold: float,
+) -> Dict[str, Any]:
+    """Calculate final metrics for binary or multiclass classification.
+
+    Args:
+        classification (str): The type of classification.
+        y_test (np.ndarray): Ground truth (actual) labels.
+        preds (np.ndarray): Predicted labels from the model.
+        probs (Union[np.ndarray, None]): Predicted probabilities from model.
+            Only used for binary classification and if available.
+        threshold (float): Best threshold used for binary classification.
+
+    Returns:
+        Dict[str, Any]: Dictionary of evaluation metrics.
+    """
+    if classification == "binary":
+        f1: float = f1_score(y_test, preds, pos_label=0)
+        precision: float = precision_score(y_test, preds, pos_label=0)
+        recall: float = recall_score(y_test, preds, pos_label=0)
+        accuracy: float = accuracy_score(y_test, preds)
+        brier_score_value: Union[float, None] = (
+            brier_score_loss(y_test, probs) if probs is not None else None
+        )
+        roc_auc_value: Union[float, None] = (
+            roc_auc_score(y_test, probs) if probs is not None else None
+        )
+        conf_matrix: np.ndarray = confusion_matrix(y_test, preds)
+
+        return {
+            "F1 Score": f1,
+            "Precision": precision,
+            "Recall": recall,
+            "Accuracy": accuracy,
+            "Brier Score": brier_score_value,
+            "ROC AUC Score": roc_auc_value,
+            "Confusion Matrix": conf_matrix,
+            "Best Threshold": threshold,
+        }
+
+    elif classification == "multiclass":
+        brier_score: float = brier_loss_multi(y_test, probs)
+
+        return {
+            "macro_f1": f1_score(y_test, preds, average="macro"),
+            "accuracy": accuracy_score(y_test, preds),
+            "class_f1_scores": f1_score(y_test, preds, average=None),
+            "brier_score": brier_score,
+        }
+
+    raise ValueError(f"Unsupported classification type: {classification}")
 
 
 class MetricEvaluator(BaseEvaluator):

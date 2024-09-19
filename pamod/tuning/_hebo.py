@@ -167,7 +167,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
 
                 elif self.tuning == "cv":
                     best_threshold = self.trainer.optimize_threshold(
-                        model, outer_splits
+                        model_clone, outer_splits, n_jobs
                     )
 
         return best_params, best_threshold
@@ -267,7 +267,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
                 for fold in outer_splits
             )
-            print(f"CV scores: {scores}.")
             return np.mean(scores)
 
         raise ValueError(f"Unsupported criterion: {self.tuning}")
