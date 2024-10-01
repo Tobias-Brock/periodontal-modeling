@@ -70,7 +70,7 @@ class Trainer(BaseEvaluator):
             best_threshold = None
 
             if self.classification == "binary" and (
-                self.tuning == "cv" or self.hpo == "HEBO"
+                self.tuning == "cv" or self.hpo == "hebo"
             ):
                 score = self.metric_evaluator.evaluate_metric(model, y_val, probs)
             else:
@@ -219,7 +219,7 @@ class Trainer(BaseEvaluator):
         X_train, y_train, X_test, y_test = resampler.split_x_y(
             train_df, test_df, sampling, factor
         )
-        if learner == "MLP":
+        if learner == "mlp":
             mlp = MLPTrainer(self.classification, self.criterion, None, None)
             train_df_h, test_df_h = resampler.split_train_test_df(train_df)
 

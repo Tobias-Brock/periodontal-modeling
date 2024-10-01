@@ -30,7 +30,7 @@ class Model(BaseValidator):
 
         Args:
             learner (str): The machine learning algorithm to use
-                (e.g., 'RandomForest', 'MLP', 'XGB', 'LogisticRegression').
+                (e.g., 'rf', 'mlp', 'xgb', 'lr').
             classification (str): The type of classification ('binary' or 'multiclass').
             hpo (str, optional): The hyperparameter optimization method to use
                 (default None).
@@ -47,11 +47,11 @@ class Model(BaseValidator):
         Raises:
             ValueError: If an invalid learner or classification is provided.
         """
-        if self.learner == "RandomForest":
+        if self.learner == "rf":
             return RandomForestClassifier(random_state=self.random_state_model)
-        elif self.learner == "MLP":
+        elif self.learner == "mlp":
             return MLPClassifier(random_state=self.random_state_model)
-        elif self.learner == "XGB":
+        elif self.learner == "xgb":
             if self.classification == "binary":
                 return xgb.XGBClassifier(
                     objective=self.xgb_obj_binary,
@@ -64,7 +64,7 @@ class Model(BaseValidator):
                     eval_metric=self.xgb_loss_multi,
                     random_state=self.random_state_model,
                 )
-        elif self.learner == "LogisticRegression":
+        elif self.learner == "lr":
             if self.classification == "binary":
                 return LogisticRegression(
                     solver=self.lr_solver_binary,
@@ -81,42 +81,42 @@ class Model(BaseValidator):
 
     @classmethod
     def get(cls, learner: str, classification: str, hpo: Optional[str] = None):
-        """Return the machine learning model and parameter grid or HEBO search space.
+        """Return the machine learning model and parameter grid or hebo search space.
 
         Args:
             learner (str): The machine learning algorithm to use.
             classification (str): The type of classification ('binary' or 'multiclass').
-            hpo (str): The hyperparameter optimization method ('HEBO' or 'RS').
+            hpo (str): The hyperparameter optimization method ('hebo' or 'rs').
 
         Returns:
-            tuple: If hpo is 'RS', return model and parameter grid. If hpo is 'HEBO',
-                return the model, HEBO search space, and transformation function.
+            tuple: If hpo is 'rs', return model and parameter grid. If hpo is 'hebo',
+                return the model, hebo search space, and transformation function.
         """
         instance = cls(learner, classification)
         model = instance._get_model_instance()
 
         if hpo is None:
-            raise ValueError("hpo must be provided as 'HEBO' or 'RS'")
+            raise ValueError("hpo must be provided as 'hebo' or 'rs'")
 
-        if hpo == "HEBO":
-            if learner == "RandomForest":
+        if hpo == "hebo":
+            if learner == "rf":
                 return model, rf_search_space_hebo, get_rf_params_hebo
-            elif learner == "MLP":
+            elif learner == "mlp":
                 return model, mlp_search_space_hebo, get_mlp_params_hebo
-            elif learner == "XGB":
+            elif learner == "xgb":
                 return model, xgb_search_space_hebo, get_xgb_params_hebo
-            elif learner == "LogisticRegression":
+            elif learner == "lr":
                 return model, lr_search_space_hebo_oh, get_lr_params_hebo_oh
             else:
                 raise ValueError(f"Unsupported learner type: {learner}")
-        elif hpo == "RS":
-            if learner == "RandomForest":
+        elif hpo == "rs":
+            if learner == "rf":
                 return model, rf_param_grid
-            elif learner == "MLP":
+            elif learner == "mlp":
                 return model, mlp_param_grid
-            elif learner == "XGB":
+            elif learner == "xgb":
                 return model, xgb_param_grid
-            elif learner == "LogisticRegression":
+            elif learner == "lr":
                 return model, lr_param_grid_oh
             else:
                 raise ValueError(f"Unsupported learner type: {learner}")

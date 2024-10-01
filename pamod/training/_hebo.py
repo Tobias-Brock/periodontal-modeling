@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Tuple, Union
 
 from hebo.design_space.design_space import DesignSpace
-from hebo.optimizers.hebo import HEBO
+from hebo.optimizers.hebo import hebo
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
 class HEBOTuner(BaseTuner, MetaTuner):
-    """Hyperparameter tuning class using HEBO (Bayesian Optimization)."""
+    """Hyperparameter tuning class using hebo (Bayesian Optimization)."""
 
     def __init__(
         self, classification: str, criterion: str, tuning: str, hpo: str = "hebo"
@@ -24,7 +24,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
             classification (str): The type of classification ('binary' or 'multiclass').
             criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): The type of tuning ('holdout' or 'cv').
-            hpo (str): The hyperparameter optimization method (default is 'HEBO').
+            hpo (str): The hyperparameter optimization method (default is 'hebo').
         """
         super().__init__(classification, criterion, tuning, hpo)
 
@@ -75,7 +75,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         n_jobs: int,
         verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
-        """Perform Bayesian Optimization using HEBO with cross-validation.
+        """Perform Bayesian Optimization using hebo with cross-validation.
 
         Args:
             learner (str): The machine learning model to evaluate.
@@ -83,7 +83,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 List of cross-validation folds.
             n_configs (int): The number of configurations to evaluate during HPO.
             n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during HEBO optimization.
+            verbosity (bool): Whether to print detailed logs during hebo optimization.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
@@ -105,7 +105,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         n_jobs: int,
         verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
-        """Perform Bayesian Optimization using HEBO for holdout and cross-validation.
+        """Perform Bayesian Optimization using hebo for holdout and cross-validation.
 
         Args:
             learner (str): The machine learning model to evaluate.
@@ -121,7 +121,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 Cross-validation folds (None if using holdout).
             n_configs (int): The number of configurations to evaluate during HPO.
             n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during HEBO optimization.
+            verbosity (bool): Whether to print detailed logs during hebo optimization.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
@@ -131,7 +131,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
             learner, self.classification, self.hpo
         )
         space = DesignSpace().parse(search_space)
-        optimizer = HEBO(space)
+        optimizer = hebo(space)
 
         for i in range(n_configs):
             params_suggestion = optimizer.suggest(n_suggestions=1).iloc[0]
@@ -202,7 +202,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
             n_jobs (int): The number of parallel jobs for model training.
 
         Returns:
-            float: The evaluation score to be minimized by HEBO.
+            float: The evaluation score to be minimized by hebo.
         """
         model_clone = clone(model)
         model_clone.set_params(**params_dict)

@@ -1,3 +1,5 @@
+"""Base classes."""
+
 from typing import Optional
 
 import hydra
@@ -20,13 +22,15 @@ def validate_hpo(hpo: Optional[str]) -> None:
     """Validates the hpo.
 
     Args:
-        hpo (Optional[str]): The type of hpo ('RS' or 'HEBO').
+        hpo (Optional[str]): The type of hpo ('rs' or 'hebo').
     """
-    if hpo not in [None, "RS", "HEBO"]:
-        raise ValueError("Unsupported HPO. Choose either 'RS' or 'HEBO'.")
+    if hpo not in [None, "rs", "hebo"]:
+        raise ValueError("Unsupported HPO. Choose either 'rs' or 'hebo'.")
 
 
 class BaseValidator:
+    """BaseValidator method."""
+
     def __init__(self, classification: str, hpo: Optional[str] = None) -> None:
         """Base class to provide validation and error handling for other classes.
 
@@ -37,9 +41,9 @@ class BaseValidator:
             classification (str): The type of classification ('binary' or
                 'multiclass').
             hpo (Optional[str], optional): The hyperparameter optimization type
-                ('RS' or 'HEBO'). Defaults to None.
+                ('rs' or 'hebo'). Defaults to None.
         """
-        with hydra.initialize(config_path="../../config", version_base="1.2"):
+        with hydra.initialize(config_path="../config", version_base="1.2"):
             cfg = hydra.compose(config_name="config")
         validate_classification(classification)
         validate_hpo(hpo)
@@ -115,6 +119,8 @@ class BaseValidator:
 
 
 class BaseEvaluator:
+    """_BaseEvaluator method."""
+
     def __init__(
         self,
         classification: str,
@@ -130,10 +136,10 @@ class BaseEvaluator:
             criterion (str): The evaluation criterion.
             tuning (Optional[str], optional): The tuning method ('holdout' or 'cv').
                 Defaults to None.
-            hpo (Optional[str], optional): The hyperparameter optimization type ('RS'
-                or 'HEBO'). Defaults to None.
+            hpo (Optional[str], optional): The hyperparameter optimization type ('rs'
+                or 'hebo'). Defaults to None.
         """
-        with hydra.initialize(config_path="../../config", version_base="1.2"):
+        with hydra.initialize(config_path="../config", version_base="1.2"):
             self.cfg = hydra.compose(config_name="config")
         validate_classification(classification)
         self._validate_criterion(criterion)
@@ -177,3 +183,78 @@ class BaseEvaluator:
             raise ValueError(
                 "Unsupported tuning method. Choose either 'holdout' or 'cv'."
             )
+
+
+class BaseData:
+    """Base class for common data attributes used in processing periodontal datasets."""
+
+    def __init__(self) -> None:
+        """Initializes the BaseData class with shared attributes."""
+        self.required_columns = [
+            "ID_patient",
+            "Tooth",
+            "Toothtype",
+            "RootNumber",
+            "Mobility",
+            "Restoration",
+            "Percussion-sensitivity",
+            "Sensitivity",
+            "FurcationBaseline",
+            "Side",
+            "PdBaseline",
+            "RecBaseline",
+            "Plaque",
+            "BOP",
+            "Age",
+            "Gender",
+            "BodyMassIndex",
+            "PerioFamilyHistory",
+            "Diabetes",
+            "SmokingType",
+            "CigaretteNumber",
+            "AntibioticTreatment",
+            "Stresslvl",
+            "PdRevaluation",
+            "BOPRevaluation",
+            "Pregnant",
+        ]
+        self.cat_vars = [
+            "side",
+            "restoration",
+            "periofamilyhistory",
+            "diabetes",
+            "toothtype",
+            "tooth",
+            "furcationbaseline",
+            "smokingtype",
+            "stresslvl",
+            "toothside",
+        ]
+        self.bin_var = [
+            "antibiotictreatment",
+            "boprevaluation",
+            "plaque",
+            "bop",
+            "mobility",
+            "percussion-sensitivity",
+            "sensitivity",
+            "rootnumber",
+            "gender",
+        ]
+        self.scale_vars = [
+            "pdbaseline",
+            "age",
+            "bodymassindex",
+            "recbaseline",
+            "cigarettenumber",
+        ]
+        self.behavior_columns = {
+            "binary": ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"],
+            "categorical": [
+                "OrthoddonticHistory",
+                "DentalVisits",
+                "Toothbrushing",
+                "DryMouth",
+            ],
+        }
+        self.all_cat_vars = self.cat_vars + self.behavior_columns["categorical"]
