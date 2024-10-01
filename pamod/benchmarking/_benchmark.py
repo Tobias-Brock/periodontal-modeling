@@ -1,4 +1,5 @@
 import itertools
+import traceback
 from typing import List, Optional
 
 import pandas as pd
@@ -15,6 +16,7 @@ class Benchmarker(BaseEvaluator):
         self,
         task: str,
         criterion: str,
+        encoding: str,
         tuning: Optional[str],
         hpo: Optional[str],
         sampling: Optional[str],
@@ -29,6 +31,7 @@ class Benchmarker(BaseEvaluator):
         Args:
             task (str): The task name used to determine classification type.
             criterion (str): Criterion for optimization ('macro_f1' or 'brier_score').
+            encoding (str): Encoding type ('one_hot' or 'binary')
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
             hpo (Optional[str]): The hyperparameter optimization method. Can be None.
             sampling (str): Sampling strategy.
@@ -38,19 +41,19 @@ class Benchmarker(BaseEvaluator):
             n_jobs (int): Number of parallel jobs to run for evaluation.
             verbosity (bool): Enables verbose output if set to True.
         """
-        # Automatically determine classification type based on the task
         classification = self._determine_classification(task)
         super().__init__(classification, criterion, tuning, hpo)
-        dataloader = ProcessedDataLoader(task)  # Use task as the dataset name
-        df = dataloader.load_data()  # Load the dataset
-        self.df = dataloader.transform_target(df)
+        self.encoding = encoding
+        dataloader = ProcessedDataLoader(task, self.encoding)
+        df = dataloader.load_data()
+        self.df = dataloader.transform_data(df)
         self.sampling = sampling
         self.factor = factor
         self.n_configs = n_configs
         self.racing_folds = racing_folds
         self.n_jobs = n_jobs
         self.verbosity = verbosity
-        self.resampler = Resampler(self.classification)
+        self.resampler = Resampler(self.classification, self.encoding)
         self.trainer = Trainer(
             self.classification, self.criterion, tuning=None, hpo=None
         )
@@ -76,9 +79,9 @@ class Benchmarker(BaseEvaluator):
 
     def _initialize_tuner(self):
         """Initialize the appropriate tuner based on the hpo method."""
-        if self.hpo == "RS":
+        if self.hpo == "rs":
             return RandomSearchTuner(self.classification, self.criterion, self.tuning)
-        elif self.hpo == "HEBO":
+        elif self.hpo == "hebo":
             return HEBOTuner(self.classification, self.criterion, self.tuning)
         else:
             raise ValueError(f"Unsupported HPO method: {self.hpo}")
@@ -174,6 +177,7 @@ class MultiBenchmarker:
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
+        encodings: List[str],
         sampling: Optional[str],
         factor: Optional[float],
         n_configs: int,
@@ -185,10 +189,11 @@ class MultiBenchmarker:
 
         Args:
             tasks (List[str]): List of tasks (e.g., 'pocketclosure', 'improve').
-            learners (List[str]): List of learners to benchmark (e.g., 'XGB', etc.).
+            learners (List[str]): List of learners to benchmark (e.g., 'xgb', etc.).
             tuning_methods (List[str]): List of tuning methods ('holdout', 'cv').
-            hpo_methods (List[str]): List of HPO methods ('HEBO', 'RS').
+            hpo_methods (List[str]): List of HPO methods ('hebo', 'rs').
             criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
+            encodings (List[str]): List of encodings ('one_hot' or 'target').
             sampling (str): Sampling strategy to use.
             factor (float): Factor for resampling.
             n_configs (int): Number of configurations for hyperparameter tuning.
@@ -201,6 +206,7 @@ class MultiBenchmarker:
         self.tuning_methods = tuning_methods
         self.hpo_methods = hpo_methods
         self.criteria = criteria
+        self.encoding = encodings
         self.sampling = sampling
         self.factor = factor
         self.n_configs = n_configs
@@ -212,16 +218,18 @@ class MultiBenchmarker:
         """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
         results = []
 
-        # Loop through all combinations
-        for task, learner, tuning, hpo, criterion in itertools.product(
+        for task, learner, tuning, hpo, criterion, encoding in itertools.product(
             self.tasks,
             self.learners,
             self.tuning_methods,
             self.hpo_methods,
             self.criteria,
+            self.encoding,
         ):
-            # Skip invalid combinations
-            if criterion == "macro_f1" and task != "pdgrouprevaluation":
+            if (criterion == "macro_f1" and task != "pdgrouprevaluation") or (
+                criterion == "f1" and task == "pdgrouprevaluation"
+            ):
+                print(f"Criterion '{criterion}' and task '{task}' not valid.")
                 continue
 
             print(
@@ -229,10 +237,10 @@ class MultiBenchmarker:
                 f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}"
             )
 
-            # Instantiate and run the Benchmarker for the current combination
             benchmarker = Benchmarker(
                 task=task,
                 criterion=criterion,
+                encoding=encoding,
                 tuning=tuning,
                 hpo=hpo,
                 sampling=self.sampling,
@@ -244,7 +252,6 @@ class MultiBenchmarker:
             )
 
             try:
-                # Perform evaluation and collect the results
                 metrics = benchmarker.perform_evaluation(learner)
                 unpacked_metrics = {
                     k: round(v, 4) if isinstance(v, float) else v
@@ -258,12 +265,13 @@ class MultiBenchmarker:
                         "Tuning": tuning,
                         "HPO": hpo,
                         "Criterion": criterion,
-                        **unpacked_metrics,  # Unpack rounded metrics here
+                        **unpacked_metrics,
                     }
                 )
 
             except Exception as e:
                 print(f"Error running benchmark for {task}, {learner}: {e}\n")
+                traceback.print_exc()
 
         df_results = pd.DataFrame(results)
         self._print_results_table(df_results)
@@ -282,12 +290,13 @@ class MultiBenchmarker:
 
 
 def main():
-    tasks = ["pocketclosure"]
-    # learners = ["XGB", "RandomForest", "LogisticRegression", "MLP"]
-    learners = ["XGB"]
+    tasks = ["pdgrouprevaluation"]
+    learners = ["xgb", "rf", "lr", "mlp"]
+    # learners = ["xgb"]
     tuning_methods = ["holdout"]
-    hpo_methods = ["HEBO", "RS"]
-    criteria = ["f1"]
+    hpo_methods = ["hebo"]
+    criteria = ["macro_f1"]
+    encoding = ["target"]
 
     multi_benchmarker = MultiBenchmarker(
         tasks=tasks,
@@ -295,6 +304,7 @@ def main():
         tuning_methods=tuning_methods,
         hpo_methods=hpo_methods,
         criteria=criteria,
+        encodings=encoding,
         sampling=None,
         factor=None,
         n_configs=3,

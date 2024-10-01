@@ -7,93 +7,26 @@ import hydra
 import numpy as np
 from omegaconf import DictConfig
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 
+from pamod.base import BaseData
 from pamod.config import PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR, RAW_DATA_DIR
 from pamod.data import FunctionPreprocessor
 
 
-class StaticProcessEngine:
+class StaticProcessEngine(BaseData):
     """Preprocesses periodontal dataset for machine learning."""
 
-    def __init__(self, behavior: bool, scale: bool, encoding: str) -> None:
+    def __init__(self, scale: bool, behavior: bool) -> None:
         """Initializes the StaticProcessEngine.
 
         Args:
-            behavior (bool): If True, includes behavioral columns in processing.
             scale (bool): If True, performs scaling on numeric columns.
-            encoding (str): Specifies the encoding for categorical columns.
-                Options: 'one_hot', 'target', or None.
+            behavior (bool): If True, includes behavioral columns in processing.
         """
+        super().__init__()
         self.behavior = behavior
         self.scale = scale
-        self.encoding = encoding
-        self.required_columns = [
-            "ID_patient",
-            "Tooth",
-            "Toothtype",
-            "RootNumber",
-            "Mobility",
-            "Restoration",
-            "Percussion-sensitivity",
-            "Sensitivity",
-            "FurcationBaseline",
-            "Side",
-            "PdBaseline",
-            "RecBaseline",
-            "Plaque",
-            "BOP",
-            "Age",
-            "Gender",
-            "BodyMassIndex",
-            "PerioFamilyHistory",
-            "Diabetes",
-            "SmokingType",
-            "CigaretteNumber",
-            "AntibioticTreatment",
-            "Stresslvl",
-            "PdRevaluation",
-            "BOPRevaluation",
-            "Pregnant",
-        ]
-        self.cat_vars = [
-            "side",
-            "restoration",
-            "periofamilyhistory",
-            "diabetes",
-            "toothtype",
-            "tooth",
-            "furcationbaseline",
-            "smokingtype",
-            "stresslvl",
-        ]
-        self.bin_var = [
-            "antibiotictreatment",
-            "boprevaluation",
-            "plaque",
-            "bop",
-            "mobility",
-            "percussion-sensitivity",
-            "sensitivity",
-            "rootnumber",
-            "gender",
-        ]
-        self.scale_vars = [
-            "pdbaseline",
-            "age",
-            "bodymassindex",
-            "recbaseline",
-            "cigarettenumber",
-        ]
-        self.behavior_columns = {
-            "binary": ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"],
-            "categorical": [
-                "OrthoddonticHistory",
-                "DentalVisits",
-                "Toothbrushing",
-                "DryMouth",
-            ],
-        }
 
     def load_data(
         self,
@@ -160,47 +93,6 @@ class StaticProcessEngine:
         scaler = StandardScaler()
         df[self.scale_vars] = scaler.fit_transform(df[self.scale_vars])
         return df
-
-    def _encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Encodes categorical columns in the DataFrame.
-
-        Args:
-            df (pd.DataFrame): The DataFrame containing categorical columns.
-
-        Returns:
-            pd.DataFrame: The DataFrame with encoded categorical columns.
-
-        Raises:
-            ValueError: If an invalid encoding type is specified.
-        """
-        if self.encoding is None:
-            return df
-
-        if self.encoding == "one_hot":
-            if self.behavior:
-                self.cat_vars += [
-                    col.lower() for col in self.behavior_columns["categorical"]
-                ]
-            df_reset = df.reset_index(drop=True)
-            df_reset[self.cat_vars] = df_reset[self.cat_vars].astype(str)
-            encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-            encoded_columns = encoder.fit_transform(df_reset[self.cat_vars])
-            encoded_df = pd.DataFrame(
-                encoded_columns, columns=encoder.get_feature_names_out(self.cat_vars)
-            )
-            df_final = pd.concat(
-                [df_reset.drop(self.cat_vars, axis=1), encoded_df], axis=1
-            )
-        elif self.encoding == "target":
-            df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
-            df_final = df.drop(columns=["tooth", "side"])
-        else:
-            raise ValueError(
-                f"Invalid encoding '{self.encoding}' specified. "
-                "Choose 'one_hot', 'target', or None."
-            )
-
-        return df_final
 
     def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
@@ -307,40 +199,8 @@ class StaticProcessEngine:
                     raise ValueError(f"Column {col} is not correctly scaled.")
         print("All required columns are correctly processed and present.")
 
-    def _check_encoded_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Verifies that categorical columns were correctly one-hot encoded.
-
-        Args:
-            df (pd.DataFrame): The DataFrame to check.
-
-        Raises:
-            ValueError: If columns are not correctly encoded.
-        """
-        if self.encoding == "one_hot":
-            if self.behavior:
-                self.cat_vars += [
-                    col.lower() for col in self.behavior_columns["categorical"]
-                ]
-            for col in self.cat_vars:
-                if col in df.columns:
-                    raise ValueError(
-                        f"Column '{col}' was not correctly one-hot encoded."
-                    )
-                matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
-                if not matching_columns:
-                    raise ValueError(f"No one-hot encoded columns for '{col}'.")
-            print("One-hot encoding was successful.")
-        elif self.encoding == "target":
-            if "toothside" not in df.columns:
-                raise ValueError("Target encoding for 'toothside' failed.")
-            print("Target encoding was successful.")
-        elif self.encoding is None:
-            print("No encoding was applied.")
-        else:
-            raise ValueError(f"Invalid encoding '{self.encoding}'.")
-
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Processes dataset with data cleaning, imputations, scaling, and encoding.
+        """Processes dataset with data cleaning, imputations and scaling.
 
         Args:
             df (pd.DataFrame): The input DataFrame.
@@ -418,9 +278,6 @@ class StaticProcessEngine:
             df = self._scale_numeric_columns(df)
             self._check_scaled_columns(df)
 
-        df = self._encode_categorical_columns(df)
-        self._check_encoded_columns(df)
-
         return df
 
     def save_processed_data(
@@ -453,9 +310,7 @@ class StaticProcessEngine:
 
 @hydra.main(config_path="../../config", config_name="config", version_base="1.2")
 def main(cfg: DictConfig):
-    engine = StaticProcessEngine(
-        behavior=cfg.data.behavior, scale=cfg.data.scale, encoding=cfg.data.encoding
-    )
+    engine = StaticProcessEngine(behavior=cfg.data.behavior, scale=cfg.data.scale)
     df = engine.load_data()
     df = engine.process_data(df)
     engine.save_processed_data(df)

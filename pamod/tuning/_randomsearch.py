@@ -13,7 +13,7 @@ from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 class RandomSearchTuner(BaseTuner, MetaTuner):
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str = "RS"
+        self, classification: str, criterion: str, tuning: str, hpo: str = "rs"
     ) -> None:
         """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
 
@@ -21,7 +21,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             classification (str): The type of classification ('binary' or 'multiclass').
             criterion (str): Evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): Type of tuning ('holdout' or 'cv').
-            hpo (str, optional): Hyperparameter optimization method (default is 'RS').
+            hpo (str, optional): Hyperparameter optimization method (default is 'rs').
         """
         super().__init__(classification, criterion, tuning, hpo)
         self.random_state = self.random_state_val

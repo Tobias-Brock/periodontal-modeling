@@ -1,4 +1,4 @@
-"""App."""
+"""GRadio frontend."""
 
 from typing import Optional, Tuple
 
@@ -7,58 +7,74 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from pamod.benchmarking import MultiBenchmarker
+from pamod.benchmarking import InputProcessor, MultiBenchmarker
 
 
 def run_benchmarks(
-    tasks: str,
-    learners: str,
-    tuning_methods: str,
-    hpo_methods: str,
-    criteria: str,
+    tasks: list,
+    learners: list,
+    tuning_methods: list,
+    hpo_methods: list,
+    criteria: list,
+    encoding: list,
     sampling: Optional[str],
     factor: Optional[float],
     n_configs: int,
     racing_folds: int,
     n_jobs: int,
 ) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
-    """Run benchmark evaluations with frontend.
+    """Run benchmark evaluations for different configurations.
 
     Args:
-        tasks (str): Comma-separated string of tasks (e.g., 'pocketclosure, improve').
-        learners (str): Comma-separated string of learners (e.g., 'XGB, RandomForest').
-        tuning_methods (str): Comma-seperated string of tuning methods.
-        hpo_methods (str): Comma-separated string of HPO methods (e.g., 'HEBO, RS').
-        criteria (str): Comma-separated string of evaluation criteria
-            (e.g., 'f1, brier_score').
-        sampling (str): Sampling strategy to use ('smote', 'upsampling', 'None', etc.).
-        factor (float): Resampling factor as a string or 'None'.
+        tasks (list): List of task names to benchmark (e.g., ['pocketclosure',
+            'improve']).
+        learners (list): List of learners to be evaluated (e.g., ['xgb',
+            'logreg']).
+        tuning_methods (list): List of tuning methods to apply ('holdout', 'cv').
+        hpo_methods (list): List of hyperparameter optimization (HPO) methods
+            ('hebo', 'rs').
+        criteria (list): List of evaluation criteria ('f1', 'brier_score', etc.).
+        encoding (list): List of encoding methods to apply to categorical data
+            ('one_hot', 'target').
+        sampling (Optional[str]): Sampling strategy to use, if any.
+        factor (Optional[float]): Factor to control the resampling process, if
+            applicable.
         n_configs (int): Number of configurations for hyperparameter tuning.
-        racing_folds (int): Number of racing folds for Random Search.
-        n_jobs (int): Number of parallel jobs to run.
+        racing_folds (int): Number of folds to use for racing during random
+            search (RS).
+        n_jobs (int): Number of parallel jobs to run during evaluation.
 
     Returns:
         Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
-            - df_results: DataFrame containing benchmark results.
-            - metrics_plot: Matplotlib figure with key metrics comparison plot.
-            - conf_matrix_plot: Matplotlib figure with confusion matrix plot, or None.
+            - A DataFrame containing benchmark results.
+            - A matplotlib figure showing performance metrics (F1 Score,
+              Accuracy, etc.) for each learner.
+            - A confusion matrix plot (if available).
     """
+    tasks = InputProcessor.process_tasks(tasks)
+    learners = InputProcessor.process_learners(learners)
+    tuning_methods = InputProcessor.process_tuning(tuning_methods)
+    hpo_methods = InputProcessor.process_hpo(hpo_methods)
+    criteria = InputProcessor.process_criteria(criteria)
+    encodings = InputProcessor.process_encoding(encoding)
+
+    encodings = [e for e in encoding if e in ["One-hot", "Target"]]
+    if not encodings:
+        raise ValueError("No valid encodings provided.")
+    encodings = InputProcessor.process_encoding(encodings)
+
+    # Handle None inputs for sampling and factor
     sampling = None if sampling == "None" else sampling
     factor = None if factor == "None" else float(factor) if factor else None
 
-    tasks_list = [task.strip() for task in tasks.split(",")]
-    learners_list = [learner.strip() for learner in learners.split(",")]
-    tuning_methods_list = [tuning.strip() for tuning in tuning_methods.split(",")]
-    hpo_methods_list = [hpo.strip() for hpo in hpo_methods.split(",")]
-    criteria_list = [criterion.strip() for criterion in criteria.split(",")]
-
     # Instantiate and run the MultiBenchmarker
     benchmarker = MultiBenchmarker(
-        tasks=tasks_list,
-        learners=learners_list,
-        tuning_methods=tuning_methods_list,
-        hpo_methods=hpo_methods_list,
-        criteria=criteria_list,
+        tasks=tasks,
+        learners=learners,
+        tuning_methods=tuning_methods,
+        hpo_methods=hpo_methods,
+        criteria=criteria,
+        encodings=encodings,
         sampling=sampling,
         factor=factor,
         n_configs=int(n_configs),
@@ -76,7 +92,7 @@ def run_benchmarks(
     df_results = df_results.round(4)
 
     # Plot key metrics
-    plt.figure(figsize=(10, 6), dpi=200)
+    plt.figure(figsize=(6, 4), dpi=300)
     df_results.plot(
         x="Learner",
         y=["F1 Score", "Accuracy", "ROC AUC Score"],
@@ -96,7 +112,7 @@ def run_benchmarks(
     conf_matrix_plot = None
     if "Confusion Matrix" in df_results.columns:
         cm = df_results["Confusion Matrix"].iloc[0]  # Use the first result as example
-        plt.figure(figsize=(6, 4), dpi=200)
+        plt.figure(figsize=(6, 4), dpi=300)
         sns.heatmap(cm, annot=True, fmt="g", cmap="Blues")
         plt.title("Confusion Matrix")
         plt.xlabel("Predicted")
@@ -108,32 +124,64 @@ def run_benchmarks(
 
 # Gradio UI components
 with gr.Blocks() as app:
-    gr.Markdown("## ML Pariodontal Modeling")
+    gr.Markdown("## ML Periodontal Modeling")
 
-    # Inputs for tasks, learners, tuning methods, HPO methods, and criteria
-    task_input = gr.Textbox(
-        label="Tasks (comma-separated)",
-        placeholder="e.g., pocketclosure, improve, pdgrouprevaluation",
-    )
-    learners_input = gr.Textbox(
-        label="Learners (comma-separated)",
-        placeholder="e.g., XGB, RandomForest, LogisticRegression, MLP",
-    )
-    tuning_methods_input = gr.Textbox(
-        label="Tuning Methods (comma-separated)", placeholder="e.g., holdout, cv"
-    )
-    hpo_methods_input = gr.Textbox(
-        label="HPO Methods (comma-separated)", placeholder="e.g., HEBO, RS"
-    )
-    criteria_input = gr.Textbox(
-        label="Criteria (comma-separated)",
-        placeholder="e.g., f1, brier_score, macro_f1",
+    # Task selection
+    task_input = gr.CheckboxGroup(
+        label="Tasks",
+        choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
+        value=["Pocket closure"],  # Default value can be set
     )
 
-    # Additional parameters
-    sampling_input = gr.Textbox(label="Sampling Strategy", placeholder="e.g., None")
-    factor_input = gr.Textbox(label="Resampling Factor", placeholder="e.g., None")
-    n_configs_input = gr.Number(label="Number of Configurations", value=10)
+    # Learner selection
+    learners_input = gr.CheckboxGroup(
+        label="Learners",
+        choices=[
+            "XGBoost",
+            "Random Forest",
+            "Logistic Regression",
+            "Multilayer Perceptron",
+        ],
+        value=["XGBoost"],  # Default value can be set
+    )
+
+    # Tuning method selection
+    tuning_methods_input = gr.CheckboxGroup(
+        label="Tuning Methods",
+        choices=["Holdout", "Cross-Validation"],
+        value=["Holdout"],  # Default value can be set
+    )
+
+    # HPO method selection
+    hpo_methods_input = gr.CheckboxGroup(
+        label="HPO Methods",
+        choices=["HEBO", "Random Search"],
+        value=["HEBO"],  # Default value can be set
+    )
+
+    # Criteria selection
+    criteria_input = gr.CheckboxGroup(
+        label="Criteria",
+        choices=["F1 Score", "Brier Score", "Macro F1 Score"],
+        value=["F1 Score"],  # Default value can be set
+    )
+
+    encodings_input = gr.CheckboxGroup(
+        label="Encoding",
+        choices=["One-hot", "Target"],
+        value=["One-hot"],  # Default value can be set
+    )
+
+    # Sampling strategy
+    sampling_input = gr.Dropdown(
+        label="Sampling Strategy",
+        choices=["None", "upsampling", "downsampling", "smote"],
+        value="None",  # Default value is None
+    )
+
+    # Other inputs
+    factor_input = gr.Textbox(label="Sampling Factor", value=None)
+    n_configs_input = gr.Number(label="Number of Configurations", value=5)
     racing_folds_input = gr.Number(label="Racing Folds", value=5)
     n_jobs_input = gr.Number(label="Number of Jobs", value=-1)
 
@@ -154,6 +202,7 @@ with gr.Blocks() as app:
             tuning_methods_input,
             hpo_methods_input,
             criteria_input,
+            encodings_input,
             sampling_input,
             factor_input,
             n_configs_input,
