@@ -20,19 +20,19 @@ markdown_extensions:
 nav:
   - pamod: index.md
   - pamod.app: "reference/app.md"
-  - pamod.benchmarking: 
+  - pamod.benchmarking:
       - Becnhmarker: "reference/benchmarking/benchmarker.md"
       - MultiBecnhmarker: "reference/benchmarking/multibenchmarker.md"
       - InputProcessor: "reference/benchmarking/processor.md"
-  - pamod.data: 
+  - pamod.data:
       - StaticProcessEngine: "reference/data/staticengine.md"
       - ProcessDataHelper: "reference/data/datahelper.md"
       - ProcessedDataLoader: "reference/data/dataloader.md"
   - pamod.descriptives:
       - DescriptivesPlotter: "reference/descriptives/descriptives.md"
-  - pamod.learner: 
+  - pamod.learner:
       - Model: "reference/learner/model.md"
-  - pamod.resampling: 
+  - pamod.resampling:
       - Resampler: "reference/resampling/resampler.md"
   - pamod.training:
       - brier_loss_multi: "reference/training/brier_multi.md"
@@ -41,7 +41,7 @@ nav:
       - MetricEvaluator: "reference/training/metrics.md"
       - MLPTrainer: "reference/training/mlptrainer.md"
       - Trainer: "reference/training/trainer.md"
-  - pamod.tuning: 
+  - pamod.tuning:
       - BaseTuner: "reference/tuning/basetuner.md"
       - MetaTuner: "reference/tuning/metatuner.md"
       - HeboTuner: "reference/tuning/hebotuner.md"

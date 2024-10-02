@@ -64,7 +64,6 @@ class Trainer(BaseEvaluator):
                 model, X_train, y_train, X_val, y_val
             )
         else:
-            # For non-MLP models, perform standard training and evaluation
             model.fit(X_train, y_train)
             probs = get_probs(model, self.classification, X_val)
             best_threshold = None
@@ -137,7 +136,7 @@ class Trainer(BaseEvaluator):
                 'brier_score'.
         """
         if self.criterion == "brier_score":
-            return None  # Thresholding is not applicable for Brier score
+            return None
 
         elif self.criterion == "f1":
             thresholds = np.linspace(0, 1, 101)
@@ -210,9 +209,10 @@ class Trainer(BaseEvaluator):
         model = Model.get_model(learner, self.classification)
         final_model = clone(model)
         final_model.set_params(**best_params)
+        final_model.best_threshold = best_threshold
 
         if "n_jobs" in final_model.get_params():
-            final_model.set_params(n_jobs=n_jobs)  # Set parallel jobs if supported
+            final_model.set_params(n_jobs=n_jobs)
 
         train_df, test_df = resampler.split_train_test_df(df)
 
@@ -249,9 +249,9 @@ class Trainer(BaseEvaluator):
             results = {
                 "Learner": learner,
                 "Tuning": "final",
-                "HPO": self.hpo,  # Final model doesn't involve HPO
+                "HPO": self.hpo,
                 "Criterion": self.criterion,
-                **unpacked_metrics,  # Unpack rounded metrics here
+                **unpacked_metrics,
             }
 
             df_results = pd.DataFrame([results])

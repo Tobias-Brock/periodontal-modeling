@@ -1,6 +1,6 @@
 import itertools
 import traceback
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -214,9 +214,10 @@ class MultiBenchmarker:
         self.n_jobs = n_jobs
         self.verbosity = verbosity
 
-    def run_all_benchmarks(self) -> pd.DataFrame:
+    def run_all_benchmarks(self) -> Tuple[pd.DataFrame, dict]:
         """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
         results = []
+        learners_dict = {}
 
         for task, learner, tuning, hpo, criterion, encoding in itertools.product(
             self.tasks,
@@ -252,10 +253,13 @@ class MultiBenchmarker:
             )
 
             try:
-                metrics = benchmarker.perform_evaluation(learner)
+                result = benchmarker.perform_evaluation(learner)
+                metrics = result["metrics"]
+                trained_model = result["model"]
+
                 unpacked_metrics = {
                     k: round(v, 4) if isinstance(v, float) else v
-                    for k, v in metrics["metrics"].items()
+                    for k, v in metrics.items()
                 }
 
                 results.append(
@@ -269,13 +273,17 @@ class MultiBenchmarker:
                     }
                 )
 
+                learners_dict[f"{task}_{learner}_{tuning}_{hpo}_{criterion}"] = (
+                    trained_model
+                )
+
             except Exception as e:
                 print(f"Error running benchmark for {task}, {learner}: {e}\n")
                 traceback.print_exc()
 
         df_results = pd.DataFrame(results)
         self._print_results_table(df_results)
-        return df_results
+        return df_results, learners_dict
 
     def _print_results_table(self, df_results: pd.DataFrame) -> None:
         """Print the benchmark results in a tabular format.
