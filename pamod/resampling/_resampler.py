@@ -5,12 +5,13 @@ from imblearn.under_sampling import RandomUnderSampler
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
+from sklearn.preprocessing._target_encoder import TargetEncoder
 
-from pamod.base import BaseValidator
+from pamod.base import BaseData, BaseValidator
 
 
-class Resampler(BaseValidator):
-    def __init__(self, classification: str) -> None:
+class Resampler(BaseValidator, BaseData):
+    def __init__(self, classification: str, encoding: str) -> None:
         """Initializes the Resampler class.
 
         Loads Hydra config values and sets parameters for random states, test sizes,
@@ -18,8 +19,11 @@ class Resampler(BaseValidator):
 
         Args:
             classification (str): The type of classification ('binary' or 'multiclass').
+            encoding (str): Tyoe if encoding ('one_hot' or 'target').
         """
-        super().__init__(classification)
+        BaseValidator.__init__(self, classification)
+        BaseData.__init__(self)
+        self.encoding = encoding
 
     def apply_sampling(
         self,
@@ -67,7 +71,7 @@ class Resampler(BaseValidator):
                     2: sum(y == 2) * sampling_factor,
                 }
             elif self.classification == "binary":
-                up_strategy = {1: sum(y == 1) * sampling_factor}
+                up_strategy = {0: sum(y == 0) * sampling_factor}
             up_sampler = RandomOverSampler(
                 sampling_strategy=up_strategy, random_state=self.random_state_sampling
             )
@@ -75,7 +79,7 @@ class Resampler(BaseValidator):
 
         elif sampling == "downsampling":
             if self.classification in ["binary", "multiclass"]:
-                down_strategy = {0: sum(y == 0) // sampling_factor}
+                down_strategy = {1: sum(y == 1) // sampling_factor}
             down_sampler = RandomUnderSampler(
                 sampling_strategy=down_strategy, random_state=self.random_state_sampling
             )
@@ -83,6 +87,48 @@ class Resampler(BaseValidator):
 
         else:
             return X, y
+
+    def _apply_target_encoding(
+        self, X_train: pd.DataFrame, X_val: pd.DataFrame, y_train: pd.Series
+    ) -> pd.DataFrame:
+        """Applies target encoding to categorical variables.
+
+        Args:
+            X_train (pd.DataFrame): Training dataset.
+            X_val (pd.DataFrame): Validation dataset.
+            y_train (pd.Series): The target variable.
+
+        Returns:
+            pd.DataFrame: Dataset with target encoded features.
+        """
+        cat_vars = [col for col in self.all_cat_vars if col in X_train.columns]
+
+        if cat_vars:
+            encoder = TargetEncoder(target_type=self.classification)
+            X_train_encoded = encoder.fit_transform(X_train[cat_vars], y_train)
+            X_val_encoded = encoder.transform(X_val[cat_vars])
+
+            if self.classification == "multiclass":
+                n_classes = len(set(y_train))
+                encoded_cols = [
+                    f"{col}_class_{i}" for col in cat_vars for i in range(n_classes)
+                ]
+            else:
+                encoded_cols = cat_vars
+
+            X_train_encoded = pd.DataFrame(
+                X_train_encoded, columns=encoded_cols, index=X_train.index
+            )
+            X_val_encoded = pd.DataFrame(
+                X_val_encoded, columns=encoded_cols, index=X_val.index
+            )
+
+            X_train.drop(columns=cat_vars, inplace=True)
+            X_val.drop(columns=cat_vars, inplace=True)
+            X_train = pd.concat([X_train, X_train_encoded], axis=1)
+            X_val = pd.concat([X_val, X_val_encoded], axis=1)
+
+        return X_train, X_val
 
     def split_train_test_df(
         self, df: pd.DataFrame
@@ -147,13 +193,14 @@ class Resampler(BaseValidator):
         Raises:
             ValueError: If required columns are missing or sampling method is invalid.
         """
-        # Split into features and labels
         X_train = train_df.drop(["y"], axis=1)
         y_train = train_df["y"]
         X_test = test_df.drop(["y"], axis=1)
         y_test = test_df["y"]
 
-        # Apply resampling if specified
+        if self.encoding == "target":
+            X_train, X_test = self._apply_target_encoding(X_train, X_test, y_train)
+
         if sampling is not None:
             X_train, y_train = self.apply_sampling(X_train, y_train, sampling, factor)
 
@@ -176,7 +223,7 @@ class Resampler(BaseValidator):
 
         Args:
             df (pd.DataFrame): Input DataFrame.
-            sampling (str, optional): Resampling method to apply (e.g.,
+            sampling (str, optional): Sampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
@@ -227,5 +274,15 @@ class Resampler(BaseValidator):
                     "Validation folds' data are not consistent after applying sampling "
                     "strategies."
                 )
+        if self.encoding == "target":
+            outer_splits_t = []
+
+            for (X_t, y_t), (X_val, y_val) in outer_splits:
+                X_t, y_t, X_val = self._apply_target_encoding(X_t, y_t, X_val)
+                if sampling == "smote":
+                    X_t, y_t = self.apply_sampling(X_t, y_t, sampling, factor)
+
+                outer_splits_t.append(((X_t, y_t), (X_val, y_val)))
+            outer_splits = outer_splits_t
 
         return outer_splits, cv_folds_indices

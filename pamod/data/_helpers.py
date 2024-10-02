@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-class FunctionPreprocessor:
+class ProcessDataHelper:
     def __init__(self):
         """Initialize Preprocessor with helper data without storing the DataFrame."""
         self.teeth_neighbors = self.get_teeth_neighbors()

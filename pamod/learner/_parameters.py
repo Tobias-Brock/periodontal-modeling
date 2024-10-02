@@ -287,7 +287,7 @@ mlp_search_space_hebo = [
         "categories": ["constant", "invscaling", "adaptive"],
     },
     {"name": "learning_rate_init", "type": "num", "lb": 0.001, "ub": 0.05},
-    {"name": "max_iter", "type": "cat", "categories": [200, 300, 500]},
+    {"name": "max_iter", "type": "cat", "categories": [50, 70, 100]},
     {"name": "shuffle", "type": "cat", "categories": [True, False]},
     {"name": "tol", "type": "num", "lb": 0.0001, "ub": 0.01},
     {"name": "momentum", "type": "num", "lb": 0.9, "ub": 0.99},
