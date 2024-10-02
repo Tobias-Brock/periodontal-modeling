@@ -1,216 +1,254 @@
-"""GRadio frontend."""
-
-from typing import Optional, Tuple
+"""Gradio frontend."""
 
 import gradio as gr
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 
-from pamod.benchmarking import InputProcessor, MultiBenchmarker
+from pamod.app import (
+    load_and_initialize_plotter,
+    load_data,
+    plot_cm,
+    plot_fi,
+    plot_histogram_2d,
+    plot_matrix,
+    plot_outcome_descriptive,
+    plot_pocket_comparison,
+    plot_pocket_group_comparison,
+    run_benchmarks,
+)
 
-
-def run_benchmarks(
-    tasks: list,
-    learners: list,
-    tuning_methods: list,
-    hpo_methods: list,
-    criteria: list,
-    encoding: list,
-    sampling: Optional[str],
-    factor: Optional[float],
-    n_configs: int,
-    racing_folds: int,
-    n_jobs: int,
-) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
-    """Run benchmark evaluations for different configurations.
-
-    Args:
-        tasks (list): List of task names to benchmark (e.g., ['pocketclosure',
-            'improve']).
-        learners (list): List of learners to be evaluated (e.g., ['xgb',
-            'logreg']).
-        tuning_methods (list): List of tuning methods to apply ('holdout', 'cv').
-        hpo_methods (list): List of hyperparameter optimization (HPO) methods
-            ('hebo', 'rs').
-        criteria (list): List of evaluation criteria ('f1', 'brier_score', etc.).
-        encoding (list): List of encoding methods to apply to categorical data
-            ('one_hot', 'target').
-        sampling (Optional[str]): Sampling strategy to use, if any.
-        factor (Optional[float]): Factor to control the resampling process, if
-            applicable.
-        n_configs (int): Number of configurations for hyperparameter tuning.
-        racing_folds (int): Number of folds to use for racing during random
-            search (RS).
-        n_jobs (int): Number of parallel jobs to run during evaluation.
-
-    Returns:
-        Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
-            - A DataFrame containing benchmark results.
-            - A matplotlib figure showing performance metrics (F1 Score,
-              Accuracy, etc.) for each learner.
-            - A confusion matrix plot (if available).
-    """
-    tasks = InputProcessor.process_tasks(tasks)
-    learners = InputProcessor.process_learners(learners)
-    tuning_methods = InputProcessor.process_tuning(tuning_methods)
-    hpo_methods = InputProcessor.process_hpo(hpo_methods)
-    criteria = InputProcessor.process_criteria(criteria)
-    encodings = InputProcessor.process_encoding(encoding)
-
-    encodings = [e for e in encoding if e in ["One-hot", "Target"]]
-    if not encodings:
-        raise ValueError("No valid encodings provided.")
-    encodings = InputProcessor.process_encoding(encodings)
-
-    # Handle None inputs for sampling and factor
-    sampling = None if sampling == "None" else sampling
-    factor = None if factor == "None" else float(factor) if factor else None
-
-    # Instantiate and run the MultiBenchmarker
-    benchmarker = MultiBenchmarker(
-        tasks=tasks,
-        learners=learners,
-        tuning_methods=tuning_methods,
-        hpo_methods=hpo_methods,
-        criteria=criteria,
-        encodings=encodings,
-        sampling=sampling,
-        factor=factor,
-        n_configs=int(n_configs),
-        racing_folds=int(racing_folds),
-        n_jobs=int(n_jobs),
-    )
-
-    # Capture the results
-    df_results = benchmarker.run_all_benchmarks()
-
-    if df_results.empty:
-        return "No results to display", None, None
-
-    # Round values for better readability
-    df_results = df_results.round(4)
-
-    # Plot key metrics
-    plt.figure(figsize=(6, 4), dpi=300)
-    df_results.plot(
-        x="Learner",
-        y=["F1 Score", "Accuracy", "ROC AUC Score"],
-        kind="bar",
-        ax=plt.gca(),
-    )
-    plt.title("Benchmark Metrics for Each Learner")
-    plt.xlabel("Learner")
-    plt.ylabel("Score")
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-
-    # Save the plot to be displayed in Gradio
-    metrics_plot = plt.gcf()
-
-    # Confusion Matrix Plot
-    conf_matrix_plot = None
-    if "Confusion Matrix" in df_results.columns:
-        cm = df_results["Confusion Matrix"].iloc[0]  # Use the first result as example
-        plt.figure(figsize=(6, 4), dpi=300)
-        sns.heatmap(cm, annot=True, fmt="g", cmap="Blues")
-        plt.title("Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("True")
-        conf_matrix_plot = plt.gcf()
-
-    return df_results, metrics_plot, conf_matrix_plot
-
-
-# Gradio UI components
 with gr.Blocks() as app:
     gr.Markdown("## ML Periodontal Modeling")
 
-    # Task selection
-    task_input = gr.CheckboxGroup(
-        label="Tasks",
-        choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
-        value=["Pocket closure"],  # Default value can be set
-    )
+    models_state = gr.State()
 
-    # Learner selection
-    learners_input = gr.CheckboxGroup(
-        label="Learners",
-        choices=[
-            "XGBoost",
-            "Random Forest",
-            "Logistic Regression",
-            "Multilayer Perceptron",
-        ],
-        value=["XGBoost"],  # Default value can be set
-    )
+    with gr.Tabs():
+        with gr.Tab("Descriptives"):
+            load_button = gr.Button("Load Data", scale=1)
+            load_output = gr.Textbox(label="Status", interactive=False, scale=2)
 
-    # Tuning method selection
-    tuning_methods_input = gr.CheckboxGroup(
-        label="Tuning Methods",
-        choices=["Holdout", "Cross-Validation"],
-        value=["Holdout"],  # Default value can be set
-    )
+            with gr.Row():
+                column_before_input = gr.Textbox(
+                    label="Column Before", value="pdbaseline", scale=1
+                )
+                column_after_input = gr.Textbox(
+                    label="Column After", value="pdrevaluation", scale=1
+                )
+                plot_hist_2d_button = gr.Button("Plot 2D Histogram", scale=1)
+            hist_2d_output = gr.Plot(scale=6)
 
-    # HPO method selection
-    hpo_methods_input = gr.CheckboxGroup(
-        label="HPO Methods",
-        choices=["HEBO", "Random Search"],
-        value=["HEBO"],  # Default value can be set
-    )
+            with gr.Row():
+                column1_input = gr.Textbox(
+                    label="Column 1", value="pdbaseline", scale=1
+                )
+                column2_input = gr.Textbox(
+                    label="Column 2", value="pdrevaluation", scale=1
+                )
+                plot_comparison_button = gr.Button("Plot Pocket Comparison", scale=1)
+            pocket_comparison_output = gr.Plot(scale=6)
 
-    # Criteria selection
-    criteria_input = gr.CheckboxGroup(
-        label="Criteria",
-        choices=["F1 Score", "Brier Score", "Macro F1 Score"],
-        value=["F1 Score"],  # Default value can be set
-    )
+            with gr.Row():
+                group_column_before_input = gr.Textbox(
+                    label="Group Before", value="pdgroupbase", scale=1
+                )
+                group_column_after_input = gr.Textbox(
+                    label="Group After", value="pdgrouprevaluation", scale=1
+                )
+                plot_group_comparison_button = gr.Button(
+                    "Plot Pocket Group Comparison", scale=1
+                )
+            group_comparison_output = gr.Plot(scale=6)
 
-    encodings_input = gr.CheckboxGroup(
-        label="Encoding",
-        choices=["One-hot", "Target"],
-        value=["One-hot"],  # Default value can be set
-    )
+            with gr.Row():
+                vertical_input = gr.Textbox(
+                    label="Vertical Column", value="pdgrouprevaluation", scale=1
+                )
+                horizontal_input = gr.Textbox(
+                    label="Horizontal Column", value="pdgroupbase", scale=1
+                )
+                plot_matrix_button = gr.Button("Plot Matrix", scale=1)
+            matrix_output = gr.Plot(scale=6)
 
-    # Sampling strategy
-    sampling_input = gr.Dropdown(
-        label="Sampling Strategy",
-        choices=["None", "upsampling", "downsampling", "smote"],
-        value="None",  # Default value is None
-    )
+            with gr.Row():
+                outcome_input = gr.Textbox(
+                    label="Outcome Column", value="pdgrouprevaluation", scale=1
+                )
+                title_input = gr.Textbox(
+                    label="Plot Title", value="Distribution of Classes", scale=1
+                )
+                plot_outcome_button = gr.Button("Plot Outcome Descriptive", scale=1)
+            outcome_output = gr.Plot(scale=6)
 
-    # Other inputs
-    factor_input = gr.Textbox(label="Sampling Factor", value=None)
-    n_configs_input = gr.Number(label="Number of Configurations", value=5)
-    racing_folds_input = gr.Number(label="Racing Folds", value=5)
-    n_jobs_input = gr.Number(label="Number of Jobs", value=-1)
+            load_button.click(
+                fn=load_and_initialize_plotter, inputs=[], outputs=[load_output]
+            )
+            plot_hist_2d_button.click(
+                fn=plot_histogram_2d,
+                inputs=[column_before_input, column_after_input],
+                outputs=hist_2d_output,
+            )
+            plot_comparison_button.click(
+                fn=plot_pocket_comparison,
+                inputs=[column1_input, column2_input],
+                outputs=pocket_comparison_output,
+            )
+            plot_group_comparison_button.click(
+                fn=plot_pocket_group_comparison,
+                inputs=[group_column_before_input, group_column_after_input],
+                outputs=group_comparison_output,
+            )
+            plot_matrix_button.click(
+                fn=plot_matrix,
+                inputs=[vertical_input, horizontal_input],
+                outputs=matrix_output,
+            )
+            plot_outcome_button.click(
+                fn=plot_outcome_descriptive,
+                inputs=[outcome_input, title_input],
+                outputs=outcome_output,
+            )
 
-    # Button to run the benchmark
-    run_button = gr.Button("Run Benchmark")
+        with gr.Tab("Benchmarking"):
+            task_input = gr.CheckboxGroup(
+                label="Tasks",
+                choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
+                value=["Pocket closure"],
+            )
 
-    # Display area for the benchmark results
-    results_output = gr.Dataframe(label="Benchmark Results")
-    metrics_plot_output = gr.Plot(label="Metrics Comparison")
-    conf_matrix_output = gr.Plot(label="Confusion Matrix")
+            learners_input = gr.CheckboxGroup(
+                label="Learners",
+                choices=[
+                    "XGBoost",
+                    "Random Forest",
+                    "Logistic Regression",
+                    "Multilayer Perceptron",
+                ],
+                value=["XGBoost"],  # Default value can be set
+            )
 
-    # Set up action to run benchmarks and plot results
-    run_button.click(
-        fn=run_benchmarks,
-        inputs=[
-            task_input,
-            learners_input,
-            tuning_methods_input,
-            hpo_methods_input,
-            criteria_input,
-            encodings_input,
-            sampling_input,
-            factor_input,
-            n_configs_input,
-            racing_folds_input,
-            n_jobs_input,
-        ],
-        outputs=[results_output, metrics_plot_output, conf_matrix_output],
-    )
+            tuning_methods_input = gr.CheckboxGroup(
+                label="Tuning Methods",
+                choices=["Holdout", "Cross-Validation"],
+                value=["Holdout"],  # Default value can be set
+            )
 
-# Launch the Gradio app
+            hpo_methods_input = gr.CheckboxGroup(
+                label="HPO Methods",
+                choices=["HEBO", "Random Search"],
+                value=["HEBO"],  # Default value can be set
+            )
+
+            criteria_input = gr.CheckboxGroup(
+                label="Criteria",
+                choices=["F1 Score", "Brier Score", "Macro F1 Score"],
+                value=["F1 Score"],  # Default value can be set
+            )
+
+            encodings_input = gr.CheckboxGroup(
+                label="Encoding",
+                choices=["One-hot", "Target"],
+                value=["One-hot"],  # Default value can be set
+            )
+
+            sampling_input = gr.Dropdown(
+                label="Sampling Strategy",
+                choices=["None", "upsampling", "downsampling", "smote"],
+                value="None",  # Default value is None
+            )
+
+            factor_input = gr.Textbox(label="Sampling Factor", value=None)
+            n_configs_input = gr.Number(label="Number of Configurations", value=5)
+            racing_folds_input = gr.Number(label="Racing Folds", value=5)
+            n_jobs_input = gr.Number(label="Number of Jobs", value=-1)
+
+            run_button = gr.Button("Run Benchmark")
+
+            results_output = gr.Dataframe(label="Benchmark Results")
+            metrics_plot_output = gr.Plot(label="Metrics Comparison")
+            models_state = gr.State()
+
+            run_button.click(
+                fn=run_benchmarks,
+                inputs=[
+                    task_input,
+                    learners_input,
+                    tuning_methods_input,
+                    hpo_methods_input,
+                    criteria_input,
+                    encodings_input,
+                    sampling_input,
+                    factor_input,
+                    n_configs_input,
+                    racing_folds_input,
+                    n_jobs_input,
+                ],
+                outputs=[results_output, metrics_plot_output, models_state],
+            )
+
+        with gr.Tab("Evaluation"):
+            gr.Markdown("### Evaluation")
+
+            task_input = gr.Textbox(label="Task", value="Pocket closure")
+            encoding_input = gr.Dropdown(
+                label="Encoding",
+                choices=["one_hot", "target"],
+                value="one_hot",
+            )
+
+            load_data_button = gr.Button("Load Data")
+            load_status_output = gr.Textbox(label="Status", interactive=False)
+
+            X_train_state = gr.State()
+            y_train_state = gr.State()
+            X_test_state = gr.State()
+            y_test_state = gr.State()
+
+            generate_confusion_matrix_button = gr.Button("Generate Confusion Matrix")
+            matrix_plot = gr.Plot()
+
+            importance_type_input = gr.CheckboxGroup(
+                label="Importance Types",
+                choices=["shap", "permutation", "standard"],
+                value=["shap"],
+            )
+
+            generate_feature_importance_button = gr.Button(
+                "Generate Feature Importance"
+            )
+
+            fi_plot = gr.Plot()
+
+            load_data_button.click(
+                fn=load_data,
+                inputs=[task_input, encoding_input],
+                outputs=[
+                    load_status_output,
+                    X_train_state,
+                    y_train_state,
+                    X_test_state,
+                    y_test_state,
+                ],
+            )
+
+            generate_confusion_matrix_button.click(
+                fn=lambda models, X_test, y_test: plot_cm(models, X_test, y_test),
+                inputs=[models_state, X_test_state, y_test_state],
+                outputs=matrix_plot,
+            )
+
+            generate_feature_importance_button.click(
+                fn=lambda models, importance_types, X_test, y_test, encoding: plot_fi(
+                    models, importance_types, X_test, y_test, encoding
+                ),
+                inputs=[
+                    models_state,
+                    importance_type_input,
+                    X_test_state,
+                    y_test_state,
+                    encoding_input,
+                ],
+                outputs=fi_plot,
+            )
+
+        with gr.Tab("Inference"):
+            gr.Markdown("### Inference")
+
 app.launch()
