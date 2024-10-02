@@ -1,4 +1,4 @@
-"""Package provides training methods."""
+"""Module provides training methods."""
 
 from pamod.training._metrics import (
     MetricEvaluator,

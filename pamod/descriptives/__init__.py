@@ -1,4 +1,4 @@
-"""Package provides plots and methods for descriptives."""
+"""Module provides plots and methods for descriptives."""
 
 from pamod.descriptives._descriptives import DescriptivesPlotter
 

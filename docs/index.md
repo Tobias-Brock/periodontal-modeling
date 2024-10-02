@@ -1,8 +1,8 @@
-# pamod documentation!
+# pa-modeling documentation
 
 ## Description
 
-Package for short term periodontal modeling
+pa-modeling is a fully-automated benchmarking package for short term periodontal modeling.
 
 ## Commands
 

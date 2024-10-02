@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 from pamod.base import BaseData
 from pamod.config import PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR, RAW_DATA_DIR
-from pamod.data import FunctionPreprocessor
+from pamod.data import ProcessDataHelper
 
 
 class StaticProcessEngine(BaseData):
@@ -208,7 +208,7 @@ class StaticProcessEngine(BaseData):
         Returns:
             pd.DataFrame: The processed DataFrame.
         """
-        function_preprocessor = FunctionPreprocessor()
+        function_preprocessor = ProcessDataHelper()
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
         initial_patients = df["id_patient"].nunique()

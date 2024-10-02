@@ -1,4 +1,4 @@
-"""Package provides tuning techniques."""
+"""Module provides tuning techniques."""
 
 from pamod.tuning._basetuner import BaseTuner, MetaTuner
 from pamod.tuning._hebo import HEBOTuner

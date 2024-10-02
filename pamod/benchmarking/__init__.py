@@ -1,9 +1,10 @@
-"""Benchmarking methods."""
+"""Module contains the benchmarking methods."""
 
-from pamod.benchmarking._benchmark import MultiBenchmarker
+from pamod.benchmarking._benchmark import Benchmarker, MultiBenchmarker
 from pamod.benchmarking._inputprocessor import InputProcessor
 
 __all__ = [
-    "InputProcessor",
+    "Benchmarker",
     "MultiBenchmarker",
+    "InputProcessor",
 ]
