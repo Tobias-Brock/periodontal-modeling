@@ -1,4 +1,4 @@
-"""Package provides resampling techniques and metric evaluation."""
+"""Module provides resampling techniques and metric evaluation."""
 
 from pamod.resampling._resampler import Resampler
 

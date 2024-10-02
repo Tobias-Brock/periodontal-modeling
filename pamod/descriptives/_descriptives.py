@@ -1,40 +1,48 @@
+from typing import Optional
+
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 
 class DescriptivesPlotter:
-    def __init__(self, df):
-        """Initializes the DescriptivesClass with a DataFrame.
+    def __init__(self, df: pd.DataFrame) -> None:
+        """Initializes DescriptivesPlotter with pd.DataFrame.
 
-        Parameters:
-        ----------
-        df : pd.DataFrame
-            DataFrame containing the data to be used for plotting.
+        Args:
+            df (pd.DataFrame): DataFrame containing data for plotting.
         """
         self.df = df
 
     def plt_matrix(
-        self, vertical, horizontal, cmap="Oranges", n=None, normalize="rows"
-    ):
-        """Plots heatmap/confusion matrix.
+        self,
+        vertical: str,
+        horizontal: str,
+        name: Optional[str] = None,
+        normalize: str = "rows",
+        save: bool = False,
+    ) -> None:
+        """Plots a heatmap/confusion matrix.
 
         Args:
-        vertical (np.series): series of values to be represented on the vertical axis
-        horizontal (np.series): series of values to be represented on the horizontal axis
-        title (str): title of the plot
-        n (int): number of total observations
-        xlabel (str): label for the x-axis
-        ylabel (str): label for the y-axis
-        normalize (str): normalization method, 'rows' for row-wise normalization, 'columns' for column-wise normalization
+            vertical (str): Column name for the vertical axis.
+            horizontal (str): Column name for the horizontal axis.
+            name (str): Title of the plot and name for saving the plot.
+            normalize (str, optional): Normalization method ('rows' or 'columns').
+                Defaults to 'rows'.
+            save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        # Calculate confusion matrix
         vertical_data = self.df[vertical]
         horizontal_data = self.df[horizontal]
         cm = confusion_matrix(vertical_data, horizontal_data)
+        custom_cmap = LinearSegmentedColormap.from_list(
+            "teal_cmap", ["#FFFFFF", "#078294"]
+        )
 
-        # Normalize the matrix
         if normalize == "rows":
             row_sums = cm.sum(axis=1)
             normalized_cm = (cm / row_sums[:, np.newaxis]) * 100
@@ -44,11 +52,10 @@ class DescriptivesPlotter:
         else:
             raise ValueError("Invalid value for 'normalize'. Use 'rows' or 'columns'.")
 
-        # Plot the heatmap
-        plt.figure(figsize=(8, 6), dpi=300)
+        plt.figure(figsize=(6, 4), dpi=300)
         sns.heatmap(
             normalized_cm,
-            cmap=cmap,
+            cmap=custom_cmap,
             fmt="g",
             linewidths=0.5,
             square=True,
@@ -57,7 +64,7 @@ class DescriptivesPlotter:
 
         for i in range(len(cm)):
             for j in range(len(cm)):
-                if normalized_cm[i, j] > 50:  # Value greater than 50%
+                if normalized_cm[i, j] > 50:
                     plt.text(
                         j + 0.5,
                         i + 0.5,
@@ -69,120 +76,147 @@ class DescriptivesPlotter:
                 else:
                     plt.text(j + 0.5, i + 0.5, cm[i, j], ha="center", va="center")
 
-        if n is not None:
-            title = f"Data Overview (n={n})"
-        plt.title(title, fontsize=18)
-        plt.xlabel("Pocket depth before therapy", fontsize=18)
-        plt.ylabel("Pocket depth after therapy", fontsize=18)
+        title = "Data Overview"
+
+        plt.title(title, fontsize=12)
+
+        ax = plt.gca()
+        ax.xaxis.set_ticks_position("top")
+        ax.xaxis.set_label_position("top")
+
+        cbar = ax.collections[0].colorbar
+        cbar.outline.set_edgecolor("black")
+        cbar.outline.set_linewidth(1)
+
+        ax.add_patch(
+            Rectangle(
+                (0, 0), cm.shape[1], cm.shape[0], fill=False, edgecolor="black", lw=2
+            )
+        )
+
+        plt.tick_params(axis="both", which="major", labelsize=12)
+        plt.xlabel("Pocket depth before therapy", fontsize=12)
+        plt.ylabel("Pocket depth after therapy", fontsize=12)
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument must required when 'save' is True.")
+            plt.savefig(name + ".svg", format="svg", dpi=300)
+
         plt.show()
 
-    def pocket_comparison(self, column1, column2):
-        """Creates two bar plots with vertical red lines and labels for before and after
-        therapy.
+    def pocket_comparison(
+        self, column1: str, column2: str, name: Optional[str] = None, save: bool = False
+    ) -> None:
+        """Creates two bar plots for comparing pocket depth before and after therapy.
 
-        Parameters:
-        ----------
-        column1 : str
-            Column name for the first plot.
-        column2 : str
-            Column name for the second plot.
-        title_prefix_1 : str
-            Title for the first plot.
-        title_prefix_2 : str
-            Title for the second plot.
-        xlabel : str
-            Label for the x-axis (used for both plots).
-        ylabel : str
-            Label for the y-axis (used for both plots).
+        Args:
+            column1 (str): Column name for the first plot (before therapy).
+            column2 (str): Column name for the second plot (after therapy).
+            name (str): Name for saving the plot.
+            save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        # First plot
         value_counts_1 = self.df[column1].value_counts()
         x_values_1 = value_counts_1.index
         heights_1 = value_counts_1.values
-        total_values_1 = sum(heights_1)
 
-        # Second plot
         value_counts_2 = self.df[column2].value_counts()
         x_values_2 = value_counts_2.index
         heights_2 = value_counts_2.values
-        total_values_2 = sum(heights_2)
 
-        # Create side-by-side bar plots
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300
+            1, 2, figsize=(8, 4), sharex=True, sharey=True, dpi=300
         )
 
-        # Plotting the first bar plot
-        ax1.bar(x_values_1, heights_1)
-        ax1.set_ylabel("Count", fontsize=18)
-        ax1.set_title(f"Pocket depth before therapy (n={total_values_1})", fontsize=18)
+        ax1.bar(x_values_1, heights_1, edgecolor="black", color="#078294", linewidth=1)
+        ax1.set_ylabel("Number of sites", fontsize=12)
+        ax1.set_title("Pocket depth before therapy", fontsize=12, pad=10)
         ax1.set_yticks(np.arange(0, 90001, 10000))
-        ax1.set_xticks(np.arange(0, 12.1, 1))
-        ax1.tick_params(axis="both", labelsize=16)
+        ax1.set_xticks(np.arange(1, 12.5, 1))
+        ax1.tick_params(axis="both", labelsize=12)
 
-        # Adding vertical dotted red lines at 3 and 6 for the first plot
-        ax1.axvline(x=3.5, color="red", linestyle="--")
-        ax1.axvline(x=5.5, color="red", linestyle="--")
-        ax1.axhline(y=5000, linestyle="--")
-        ax1.axhline(y=10000, linestyle="--")
-        ax1.axhline(y=30000, linestyle="--")
+        ax1.axvline(x=3.5, color="red", linestyle="--", linewidth=1, alpha=0.3)
+        ax1.axvline(x=5.5, color="red", linestyle="--", linewidth=1, alpha=0.3)
 
-        # Plotting the second bar plot
-        ax2.bar(x_values_2, heights_2)
-        ax2.set_title(f"Pocket depth after therapy (n={total_values_2})", fontsize=18)
-        ax2.tick_params(axis="both", labelsize=16)
+        ax1.grid(True, axis="y", color="black", linestyle="--", linewidth=1, alpha=0.3)
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
 
-        # Adding vertical dotted red lines at 3 and 6 for the second plot
-        ax2.axvline(x=3.5, color="red", linestyle="--")
-        ax2.axvline(x=5.5, color="red", linestyle="--")
-        ax2.axhline(y=5000, linestyle="--")
-        ax2.axhline(y=10000, linestyle="--")
-        ax2.axhline(y=30000, linestyle="--")
+        ax1.tick_params(width=1)
+        for spine in ax1.spines.values():
+            spine.set_linewidth(1)
 
-        # Set the xlabel at the figure level and center it
-        fig.text(0.55, 0, "Pocket Depth", ha="center", fontsize=18)
+        ax2.bar(x_values_2, heights_2, edgecolor="black", color="#078294", linewidth=1)
+        ax2.set_title("Pocket depth after therapy", fontsize=12, pad=10)
+        ax2.tick_params(axis="both", labelsize=12)
+
+        ax2.axvline(x=3.5, color="red", linestyle="--", linewidth=1, alpha=0.3)
+        ax2.axvline(x=5.5, color="red", linestyle="--", linewidth=1, alpha=0.3)
+
+        ax2.grid(True, axis="y", color="black", linestyle="--", linewidth=1, alpha=0.3)
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+        for spine in ax2.spines.values():
+            spine.set_linewidth(1)
+
+        ax2.tick_params(width=1)
+        for spine in ax2.spines.values():
+            spine.set_linewidth(1)
+
+        fig.text(0.55, 0, "Pocket Depth [mm]", ha="center", fontsize=12)
         plt.tight_layout()
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument must required when 'save' is True.")
+            plt.savefig(name + ".svg", format="svg", dpi=300)
+
         plt.show()
 
-    def pocket_group_comparison(self, column_before, column_after):
-        """Creates a side-by-side bar plot comparing two variables (before and after
-        therapy).
+    def pocket_group_comparison(
+        self,
+        column_before: str,
+        column_after: str,
+        name: Optional[str] = None,
+        save: bool = False,
+    ) -> None:
+        """Creates side-by-side bar plots for pocket depth before and after therapy.
 
-        Parameters:
-        ----------
-        column_before : str
-            Column name for the first bar plot (before therapy).
-        column_after : str
-            Column name for the second bar plot (after therapy).
-        xlabel : str
-            Label for the x-axis.
-        ylabel : str
-            Label for the y-axis.
+        Args:
+            column_before (str): Column name for the first plot (before therapy).
+            column_after (str): Column name for the second plot (after therapy).
+            name (str): Name for saving the plot.
+            save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        # Data for first plot
         value_counts = self.df[column_before].value_counts()
         x_values = value_counts.index
         heights = value_counts.values
         total_values = sum(heights)
 
-        # Data for second plot
         value_counts2 = self.df[column_after].value_counts()
         x_values2 = value_counts2.index
         heights2 = value_counts2.values
         total_values2 = sum(heights2)
 
-        # Plotting the bar plots
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(12, 6), sharex=True, sharey=True, dpi=300
+            1, 2, figsize=(8, 4), sharex=True, sharey=True, dpi=300
         )
 
-        # First plot
-        bars1 = ax1.bar(x_values, heights)
-        ax1.set_ylabel("Count", fontsize=18)
-        ax1.set_title(f"Pocket depth before therapy (n={total_values})", fontsize=18)
-        ax1.set_yticks(np.arange(0, 90001, 10000))
+        bars1 = ax1.bar(
+            x_values, heights, edgecolor="black", color="#078294", linewidth=1
+        )
+        ax1.set_ylabel("Number of sites", fontsize=12)
+        ax1.set_title(
+            f"Pocket depth before therapy (n={total_values})", fontsize=12, pad=10
+        )
+        ax1.set_yticks(np.arange(0, 100001, 10000))
         ax1.set_xticks(np.arange(0, 2.1, 1))
-        ax1.tick_params(axis="both", labelsize=16)
+
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
+        for spine in ax1.spines.values():
+            spine.set_linewidth(1)
+        ax1.tick_params(axis="both", labelsize=12)
 
         for bar in bars1:
             height = bar.get_height()
@@ -196,10 +230,18 @@ class DescriptivesPlotter:
                 fontsize=12,
             )
 
-        # Second plot
-        bars2 = ax2.bar(x_values2, heights2)
-        ax2.set_title(f"Pocket depth after therapy (n={total_values2})", fontsize=18)
-        ax2.tick_params(axis="both", labelsize=16)
+        bars2 = ax2.bar(
+            x_values2, heights2, edgecolor="black", color="#078294", linewidth=1
+        )
+        ax2.set_title(
+            f"Pocket depth after therapy (n={total_values2})", fontsize=12, pad=10
+        )
+        ax2.spines["top"].set_visible(False)
+        ax2.spines["right"].set_visible(False)
+        for spine in ax2.spines.values():
+            spine.set_linewidth(1)
+
+        ax2.tick_params(axis="both", labelsize=12, width=1)
 
         for bar in bars2:
             height = bar.get_height()
@@ -213,37 +255,109 @@ class DescriptivesPlotter:
                 fontsize=12,
             )
 
-        # Set xlabel at the figure level
-        fig.text(0.55, 0, "Pocket Depth", ha="center", fontsize=18)
+        fig.text(0.55, 0, "Pocket depth categories", ha="center", fontsize=12)
         plt.tight_layout()
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument must required when 'save' is True.")
+            plt.savefig(name + ".svg", format="svg", dpi=300)
+
         plt.show()
 
-    def histogram_2d(self, column_before, column_after):
+    def histogram_2d(
+        self,
+        column_before: str,
+        column_after: str,
+        name: Optional[str] = None,
+        save: bool = False,
+    ) -> None:
         """Creates a 2D histogram plot based on two columns.
 
-        Parameters:
-        ----------
-        column_before : str
-            Column name for pocket depth before therapy.
-        column_after : str
-            Column name for pocket depth after therapy.
+        Args:
+            column_before (str): Column name for pocket depth before therapy.
+            column_after (str): Column name for pocket depth after therapy.
+            name (str): Name for saving the plot.
+            save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        # Create a 2D histogram
-        heatmap, xedges, yedges = np.histogram2d(
+        heatmap, _, _ = np.histogram2d(
             self.df[column_before], self.df[column_after], bins=(12, 12)
         )
 
-        # Plot heatmap
-        plt.figure(figsize=(10, 8), dpi=300)
+        plt.figure(figsize=(8, 6), dpi=300)
+
         plt.imshow(heatmap.T, origin="lower", cmap="viridis", interpolation="nearest")
-        plt.colorbar(label="Frequency")
+        cbar = plt.colorbar()
+        cbar.set_label("Frequency", fontsize=12)
+        cbar.outline.set_linewidth(1)
 
-        plt.xlabel("Pocket depth before therapy", fontsize=20)
-        plt.ylabel("Pocket depth after therapy", fontsize=20)
-        plt.xticks(np.arange(12), np.arange(1, 13), fontsize=18)
-        plt.yticks(np.arange(12), np.arange(1, 13), fontsize=18)
+        plt.xlabel("Pocket depth before therapy [mm]", fontsize=12)
+        plt.ylabel("Pocket depth after therapy [mm]", fontsize=12)
+        plt.xticks(np.arange(12), np.arange(1, 13), fontsize=12)
+        plt.yticks(np.arange(12), np.arange(1, 13), fontsize=12)
 
-        # Add red lines
-        plt.plot([-0.5, 2.5], [2.5, 2.5], "r--", lw=2)  # Horizontal line
-        plt.plot([2.5, 2.5], [-0.5, 2.5], "r--", lw=2)  # Vertical line
+        ax = plt.gca()
+        for spine in ax.spines.values():
+            spine.set_linewidth(1)
+        ax.tick_params(width=1)
+
+        cbar.ax.tick_params(labelsize=12)
+
+        plt.plot([-0.5, 2.5], [2.5, 2.5], "r--", lw=2)
+        plt.plot([2.5, 2.5], [-0.5, 2.5], "r--", lw=2)
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument must required when 'save' is True.")
+            plt.savefig(name + ".svg", format="svg", dpi=300)
+
+        plt.show()
+
+    def outcome_descriptive(
+        self, outcome: str, title: str, name: Optional[str] = None, save: bool = False
+    ) -> None:
+        """Creates a bar plot for the outcome variable.
+
+        Args:
+            outcome (str): Column name for the outcome variable.
+            title (str): Title of the plot.
+            name (str): Filename for saving the plot.
+            save (bool, optional): Save the plot as an SVG. Defaults to False.
+        """
+        value_counts = self.df[outcome].value_counts()
+        x_values = value_counts.index.astype(str)
+        heights = value_counts.values
+
+        plt.figure(figsize=(6, 4), dpi=300)
+        bars = plt.bar(
+            x_values, heights, edgecolor="black", color="#078294", linewidth=1
+        )
+        plt.ylabel("Number of sites", fontsize=12)
+        plt.title(title, fontsize=12, pad=10)
+
+        for bar in bars:
+            height = bar.get_height()
+            plt.annotate(
+                "{}".format(height),
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                xytext=(0, 3),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=12,
+            )
+
+        ax = plt.gca()
+        for spine in ax.spines.values():
+            spine.set_linewidth(1)
+        ax.tick_params(width=1)
+
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument must required when 'save' is True.")
+            plt.savefig(name + ".svg", format="svg", dpi=300)
+
         plt.show()
