@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pamod.data._functions import FunctionPreprocessor
+from pamod.data._helpers import ProcessDataHelper
 
 
 @pytest.fixture

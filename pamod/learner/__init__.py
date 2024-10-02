@@ -1,4 +1,4 @@
-"""Package contains the model definitions and parameter grids."""
+"""Module contains the model definitions and parameter grids."""
 
 from pamod.learner._learners import Model
 from pamod.learner._parameters import (

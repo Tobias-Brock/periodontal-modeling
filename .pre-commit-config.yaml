@@ -31,20 +31,6 @@ repos:
         additional_dependencies:
           - black==24.8.0  # Updated to match Black version
 
-  # - repo: https://github.com/myint/docformatter
-  #   rev: v1.7.5
-  #   hooks:
-  #     - id: docformatter
-  #       args: [
-  #         "--wrap-summaries=88",
-  #         "--wrap-descriptions=88",
-  #         "--in-place",
-  #         "--pre-summary-newline",
-  #         "--make-summary-multi-line",
-  #         "--style=google"
-  #       ]
-  #       files: '^pamod/.*\.py$'  # Fixed missing quote and commented out
-
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
     hooks:

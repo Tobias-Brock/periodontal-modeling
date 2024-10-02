@@ -1,10 +1,36 @@
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
-from sklearn.metrics import brier_score_loss, f1_score
+import pandas as pd
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.preprocessing import label_binarize
 
 from pamod.base import BaseEvaluator
+
+
+def get_probs(model, classification: str, X_val: pd.DataFrame) -> np.ndarray:
+    """Gets the predicted probabilities from the model.
+
+    Args:
+        model: The trained model.
+        classification (str): The type of classification.
+        X_val (pd.DataFrame): Validation features.
+
+    Returns:
+        array-like: Predicted probabilities.
+    """
+    if classification == "binary":
+        return model.predict_proba(X_val)[:, 1]
+    else:
+        return model.predict_proba(X_val)
 
 
 def brier_loss_multi(y_val: np.ndarray, probs: np.ndarray) -> float:
@@ -24,6 +50,63 @@ def brier_loss_multi(y_val: np.ndarray, probs: np.ndarray) -> float:
     return np.mean([brier_score_loss(y_bin[:, i], probs[:, i]) for i in range(g)]) * (
         g / 2
     )
+
+
+def final_metrics(
+    classification: str,
+    y_test: np.ndarray,
+    preds: np.ndarray,
+    probs: Union[np.ndarray, None],
+    threshold: float,
+) -> Dict[str, Any]:
+    """Calculate final metrics for binary or multiclass classification.
+
+    Args:
+        classification (str): The type of classification.
+        y_test (np.ndarray): Ground truth (actual) labels.
+        preds (np.ndarray): Predicted labels from the model.
+        probs (Union[np.ndarray, None]): Predicted probabilities from model.
+            Only used for binary classification and if available.
+        threshold (float): Best threshold used for binary classification.
+
+    Returns:
+        Dict[str, Any]: Dictionary of evaluation metrics.
+    """
+    if classification == "binary":
+        f1: float = f1_score(y_test, preds, pos_label=0)
+        precision: float = precision_score(y_test, preds, pos_label=0)
+        recall: float = recall_score(y_test, preds, pos_label=0)
+        accuracy: float = accuracy_score(y_test, preds)
+        brier_score_value: Union[float, None] = (
+            brier_score_loss(y_test, probs) if probs is not None else None
+        )
+        roc_auc_value: Union[float, None] = (
+            roc_auc_score(y_test, probs) if probs is not None else None
+        )
+        conf_matrix: np.ndarray = confusion_matrix(y_test, preds)
+
+        return {
+            "F1 Score": f1,
+            "Precision": precision,
+            "Recall": recall,
+            "Accuracy": accuracy,
+            "Brier Score": brier_score_value,
+            "ROC AUC Score": roc_auc_value,
+            "Confusion Matrix": conf_matrix,
+            "Best Threshold": threshold,
+        }
+
+    elif classification == "multiclass":
+        brier_score: float = brier_loss_multi(y_test, probs)
+
+        return {
+            "macro_f1": f1_score(y_test, preds, average="macro"),
+            "accuracy": accuracy_score(y_test, preds),
+            "class_f1_scores": f1_score(y_test, preds, average=None),
+            "brier_score": brier_score,
+        }
+
+    raise ValueError(f"Unsupported classification type: {classification}")
 
 
 class MetricEvaluator(BaseEvaluator):
@@ -83,9 +166,8 @@ class MetricEvaluator(BaseEvaluator):
                 scores.append(f1_score(y_val, preds, pos_label=0))
             best_idx = np.argmax(scores)
             return scores[best_idx], thresholds[best_idx]
-        elif self.criterion == "brier_score":
+        else:
             return brier_score_loss(y_val, probs)
-        raise ValueError(f"Unsupported criterion: {self.criterion}")
 
     def _evaluate_multiclass(
         self, y_val: np.ndarray, probs: np.ndarray
@@ -99,16 +181,14 @@ class MetricEvaluator(BaseEvaluator):
         Returns:
             float: The calculated score.
         """
-        # Convert probabilities to predicted labels (class with highest probability)
         preds = np.argmax(probs, axis=1)
 
         if self.criterion == "macro_f1":
             return f1_score(y_val, preds, average="macro"), None
-        elif self.criterion == "brier_score":
+        else:
             return brier_loss_multi(y_val, probs), None
-        raise ValueError(f"Unsupported criterion: {self.criterion}")
 
-    def evaluate_metric(self, model, y_val: np.ndarray, preds: np.ndarray) -> float:
+    def evaluate_metric(self, model, y_val: np.ndarray, probs: np.ndarray) -> float:
         """Evaluates the model's performance against cross-validation data.
 
         Based on a specified criterion.
@@ -116,34 +196,22 @@ class MetricEvaluator(BaseEvaluator):
         Args:
             model (sklearn estimator): The machine learning model used for evaluation.
             y_val (np.ndarray): True labels for the cross-validation data.
-            preds (np.ndarray): Predictions from the model.
-                For 'f1' or 'macro_f1', these are class labels.
-                For 'brier_score', these are probabilities.
+            probs (np.ndarray): Model probabilities.
 
         Returns:
             float: The calculated score based on the specified criterion.
 
         Raises:
-            ValueError: If an invalid criterion is specified or if the model does not
-                support probability estimates required for Brier score evaluation.
+            ValueError: Jf the model does not support probability estimates required for
+                Brier score evaluation.
         """
         if self.criterion == "f1":
-            preds = (
-                preds
-                if not hasattr(model, "predict_proba")
-                else (preds > 0.5).astype(int)
-            )
+            preds = (probs >= 0.5).astype(int)
             return f1_score(y_val, preds, pos_label=0)
-        elif self.criterion == "macro_f1":
-            return f1_score(y_val, preds, average="macro")
-        elif self.criterion == "brier_score":
+        else:
             if not hasattr(model, "predict_proba"):
                 raise ValueError(
                     "Model does not support probability estimates required for Brier "
                     "score evaluation."
                 )
-            if self.classification == "binary":
-                return brier_score_loss(y_val, preds)
-            elif self.classification == "multiclass":
-                return brier_loss_multi(y_val, preds)
-        raise ValueError(f"Unsupported criterion: {self.criterion}")
+            return brier_score_loss(y_val, probs)

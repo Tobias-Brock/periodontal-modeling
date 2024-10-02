@@ -1,6 +1,6 @@
 from copy import deepcopy
 import random
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from joblib import Parallel, delayed
 import numpy as np
@@ -8,12 +8,12 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
-from pamod.tuning._basetuner import BaseTuner
+from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
-class RandomSearchTuner(BaseTuner):
+class RandomSearchTuner(BaseTuner, MetaTuner):
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str = "RS"
+        self, classification: str, criterion: str, tuning: str, hpo: str = "rs"
     ) -> None:
         """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
 
@@ -21,7 +21,7 @@ class RandomSearchTuner(BaseTuner):
             classification (str): The type of classification ('binary' or 'multiclass').
             criterion (str): Evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): Type of tuning ('holdout' or 'cv').
-            hpo (str, optional): Hyperparameter optimization method (default is 'RS').
+            hpo (str, optional): Hyperparameter optimization method (default is 'rs').
         """
         super().__init__(classification, criterion, tuning, hpo)
         self.random_state = self.random_state_val
@@ -87,8 +87,8 @@ class RandomSearchTuner(BaseTuner):
 
     def cv(
         self,
-        learner,
-        outer_splits,
+        learner: str,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         n_configs: int,
         racing_folds: Union[int, None],
         n_jobs: int,
@@ -115,12 +115,10 @@ class RandomSearchTuner(BaseTuner):
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=n_jobs)
-
             scores = self._evaluate_folds(
                 model_clone, best_score, outer_splits, racing_folds, n_jobs
             )
             avg_score = np.mean(scores)
-
             best_score, best_params, _ = self._update_best(
                 avg_score, params, None, best_score, best_params, None
             )
@@ -129,8 +127,8 @@ class RandomSearchTuner(BaseTuner):
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
         if self.classification == "binary" and self.criterion == "f1":
-            optimal_threshold = self.threshold_optimizer.optimize_threshold(
-                model, best_params, outer_splits
+            optimal_threshold = self.trainer.optimize_threshold(
+                model_clone, outer_splits, n_jobs
             )
         else:
             optimal_threshold = None
@@ -138,7 +136,12 @@ class RandomSearchTuner(BaseTuner):
         return best_params, optimal_threshold
 
     def _evaluate_folds(
-        self, model_clone, best_score, outer_splits, racing_folds, n_jobs
+        self,
+        model_clone,
+        best_score: float,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
+        racing_folds: Union[int, None],
+        n_jobs: Union[int, None],
     ):
         """Evaluate the model across folds using cross-validation or racing strategy.
 
@@ -275,6 +278,10 @@ class RandomSearchTuner(BaseTuner):
                 if iteration_seed is not None:
                     random.seed(iteration_seed)
                 params[k] = random.choice(v)  # For list-based grids
+            elif isinstance(v, np.ndarray):  # Handle numpy arrays
+                if iteration_seed is not None:
+                    random.seed(iteration_seed)
+                params[k] = random.choice(v.tolist())  # Convert numpy array to list
             else:
                 raise TypeError(f"Unsupported type for parameter '{k}': {type(v)}")
 

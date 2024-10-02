@@ -1,1 +1,1 @@
-"""Pamod package for benchmarking periodontal data."""
+"""Pamod package."""
