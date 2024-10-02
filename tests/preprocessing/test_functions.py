@@ -32,7 +32,7 @@ def test_check_infection(sample_data):
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     # Test various pocket depths and boprevaluation values
     assert preprocessor.check_infection(2, 1) == 0  # Depth = 2, bop = 1 (Healthy)
@@ -41,12 +41,12 @@ def test_check_infection(sample_data):
 
 
 def test_tooth_neighbor(sample_data):
-    """Test the `tooth_neighbor` method of `FunctionPreprocessor`.
+    """Test the `tooth_neighbor` method of `ProcessDataHelper`.
 
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     # Test if neighbors are correct
     assert np.array_equal(preprocessor.tooth_neighbor(11), [12, 21])
@@ -60,7 +60,7 @@ def test_get_adjacent_infected_teeth_count(sample_data):
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     # Modify sample data to mark some teeth as infected
     sample_data.loc[0, "side_infected"] = 1  # Tooth 11 infected
@@ -76,12 +76,12 @@ def test_get_adjacent_infected_teeth_count(sample_data):
 
 
 def test_plaque_values(sample_data):
-    """Test the `plaque_values` method of `FunctionPreprocessor`.
+    """Test the `plaque_values` method of `ProcessDataHelper`.
 
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     modes_dict = {(11, 1, 0): 1, (12, 2, 0): 2}  # Simulate mode calculation
     row = {
@@ -97,12 +97,12 @@ def test_plaque_values(sample_data):
 
 
 def test_plaque_imputation(sample_data):
-    """Test the `plaque_imputation` method of `FunctionPreprocessor`.
+    """Test the `plaque_imputation` method of `ProcessDataHelper`.
 
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     # Run plaque imputation
     data_imputed = preprocessor.plaque_imputation(sample_data)
@@ -113,12 +113,12 @@ def test_plaque_imputation(sample_data):
 
 
 def test_fur_values(sample_data):
-    """Test the `fur_values` method of `FunctionPreprocessor`.
+    """Test the `fur_values` method of `ProcessDataHelper`.
 
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
 
     # Test case where pdbaseline + recbaseline = 7
     row = {
@@ -144,12 +144,12 @@ def test_fur_values(sample_data):
 
 
 def test_fur_imputation(sample_data):
-    """Test the `fur_imputation` method of `FunctionPreprocessor`.
+    """Test the `fur_imputation` method of `ProcessDataHelper`.
 
     Args:
         sample_data (pd.DataFrame): The sample data fixture.
     """
-    preprocessor = FunctionPreprocessor()
+    preprocessor = ProcessDataHelper()
     data_imputed = preprocessor.fur_imputation(sample_data)
 
     assert data_imputed["furcationbaseline"].isna().sum() == 0

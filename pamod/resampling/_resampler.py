@@ -171,8 +171,8 @@ class Resampler(BaseValidator, BaseData):
         self,
         train_df: pd.DataFrame,
         test_df: pd.DataFrame,
-        sampling: Union[str, None],
-        factor: Union[float, None],
+        sampling: Union[str, None] = None,
+        factor: Union[float, None] = None,
     ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
         """Splits the train and test DataFrames into feature and label sets.
 
@@ -182,9 +182,8 @@ class Resampler(BaseValidator, BaseData):
             train_df (pd.DataFrame): The training DataFrame.
             test_df (pd.DataFrame): The testing DataFrame.
             sampling (str, optional): Resampling method to apply (e.g.,
-                'upsampling', 'downsampling', 'smote').
-            factor (float, optional): Factor for resampling, applied to upsample,
-                downsample, or SMOTE.
+                'upsampling', 'downsampling', 'smote'), defaults to None.
+            factor (float, optional): Factor for sampling, defaults to None.
 
         Returns:
             tuple: Tuple containing feature and label sets
