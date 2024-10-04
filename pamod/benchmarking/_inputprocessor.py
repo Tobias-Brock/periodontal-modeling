@@ -1,5 +1,5 @@
 class InputProcessor:
-    """Process app inputs to internal code-compatible formats."""
+    """Process inputs to internal code-compatible formats."""
 
     task_map = {
         "Pocket closure": "pocketclosure",

@@ -88,7 +88,7 @@ class Resampler(BaseValidator, BaseData):
         else:
             return X, y
 
-    def _apply_target_encoding(
+    def apply_target_encoding(
         self, X_train: pd.DataFrame, X_val: pd.DataFrame, y_train: pd.Series
     ) -> pd.DataFrame:
         """Applies target encoding to categorical variables.
@@ -198,7 +198,7 @@ class Resampler(BaseValidator, BaseData):
         y_test = test_df["y"]
 
         if self.encoding == "target":
-            X_train, X_test = self._apply_target_encoding(X_train, X_test, y_train)
+            X_train, X_test = self.apply_target_encoding(X_train, X_test, y_train)
 
         if sampling is not None:
             X_train, y_train = self.apply_sampling(X_train, y_train, sampling, factor)
@@ -277,7 +277,7 @@ class Resampler(BaseValidator, BaseData):
             outer_splits_t = []
 
             for (X_t, y_t), (X_val, y_val) in outer_splits:
-                X_t, y_t, X_val = self._apply_target_encoding(X_t, y_t, X_val)
+                X_t, y_t, X_val = self.apply_target_encoding(X_t, y_t, X_val)
                 if sampling == "smote":
                     X_t, y_t = self.apply_sampling(X_t, y_t, sampling, factor)
 

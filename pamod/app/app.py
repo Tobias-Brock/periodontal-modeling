@@ -3,25 +3,42 @@
 import gradio as gr
 
 from pamod.app import (
+    benchmarks_wrapper,
+    brier_score_wrapper,
     load_and_initialize_plotter,
     load_data,
+    plot_cluster_wrapper,
     plot_cm,
-    plot_fi,
+    plot_fi_wrapper,
     plot_histogram_2d,
     plot_matrix,
     plot_outcome_descriptive,
     plot_pocket_comparison,
     plot_pocket_group_comparison,
-    run_benchmarks,
+    run_single_inference,
+    update_model_dropdown,
 )
+from pamod.benchmarking import InputProcessor
+from pamod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
 with gr.Blocks() as app:
     gr.Markdown("## ML Periodontal Modeling")
 
     models_state = gr.State()
+    task_state = gr.State()
+    X_train_state = gr.State()
+    y_train_state = gr.State()
+    X_test_state = gr.State()
+    y_test_state = gr.State()
 
     with gr.Tabs():
         with gr.Tab("Descriptives"):
+            with gr.Row():
+                path_input = gr.Textbox(
+                    label="File Path",
+                    value=str(RAW_DATA_DIR) + "/" + "Periodontitis_ML_Dataset.xlsx",
+                    scale=1,
+                )
             load_button = gr.Button("Load Data", scale=1)
             load_output = gr.Textbox(label="Status", interactive=False, scale=2)
 
@@ -78,7 +95,9 @@ with gr.Blocks() as app:
             outcome_output = gr.Plot(scale=6)
 
             load_button.click(
-                fn=load_and_initialize_plotter, inputs=[], outputs=[load_output]
+                fn=load_and_initialize_plotter,
+                inputs=[path_input],
+                outputs=[load_output],
             )
             plot_hist_2d_button.click(
                 fn=plot_histogram_2d,
@@ -107,10 +126,15 @@ with gr.Blocks() as app:
             )
 
         with gr.Tab("Benchmarking"):
-            task_input = gr.CheckboxGroup(
+            path_input = gr.Textbox(
+                label="File Path",
+                value=str(PROCESSED_BASE_DIR) + "/" + "processed_data.csv",
+            )
+
+            task_input = gr.Dropdown(
                 label="Tasks",
                 choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
-                value=["Pocket closure"],
+                value="Pocket closure",
             )
 
             learners_input = gr.CheckboxGroup(
@@ -154,8 +178,8 @@ with gr.Blocks() as app:
                 value="None",  # Default value is None
             )
 
-            factor_input = gr.Textbox(label="Sampling Factor", value=None)
-            n_configs_input = gr.Number(label="Number of Configurations", value=5)
+            factor_input = gr.Textbox(label="Sampling Factor", value="")
+            n_configs_input = gr.Number(label="Number of Configurations", value=3)
             racing_folds_input = gr.Number(label="Racing Folds", value=5)
             n_jobs_input = gr.Number(label="Number of Jobs", value=-1)
 
@@ -163,10 +187,11 @@ with gr.Blocks() as app:
 
             results_output = gr.Dataframe(label="Benchmark Results")
             metrics_plot_output = gr.Plot(label="Metrics Comparison")
-            models_state = gr.State()
+
+            task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
 
             run_button.click(
-                fn=run_benchmarks,
+                fn=benchmarks_wrapper,
                 inputs=[
                     task_input,
                     learners_input,
@@ -179,14 +204,18 @@ with gr.Blocks() as app:
                     n_configs_input,
                     racing_folds_input,
                     n_jobs_input,
+                    path_input,
                 ],
                 outputs=[results_output, metrics_plot_output, models_state],
             )
 
         with gr.Tab("Evaluation"):
-            gr.Markdown("### Evaluation")
-
-            task_input = gr.Textbox(label="Task", value="Pocket closure")
+            task_display = gr.Textbox(
+                label="Selected Task", value="", interactive=False
+            )
+            model_dropdown = gr.Dropdown(
+                label="Select Model", choices=[], value=None, multiselect=False
+            )  # Ensure single selection
             encoding_input = gr.Dropdown(
                 label="Encoding",
                 choices=["one_hot", "target"],
@@ -195,14 +224,23 @@ with gr.Blocks() as app:
 
             load_data_button = gr.Button("Load Data")
             load_status_output = gr.Textbox(label="Status", interactive=False)
+            task_display.value = task_input.value  # Keep this line
 
-            X_train_state = gr.State()
-            y_train_state = gr.State()
-            X_test_state = gr.State()
-            y_test_state = gr.State()
+            models_state.change(
+                fn=update_model_dropdown,
+                inputs=models_state,
+                outputs=model_dropdown,
+            )
+
+            task_input.change(
+                fn=lambda task: task, inputs=task_input, outputs=task_display
+            )
 
             generate_confusion_matrix_button = gr.Button("Generate Confusion Matrix")
             matrix_plot = gr.Plot()
+
+            generate_brier_scores_button = gr.Button("Generate Brier Scores")
+            brier_score_plot = gr.Plot()
 
             importance_type_input = gr.CheckboxGroup(
                 label="Importance Types",
@@ -213,11 +251,22 @@ with gr.Blocks() as app:
             generate_feature_importance_button = gr.Button(
                 "Generate Feature Importance"
             )
-
             fi_plot = gr.Plot()
 
+            cluster_button = gr.Button("Perform Brier Score Clustering")
+            n_clusters_input = gr.Slider(
+                label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
+            )
+            cluster_brier_plot = gr.Plot()
+            cluster_heatmap_plot = gr.Plot()
+
             load_data_button.click(
-                fn=load_data,
+                fn=lambda task, encoding: load_data(
+                    InputProcessor.process_tasks([task])[
+                        0
+                    ],  # Only pass task and encoding
+                    encoding,
+                ),
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
@@ -228,18 +277,33 @@ with gr.Blocks() as app:
                 ],
             )
 
+            X_train_state.change(
+                fn=lambda x: x, inputs=X_train_state, outputs=X_train_state
+            )
+
+            y_train_state.change(
+                fn=lambda y: y, inputs=y_train_state, outputs=y_train_state
+            )
+
             generate_confusion_matrix_button.click(
-                fn=lambda models, X_test, y_test: plot_cm(models, X_test, y_test),
-                inputs=[models_state, X_test_state, y_test_state],
+                fn=lambda models, selected_model, X_test, y_test: plot_cm(
+                    models[selected_model], X_test, y_test
+                ),
+                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
                 outputs=matrix_plot,
             )
 
+            generate_brier_scores_button.click(
+                fn=brier_score_wrapper,
+                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
+                outputs=brier_score_plot,
+            )
+
             generate_feature_importance_button.click(
-                fn=lambda models, importance_types, X_test, y_test, encoding: plot_fi(
-                    models, importance_types, X_test, y_test, encoding
-                ),
+                fn=plot_fi_wrapper,
                 inputs=[
                     models_state,
+                    model_dropdown,
                     importance_type_input,
                     X_test_state,
                     y_test_state,
@@ -248,7 +312,128 @@ with gr.Blocks() as app:
                 outputs=fi_plot,
             )
 
+            cluster_button.click(
+                fn=plot_cluster_wrapper,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    encoding_input,
+                    n_clusters_input,
+                ],
+                outputs=[cluster_brier_plot, cluster_heatmap_plot],
+            )
+
         with gr.Tab("Inference"):
-            gr.Markdown("### Inference")
+            with gr.Row():
+                tooth_input = gr.Number(label="Tooth", value=43)
+                toothtype_input = gr.Number(label="Tooth Type", value=1)
+                rootnumber_input = gr.Number(label="Root Number", value=0)
+                mobility_input = gr.Number(label="Mobility", value=1)
+                restoration_input = gr.Number(label="Restoration", value=1)
+                percussion_input = gr.Number(label="Percussion Sensitivity", value=0)
+                sensitivity_input = gr.Number(label="Sensitivity", value=0)
+                furcation_input = gr.Number(label="Furcation Baseline", value=0)
+                side_input = gr.Number(label="Side", value=3)
+                pdbaseline_input = gr.Number(label="PD Baseline", value=6)
+                recbaseline_input = gr.Number(label="REC Baseline", value=4)
+                plaque_input = gr.Number(label="Plaque", value=0)
+                bop_input = gr.Number(label="BOP", value=0)
+                age_input = gr.Number(label="Age", value=30)
+                gender_input = gr.Number(label="Gender", value=1)
+                bmi_input = gr.Number(label="Body Mass Index", value=35.0)
+                perio_history_input = gr.Number(label="Perio Family History", value=2)
+                diabetes_input = gr.Number(label="Diabetes", value=1)
+                smokingtype_input = gr.Number(label="Smoking Type", value=1)
+                cigarettenumber_input = gr.Number(label="Cigarette Number", value=0)
+                antibiotics_input = gr.Number(label="Antibiotic Treatment", value=1)
+                stresslvl_input = gr.Dropdown(
+                    label="Stress Level",
+                    choices=["low", "medium", "high"],
+                    value="high",
+                )
+
+            task_display = gr.Textbox(
+                label="Selected Task", value="", interactive=False
+            )
+
+            inference_model_dropdown = gr.Dropdown(
+                label="Select Model", choices=[], value=None, multiselect=False
+            )
+
+            encoding_input = gr.Dropdown(
+                label="Encoding",
+                choices=["one_hot", "target"],
+                value="one_hot",
+            )
+
+            task_display.value = task_input.value
+            task_input.change(
+                fn=lambda task: task, inputs=task_input, outputs=task_display
+            )
+
+            task_input.change(
+                fn=lambda task, encoding: load_data(
+                    InputProcessor.process_tasks([task])[0], encoding
+                )[1:],
+                inputs=[task_input, encoding_input],
+                outputs=[X_train_state, y_train_state, X_test_state, y_test_state],
+            )
+
+            encoding_input.change(
+                fn=lambda task, encoding: load_data(
+                    InputProcessor.process_tasks([task])[0], encoding
+                )[1:],
+                inputs=[task_input, encoding_input],
+                outputs=[X_train_state, y_train_state, X_test_state, y_test_state],
+            )
+
+            predict_button = gr.Button("Run Single Prediction")
+            prediction_output = gr.Textbox(label="Prediction Output", interactive=False)
+            probability_output = gr.Textbox(
+                label="Probability Output", interactive=False
+            )
+
+            models_state.change(
+                fn=update_model_dropdown,
+                inputs=models_state,
+                outputs=inference_model_dropdown,
+            )
+
+            predict_button.click(
+                fn=run_single_inference,
+                inputs=[
+                    task_input,
+                    models_state,
+                    inference_model_dropdown,
+                    tooth_input,
+                    toothtype_input,
+                    rootnumber_input,
+                    mobility_input,
+                    restoration_input,
+                    percussion_input,
+                    sensitivity_input,
+                    furcation_input,
+                    side_input,
+                    pdbaseline_input,
+                    recbaseline_input,
+                    plaque_input,
+                    bop_input,
+                    age_input,
+                    gender_input,
+                    bmi_input,
+                    perio_history_input,
+                    diabetes_input,
+                    smokingtype_input,
+                    cigarettenumber_input,
+                    antibiotics_input,
+                    stresslvl_input,
+                    encoding_input,
+                    X_train_state,
+                    y_train_state,
+                ],
+                outputs=[prediction_output, probability_output],
+            )
 
 app.launch()
