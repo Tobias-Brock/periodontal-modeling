@@ -1,27 +1,41 @@
 """App module."""
 
 from pamod.app._app_helpers import (
+    benchmarks_wrapper,
+    brier_score_wrapper,
     load_and_initialize_plotter,
     load_data,
+    plot_cluster,
+    plot_cluster_wrapper,
     plot_cm,
     plot_fi,
+    plot_fi_wrapper,
     plot_histogram_2d,
     plot_matrix,
     plot_outcome_descriptive,
     plot_pocket_comparison,
     plot_pocket_group_comparison,
     run_benchmarks,
+    run_single_inference,
+    update_model_dropdown,
 )
 
 __all__ = [
+    "benchmarks_wrapper",
+    "brier_score_wrapper",
     "load_and_initialize_plotter",
     "load_data",
+    "plot_cluster",
+    "plot_cluster_wrapper",
     "plot_cm",
     "plot_fi",
+    "plot_fi_wrapper",
     "plot_histogram_2d",
     "plot_matrix",
     "plot_outcome_descriptive",
     "plot_pocket_comparison",
     "plot_pocket_group_comparison",
     "run_benchmarks",
+    "run_single_inference",
+    "update_model_dropdown",
 ]

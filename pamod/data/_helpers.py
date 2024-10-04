@@ -98,12 +98,6 @@ class ProcessDataHelper:
                 patient_data[patient_data[infection_col] == 1][tooth_col]
             )
 
-            def count_infected_neighbors(tooth, infected_teeth_local):
-                neighbors = self.tooth_neighbor(tooth)
-                return sum(
-                    1 for neighbor in neighbors if neighbor in infected_teeth_local
-                )
-
             df.loc[df[patient_col] == patient_id, "infected_neighbors"] = patient_data[
                 tooth_col
             ].apply(

@@ -1,5 +1,6 @@
 """Base classes."""
 
+from dataclasses import dataclass
 from typing import Optional
 
 import hydra
@@ -258,3 +259,178 @@ class BaseData:
             ],
         }
         self.all_cat_vars = self.cat_vars + self.behavior_columns["categorical"]
+
+
+@dataclass
+class InferenceInput:
+    """Dataclass required for predictions.
+
+    Attributes:
+        tooth (int): The tooth number provided for inference.
+        toothtype (int): The type or class of the tooth for prediction.
+        rootnumber (int): Number of roots associated with the tooth.
+        mobility (int): The mobility level of the tooth.
+        restoration (int): Restoration status of the tooth.
+        percussion (int): Percussion sensitivity level of the tooth.
+        sensitivity (int): General sensitivity of the tooth.
+        furcation (int): The furcation baseline value.
+        side (int): Side of the tooth for prediction.
+        pdbaseline (int): Periodontal depth baseline value.
+        recbaseline (int): Recession baseline value.
+        plaque (int): Plaque level associated with the tooth.
+        bop (int): Bleeding on probing (BOP) status.
+        age (int): Age of the patient.
+        gender (int): Gender of the patient.
+        bmi (float): Body mass index of the patient.
+        perio_history (int): Family history of periodontal disease.
+        diabetes (int): Diabetes status of the patient.
+        smokingtype (int): Type of smoking habits of the patient.
+        cigarettenumber (int): Number of cigarettes smoked per day.
+        antibiotics (int): Antibiotic treatment status.
+        stresslvl (str): Stress level of the patient.
+
+    Methods:
+        to_dict() -> dict: Converts fields of dataclass into a dictionary.
+    """
+
+    tooth: int
+    toothtype: int
+    rootnumber: int
+    mobility: int
+    restoration: int
+    percussion: int
+    sensitivity: int
+    furcation: int
+    side: int
+    pdbaseline: int
+    recbaseline: int
+    plaque: int
+    bop: int
+    age: int
+    gender: int
+    bmi: float
+    perio_history: int
+    diabetes: int
+    smokingtype: int
+    cigarettenumber: int
+    antibiotics: int
+    stresslvl: str
+
+    def to_dict(self) -> dict:
+        """Convert the dataclass fields to a dictionary."""
+        return {
+            "tooth": self.tooth,
+            "toothtype": self.toothtype,
+            "side": self.side,
+            "rootnumber": self.rootnumber,
+            "furcationbaseline": self.furcation,
+            "mobility": self.mobility,
+            "percussion-sensitivity": self.percussion,
+            "sensitivity": self.sensitivity,
+            "pdbaseline": self.pdbaseline,
+            "recbaseline": self.recbaseline,
+            "plaque": self.plaque,
+            "bop": self.bop,
+            "age": self.age,
+            "gender": self.gender,
+            "bodymassindex": self.bmi,
+            "cigarettenumber": self.cigarettenumber,
+            "antibiotictreatment": self.antibiotics,
+            "restoration": self.restoration,
+            "periofamilyhistory": self.perio_history,
+            "diabetes": self.diabetes,
+            "smokingtype": self.smokingtype,
+            "stresslvl": self.stresslvl,
+        }
+
+
+def create_predict_data(
+    raw_data: pd.DataFrame, input_data: InferenceInput, encoding: str, model
+) -> pd.DataFrame:
+    """Creates prediction data for model inference.
+
+    Args:
+        raw_data (pd.DataFrame): The raw, unencoded data for the input instance.
+        input_data (InferenceInput): Input data provided by the user for inference.
+        encoding (str): Type of encoding used ('one_hot' or 'target').
+        model: The trained model to retrieve feature names from.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the prepared data for model prediction.
+
+    """
+    base_data = raw_data.copy()
+
+    if encoding == "one_hot":
+        encoded_data = {f"side_{i}": 0 for i in range(1, 7)}
+        encoded_data.update({"infected_neighbors": 0})
+
+        for tooth_num in range(11, 49):
+            if tooth_num % 10 == 0 or tooth_num % 10 == 9:
+                continue
+            encoded_data[f"tooth_{tooth_num}"] = 0
+
+        for feature, max_val in [
+            ("restoration", 3),
+            ("periofamilyhistory", 3),
+            ("diabetes", 4),
+            ("furcationbaseline", 3),
+            ("smokingtype", 5),
+            ("toothtype", 3),
+        ]:
+            for i in range(1, max_val + 1):
+                encoded_data[f"{feature}_{i}"] = 0
+
+        for stresslvl in ["high", "low", "medium"]:
+            encoded_data[f"stresslvl_{stresslvl}"] = 0
+
+        encoded_data[f"toothtype_{input_data.toothtype}"] = 1
+        encoded_data[f"side_{input_data.side}"] = 1
+        encoded_data[f"furcationbaseline_{input_data.furcation}"] = 1
+        encoded_data[f"smokingtype_{input_data.smokingtype}"] = 1
+        encoded_data[f"restoration_{input_data.restoration}"] = 1
+        encoded_data[f"periofamilyhistory_{input_data.perio_history}"] = 1
+        encoded_data[f"diabetes_{input_data.diabetes}"] = 1
+        encoded_data[f"tooth_{input_data.tooth}"] = 1
+        encoded_data[f"stresslvl_{input_data.stresslvl}"] = 1
+
+        drop_columns = [
+            "tooth",
+            "side",
+            "restoration",
+            "periofamilyhistory",
+            "diabetes",
+            "toothtype",
+            "furcationbaseline",
+            "smokingtype",
+            "stresslvl",
+        ]
+        base_data = base_data.drop(columns=drop_columns, errors="ignore")
+        complete_data = {**base_data.iloc[0].to_dict(), **encoded_data}
+
+    elif encoding == "target":
+        complete_data = base_data.iloc[0].to_dict()
+        complete_data.update({"infected_neighbors": 0})
+        complete_data.update(
+            {
+                "rootnumber": input_data.rootnumber,
+                "mobility": input_data.mobility,
+                "percussion-sensitivity": input_data.percussion,
+                "sensitivity": input_data.sensitivity,
+                "pdbaseline": input_data.pdbaseline,
+                "recbaseline": input_data.recbaseline,
+                "plaque": input_data.plaque,
+                "bop": input_data.bop,
+                "age": input_data.age,
+                "gender": input_data.gender,
+                "bodymassindex": input_data.bmi,
+                "cigarettenumber": input_data.cigarettenumber,
+                "antibiotictreatment": input_data.antibiotics,
+            }
+        )
+
+    model_features = model.get_booster().feature_names
+    predict_data = pd.DataFrame([complete_data])
+    predict_data = predict_data[model_features]
+
+    return predict_data

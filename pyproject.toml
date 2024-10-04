@@ -34,7 +34,6 @@ exclude = [
   "__pycache__",
   ".ruff_cache",
   ".pt",
-  "pamod/training/_benchmarking.py",
   "tests/",
 ]
 lint.select = [
