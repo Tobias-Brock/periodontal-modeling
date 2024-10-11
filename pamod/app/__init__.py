@@ -21,6 +21,7 @@ from pamod.app._app_helpers import (
     run_benchmarks,
     run_jackknife_inference,
     run_patient_inference,
+    teeth_ui_wrapper,
     update_model_dropdown,
     update_teeth_ui,
 )
@@ -48,4 +49,5 @@ __all__ = [
     "update_teeth_ui",
     "create_handle_side_change_fn",
     "collect_data",
+    "teeth_ui_wrapper",
 ]
