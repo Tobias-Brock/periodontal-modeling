@@ -36,7 +36,7 @@ class ProcessedDataLoader(BaseData):
         input_file = os.path.join(path, name)
         return pd.read_csv(input_file)
 
-    def _encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
 
         Args:
@@ -110,7 +110,7 @@ class ProcessedDataLoader(BaseData):
         Returns:
             pd.DataFrame: DataFrame with the selected target 'y'.
         """
-        df = self._encode_categorical_columns(df)
+        df = self.encode_categorical_columns(df)
         self._check_encoded_columns(df)
 
         if self.target not in df.columns:

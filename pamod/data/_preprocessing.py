@@ -27,6 +27,7 @@ class StaticProcessEngine(BaseData):
         super().__init__()
         self.behavior = behavior
         self.scale = scale
+        self.function_preprocessor = ProcessDataHelper()
 
     def load_data(
         self,
@@ -80,7 +81,7 @@ class StaticProcessEngine(BaseData):
 
         return df[actual_required_columns]
 
-    def _scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Scales numeric columns in the DataFrame.
 
         Args:
@@ -199,6 +200,47 @@ class StaticProcessEngine(BaseData):
                     raise ValueError(f"Column {col} is not correctly scaled.")
         print("All required columns are correctly processed and present.")
 
+    def create_tooth_features(
+        self, df: pd.DataFrame, neighbors: bool = True, patient_id: bool = True
+    ) -> pd.DataFrame:
+        """Creates side_infected, tooth_infected, and infected_neighbors columns.
+
+        Args:
+            df (pd.DataFrame): The input dataframe containing patient data.
+            neighbors (bool): Compute the count of adjacent infected teeth.
+                Defaults to True.
+            patient_id (bool): Flag to indicate whether 'id_patient' is required
+                when creating the 'tooth_infected' column. If True, 'id_patient' is
+                included in the grouping; otherwise, it is not. Defaults to True.
+
+        Returns:
+            pd.DataFrame: The dataframe with additional tooth-related features.
+        """
+        df["side_infected"] = df.apply(
+            lambda row: self.function_preprocessor.check_infection(
+                row["pdbaseline"], row["bop"]
+            ),
+            axis=1,
+        )
+        if patient_id:
+            df["tooth_infected"] = (
+                df.groupby(["id_patient", "tooth"])["side_infected"]
+                .transform(lambda x: (x == 1).any())
+                .astype(int)
+            )
+        else:
+            df["tooth_infected"] = (
+                df.groupby("tooth")["side_infected"]
+                .transform(lambda x: (x == 1).any())
+                .astype(int)
+            )
+        if neighbors:
+            df = self.function_preprocessor.get_adjacent_infected_teeth_count(
+                df, "id_patient", "tooth", "tooth_infected"
+            )
+
+        return df
+
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Processes dataset with data cleaning, imputations and scaling.
 
@@ -208,7 +250,6 @@ class StaticProcessEngine(BaseData):
         Returns:
             pd.DataFrame: The processed DataFrame.
         """
-        function_preprocessor = ProcessDataHelper()
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
         initial_patients = df["id_patient"].nunique()
@@ -232,22 +273,7 @@ class StaticProcessEngine(BaseData):
         print(f"Remaining number of rows: {remaining_rows}")
 
         df = self._impute_missing_values(df)
-        df["side_infected"] = df.apply(
-            lambda row: function_preprocessor.check_infection(
-                row["pdbaseline"], row["bop"]
-            ),
-            axis=1,
-        )
-        df["tooth_infected"] = (
-            df.groupby(["id_patient", "tooth"])["side_infected"]
-            .transform(lambda x: (x == 1).any())
-            .astype(int)
-        )
-
-        df = function_preprocessor.get_adjacent_infected_teeth_count(
-            df, "id_patient", "tooth", "tooth_infected"
-        )
-
+        df = self.create_tooth_features(df)
         df = self._create_outcome_variables(df)
 
         if self.behavior:
@@ -257,8 +283,8 @@ class StaticProcessEngine(BaseData):
         df.replace("", np.nan, inplace=True)
         df.replace(" ", np.nan, inplace=True)
 
-        df = function_preprocessor.fur_imputation(df)
-        df = function_preprocessor.plaque_imputation(df)
+        df = self.function_preprocessor.fur_imputation(df)
+        df = self.function_preprocessor.plaque_imputation(df)
 
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
@@ -275,7 +301,7 @@ class StaticProcessEngine(BaseData):
             print("No missing values after imputation.")
 
         if self.scale:
-            df = self._scale_numeric_columns(df)
+            df = self.scale_numeric_columns(df)
             self._check_scaled_columns(df)
 
         return df

@@ -22,6 +22,7 @@ class Trainer(BaseEvaluator):
         criterion: str,
         tuning: Optional[str],
         hpo: Optional[str],
+        mlp_training: bool = True,
     ) -> None:
         """Initializes the Trainer with classification type and criterion.
 
@@ -32,9 +33,11 @@ class Trainer(BaseEvaluator):
                 'brier_score').
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
             hpo (Optional[str]): The hyperparameter optimization method. Can be None.
+            mlp_training (bool): Flag for separate MLP training with early stopping.
         """
         super().__init__(classification, criterion, tuning, hpo)
         self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.mlp_training = mlp_training
 
     def train(
         self,
@@ -56,7 +59,7 @@ class Trainer(BaseEvaluator):
         Returns:
             Tuple: The evaluation score, trained model, and the best threshold.
         """
-        if isinstance(model, MLPClassifier):
+        if isinstance(model, MLPClassifier) and self.mlp_training:
             mlp_trainer = MLPTrainer(
                 self.classification, self.criterion, self.tuning, self.hpo
             )
@@ -189,6 +192,8 @@ class Trainer(BaseEvaluator):
         sampling: Optional[str],
         factor: Optional[float],
         n_jobs: int,
+        seed: int,
+        test_size: float,
         verbosity: bool = True,
     ):
         """Trains the final model.
@@ -200,6 +205,8 @@ class Trainer(BaseEvaluator):
             sampling (str): The type of sampling to apply.
             factor (float): The factor by which to upsample or downsample.
             n_jobs (int): The number of parallel jobs to run for evaluation.
+            seed (int): Seed for splitting.
+            test_size (float): Size of train test split.
             verbosity (bool): Verbosity during model evaluation process if set to True.
 
         Returns:
@@ -214,14 +221,16 @@ class Trainer(BaseEvaluator):
         if "n_jobs" in final_model.get_params():
             final_model.set_params(n_jobs=n_jobs)
 
-        train_df, test_df = resampler.split_train_test_df(df)
+        train_df, test_df = resampler.split_train_test_df(df, seed, test_size)
 
         X_train, y_train, X_test, y_test = resampler.split_x_y(
             train_df, test_df, sampling, factor
         )
-        if learner == "mlp":
+        if learner == "mlp" and self.mlp_training:
             mlp = MLPTrainer(self.classification, self.criterion, None, None)
-            train_df_h, test_df_h = resampler.split_train_test_df(train_df)
+            train_df_h, test_df_h = resampler.split_train_test_df(
+                train_df, seed, test_size
+            )
 
             X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
                 train_df_h, test_df_h, sampling, factor

@@ -14,6 +14,54 @@ from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 
 
+def brier_score_groups(model, X_test, y_test, group_by="y"):
+    """Calculates Brier score within groups.
+
+    Args:
+        model (object): Model with a `predict_proba` method for probability estimation.
+        X_test (pd.DataFrame): The input features as a pandas DataFrame.
+        y_test (pd.Series): The true labels corresponding to the input data `X`.
+        group_by (str): Grouping varuable.
+
+    Returns:
+        pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
+    """
+    if not hasattr(model, "predict_proba"):
+        raise ValueError("The provided model cannot predict probabilities.")
+
+    probas = model.predict_proba(X_test)
+
+    if len(probas[0]) == 1:
+        brier_scores = [
+            brier_score_loss([true_label], [pred_proba[0]])
+            for true_label, pred_proba in zip(y_test, probas, strict=False)
+        ]
+    else:
+        brier_scores = [
+            brier_score_loss(
+                [1 if true_label == idx else 0 for idx in range(len(proba))], proba
+            )
+            for true_label, proba in zip(y_test, probas, strict=False)
+        ]
+
+        data = pd.DataFrame({group_by: y_test, "Brier_Score": brier_scores})
+        data_grouped = data.groupby(group_by)
+
+    summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
+
+    print(f"Average and Median Brier Scores by {group_by}:")
+    print(summary)
+
+    plt.figure(figsize=(10, 6), dpi=300)
+    sns.boxplot(x=group_by, y="Brier_Score", data=data)
+    plt.title("Distribution of Brier Scores", fontsize=18)
+    plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
+    plt.ylabel("Brier Score", fontsize=18)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.show()
+
+
 def _is_one_hot_encoded(feature: str) -> bool:
     """Check if a feature is one-hot encoded.
 
@@ -310,6 +358,13 @@ class FeatureImportanceEngine:
         X_clustered["Brier_Score"] = brier_scores
 
         mean_brier_scores = X_clustered.groupby("Cluster")["Brier_Score"].mean()
+        print("\nMean Brier Score per cluster:")
+        print(mean_brier_scores)
+
+        cluster_counts = X_clustered["Cluster"].value_counts().sort_index()
+        print("Number of observations per cluster:")
+        print(cluster_counts)
+
         feature_averages = (
             X_clustered.drop(["Cluster", "Brier_Score"], axis=1)
             .groupby(X_clustered["Cluster"])
@@ -318,19 +373,17 @@ class FeatureImportanceEngine:
 
         plt.figure(figsize=(8, 6), dpi=150)
         sns.boxplot(x="Cluster", y="Brier_Score", data=X_clustered)
-        mean_brier_scores = (
-            X_clustered.groupby("Cluster")["Brier_Score"].mean().reset_index()
-        )
+
         sns.pointplot(
             x="Cluster",
             y="Brier_Score",
-            data=mean_brier_scores,
+            data=mean_brier_scores.reset_index(),
             color="darkred",
             markers="D",
             scale=0.75,
             ci=None,
         )
-        plt.show()
+        brier_plot = plt.gcf()
 
         plt.figure(figsize=(12, 8), dpi=150)
         annot_array = np.around(feature_averages.values, decimals=1)
@@ -341,6 +394,6 @@ class FeatureImportanceEngine:
             fmt=".1f",
             annot_kws={"size": 8},
         )
-        plt.show()
+        heatmap_plot = plt.gcf()
 
-        return X_clustered
+        return brier_plot, heatmap_plot, X_clustered

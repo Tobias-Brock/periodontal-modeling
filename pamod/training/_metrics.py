@@ -100,10 +100,10 @@ def final_metrics(
         brier_score: float = brier_loss_multi(y_test, probs)
 
         return {
-            "macro_f1": f1_score(y_test, preds, average="macro"),
-            "accuracy": accuracy_score(y_test, preds),
-            "class_f1_scores": f1_score(y_test, preds, average=None),
-            "brier_score": brier_score,
+            "Macro F1": f1_score(y_test, preds, average="macro"),
+            "Accuracy": accuracy_score(y_test, preds),
+            "Class F1 Scores": f1_score(y_test, preds, average=None),
+            "Multiclass Brier Score": brier_score,
         }
 
     raise ValueError(f"Unsupported classification type: {classification}")
