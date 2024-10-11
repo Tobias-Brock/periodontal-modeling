@@ -26,8 +26,14 @@ class Experiment(BaseEvaluator):
         sampling: Optional[str],
         factor: Optional[float],
         n_configs: int,
-        racing_folds: int,
+        racing_folds: Optional[int],
         n_jobs: int,
+        cv_folds: Optional[int] = None,
+        test_seed: Optional[int] = None,
+        test_size: Optional[float] = None,
+        val_size: Optional[float] = None,
+        cv_seed: Optional[int] = None,
+        mlp_flag: Optional[bool] = None,
         verbosity: bool = True,
     ) -> None:
         """Initialize the Experiment class with tuning parameters.
@@ -43,8 +49,16 @@ class Experiment(BaseEvaluator):
             sampling (str): Sampling strategy.
             factor (float): Factor for resampling.
             n_configs (int): Number of configurations for hyperparameter tuning.
-            racing_folds (int): Number of racing folds for Random Search (RS).
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
             n_jobs (int): Number of parallel jobs to run for evaluation.
+            cv_folds (Optional[int], optional): Number of folds for cross-validation.
+                Defaults to None, in which case the class's `n_folds` will be used.
+            test_seed (Optional[int], optional): Random seed for splitting.
+                Defaults to None.
+            test_size (Optional[float]): Size of grouped train test split.
+            val_size (Optional[float]): Size of grouped train test split for holdout.
+            cv_seed (int): Seed for splitting CV folds.
+            mlp_flag (bool): Flag for MLP training with early stopping.
             verbosity (bool): Enables verbose output if set to True.
         """
         self.df = df
@@ -58,10 +72,20 @@ class Experiment(BaseEvaluator):
         self.n_configs = n_configs
         self.racing_folds = racing_folds
         self.n_jobs = n_jobs
+        self.cv_folds = cv_folds if cv_folds is not None else self.n_folds
+        self.test_seed = test_seed if test_seed is not None else self.random_state_split
+        self.test_size = test_size if test_size is not None else self.test_set_size
+        self.val_size = val_size if val_size is not None else self.val_set_size
+        self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
         self.verbosity = verbosity
+        self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
         self.resampler = Resampler(self.classification, self.encoding)
         self.trainer = Trainer(
-            self.classification, self.criterion, tuning=None, hpo=None
+            self.classification,
+            self.criterion,
+            tuning=None,
+            hpo=None,
+            mlp_training=self.mlp_flag,
         )
         self.tuner = self._initialize_tuner()
 
@@ -95,7 +119,9 @@ class Experiment(BaseEvaluator):
         Returns:
             dict: A dictionary containing the trained model and its evaluation metrics.
         """
-        train_df, _ = self.resampler.split_train_test_df(self.df)
+        train_df, _ = self.resampler.split_train_test_df(
+            self.df, self.test_seed, self.test_size
+        )
 
         if self.tuning == "holdout":
             return self._evaluate_holdout(train_df)
@@ -113,7 +139,9 @@ class Experiment(BaseEvaluator):
         Returns:
             dict: A dictionary of evaluation metrics for the final model.
         """
-        train_df_h, test_df_h = self.resampler.split_train_test_df(train_df)
+        train_df_h, test_df_h = self.resampler.split_train_test_df(
+            train_df, self.test_seed, self.val_size
+        )
         X_train_h, y_train_h, X_val, y_val = self.resampler.split_x_y(
             train_df_h, test_df_h, self.sampling, self.factor
         )
@@ -136,6 +164,8 @@ class Experiment(BaseEvaluator):
             self.sampling,
             self.factor,
             self.n_jobs,
+            self.test_seed,
+            self.test_size,
         )
 
     def _evaluate_cv(self) -> dict:
@@ -144,7 +174,9 @@ class Experiment(BaseEvaluator):
         Returns:
             dict: A dictionary of evaluation metrics for the final model.
         """
-        outer_splits, _ = self.resampler.cv_folds(self.df, self.sampling, self.factor)
+        outer_splits, _ = self.resampler.cv_folds(
+            self.df, self.sampling, self.factor, self.cv_seed, self.cv_folds
+        )
         best_params, best_threshold = self.tuner.cv(
             self.learner,
             outer_splits,
@@ -162,6 +194,8 @@ class Experiment(BaseEvaluator):
             self.sampling,
             self.factor,
             self.n_jobs,
+            self.test_seed,
+            self.test_size,
         )
 
 
@@ -179,6 +213,12 @@ class Benchmarker:
         n_configs: int,
         racing_folds: int,
         n_jobs: int,
+        cv_folds: Optional[int] = None,
+        test_seed: Optional[int] = None,
+        test_size: Optional[float] = None,
+        val_size: Optional[float] = None,
+        cv_seed: Optional[int] = None,
+        mlp_flag: Optional[bool] = None,
         verbosity: bool = True,
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
@@ -197,6 +237,14 @@ class Benchmarker:
             n_configs (int): Number of configurations for hyperparameter tuning.
             racing_folds (int): Number of racing folds for Random Search.
             n_jobs (int): Number of parallel jobs to run.
+            cv_folds (Optional[int], optional): Number of folds for cross-validation.
+                Defaults to None, in which case the class's `n_folds` will be used.
+            test_seed (Optional[int], optional): Random seed for splitting.
+                Defaults to None.
+            test_size (Optional[float]): Size of grouped train test split.
+            val_size (Optional[float]): Size of grouped train test split for holdout.
+            cv_seed (int): Seed for splitting CV folds.
+            mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
             verbosity (bool): Enables verbose output if True.
             path (str): Directory path for the processed data.
             name (str): File name for the processed data.
@@ -213,6 +261,12 @@ class Benchmarker:
         self.racing_folds = racing_folds
         self.n_jobs = n_jobs
         self.verbosity = verbosity
+        self.cv_folds = cv_folds
+        self.test_seed = test_seed
+        self.test_size = test_size
+        self.val_size = val_size
+        self.cv_seed = cv_seed
+        self.mlp_flag = mlp_flag
         self.path = path
         self.name = name
         self.data_cache = self._load_data_for_tasks()
@@ -261,8 +315,6 @@ class Benchmarker:
 
             df = self.data_cache[(task, encoding)]
 
-            print(df.columns)
-
             exp = Experiment(
                 df=df,
                 task=task,
@@ -276,6 +328,12 @@ class Benchmarker:
                 n_configs=self.n_configs,
                 racing_folds=self.racing_folds,
                 n_jobs=self.n_jobs,
+                cv_folds=self.cv_folds,
+                test_seed=self.test_seed,
+                test_size=self.test_size,
+                val_size=self.val_size,
+                cv_seed=self.cv_seed,
+                mlp_flag=self.mlp_flag,
                 verbosity=self.verbosity,
             )
 
