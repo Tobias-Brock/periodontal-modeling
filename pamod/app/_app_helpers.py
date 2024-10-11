@@ -520,23 +520,50 @@ def plot_cluster_wrapper(
     )
 
 
-def update_teeth_ui(jaw_side: str, *args) -> List[gr.update]:
-    """Updates the visibility of teeth UI components based on selected jaw side.
+def update_teeth_ui(
+    jaw_side: str, all_teeth: list, teeth_numbers: dict, tooth_columns: dict
+) -> List:
+    """Updates the visibility of teeth UI components based on the selected jaw side.
 
     Args:
-        jaw_side (str): The selected jaw side.
-        *args: Gradio components to unpack.
+        jaw_side (str): The selected jaw side (e.g., 'Upper Right', 'Lower Left').
+        all_teeth (list): List of all teeth numbers.
+        teeth_numbers (dict): A dictionary mapping jaw sides to lists of tooth
+            numbers.
+        tooth_columns (dict): A dictionary mapping tooth numbers to the respective
+            UI components for each tooth.
 
     Returns:
-        List[gr.update]: List of Gradio update objects to set visibility.
+        List: A list of Gradio update objects to change the visibility of teeth UI
+            components.
     """
-    all_teeth, teeth_numbers, tooth_columns = args
     updates = []
     for tooth in all_teeth:
         visible = tooth in teeth_numbers[jaw_side]
-        for _ in tooth_columns[tooth]:
+        for _ in tooth_columns[tooth]:  # Access tooth_columns from the argument now
             updates.append(gr.update(visible=visible))
+
     return updates
+
+
+def teeth_ui_wrapper(
+    jaw_side: str, all_teeth: list, teeth_numbers: dict, tooth_columns: dict
+) -> List:
+    """Wrapper to pass additional arguments to the update_teeth_ui function.
+
+    Args:
+        jaw_side (str): The selected jaw side (e.g., 'Upper Right', 'Lower Left').
+        all_teeth (list): List of all teeth numbers.
+        teeth_numbers (dict): A dictionary mapping jaw sides to lists of tooth
+            numbers.
+        tooth_columns (dict): A dictionary mapping tooth numbers to the respective
+            UI components for each tooth.
+
+    Returns:
+        List: A list of Gradio update objects to change the visibility of teeth UI
+            components.
+    """
+    return update_teeth_ui(jaw_side, all_teeth, teeth_numbers, tooth_columns)
 
 
 def create_handle_side_change_fn(
