@@ -22,8 +22,8 @@ from pamod.app import (
     plot_pocket_group_comparison,
     run_jackknife_inference,
     run_patient_inference,
+    teeth_ui_wrapper,
     update_model_dropdown,
-    update_teeth_ui,
 )
 from pamod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
@@ -485,8 +485,19 @@ with gr.Blocks() as app:
                 for tooth_cols in tooth_columns.values():
                     all_columns.extend(tooth_cols)
 
+                all_teeth_state = gr.State(all_teeth)
+                teeth_numbers_state = gr.State(teeth_numbers)
+
                 jaw_dropdown.change(
-                    fn=update_teeth_ui, inputs=[jaw_dropdown], outputs=all_columns
+                    fn=lambda jaw_side, all_teeth, teeth_numbers: teeth_ui_wrapper(
+                        jaw_side, all_teeth, teeth_numbers, tooth_columns
+                    ),
+                    inputs=[
+                        jaw_dropdown,
+                        all_teeth_state,
+                        teeth_numbers_state,
+                    ],  # Passing 3 arguments
+                    outputs=all_columns,
                 )
 
                 for tooth in all_teeth:
