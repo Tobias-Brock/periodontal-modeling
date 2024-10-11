@@ -48,9 +48,3 @@ repos:
     rev: v1.10.0
     hooks:
       - id: python-no-log-warn
-
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.9
-  #   hooks:
-  #   - id: bandit
-  #   name: security-audit

@@ -3,8 +3,11 @@
 from pamod.app._app_helpers import (
     benchmarks_wrapper,
     brier_score_wrapper,
+    collect_data,
+    create_handle_side_change_fn,
     load_and_initialize_plotter,
     load_data,
+    load_data_wrapper,
     plot_cluster,
     plot_cluster_wrapper,
     plot_cm,
@@ -16,8 +19,10 @@ from pamod.app._app_helpers import (
     plot_pocket_comparison,
     plot_pocket_group_comparison,
     run_benchmarks,
-    run_single_inference,
+    run_jackknife_inference,
+    run_patient_inference,
     update_model_dropdown,
+    update_teeth_ui,
 )
 
 __all__ = [
@@ -25,6 +30,7 @@ __all__ = [
     "brier_score_wrapper",
     "load_and_initialize_plotter",
     "load_data",
+    "load_data_wrapper",
     "plot_cluster",
     "plot_cluster_wrapper",
     "plot_cm",
@@ -36,6 +42,10 @@ __all__ = [
     "plot_pocket_comparison",
     "plot_pocket_group_comparison",
     "run_benchmarks",
-    "run_single_inference",
+    "run_jackknife_inference",
+    "run_patient_inference",
     "update_model_dropdown",
+    "update_teeth_ui",
+    "create_handle_side_change_fn",
+    "collect_data",
 ]

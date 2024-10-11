@@ -1,12 +1,17 @@
 """Gradio frontend."""
 
+from functools import partial
+from typing import Any, Dict, List, Union
+
 import gradio as gr
 
 from pamod.app import (
     benchmarks_wrapper,
     brier_score_wrapper,
+    collect_data,
+    create_handle_side_change_fn,
     load_and_initialize_plotter,
-    load_data,
+    load_data_wrapper,
     plot_cluster_wrapper,
     plot_cm,
     plot_fi_wrapper,
@@ -15,10 +20,11 @@ from pamod.app import (
     plot_outcome_descriptive,
     plot_pocket_comparison,
     plot_pocket_group_comparison,
-    run_single_inference,
+    run_jackknife_inference,
+    run_patient_inference,
     update_model_dropdown,
+    update_teeth_ui,
 )
-from pamod.benchmarking import InputProcessor
 from pamod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
 with gr.Blocks() as app:
@@ -26,10 +32,12 @@ with gr.Blocks() as app:
 
     models_state = gr.State()
     task_state = gr.State()
+    train_df_state = gr.State()
     X_train_state = gr.State()
     y_train_state = gr.State()
     X_test_state = gr.State()
     y_test_state = gr.State()
+    side_data_state = gr.State({})
 
     with gr.Tabs():
         with gr.Tab("Descriptives"):
@@ -261,20 +269,20 @@ with gr.Blocks() as app:
             cluster_heatmap_plot = gr.Plot()
 
             load_data_button.click(
-                fn=lambda task, encoding: load_data(
-                    InputProcessor.process_tasks([task])[
-                        0
-                    ],  # Only pass task and encoding
-                    encoding,
-                ),
+                fn=load_data_wrapper,
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
+                    train_df_state,
                     X_train_state,
                     y_train_state,
                     X_test_state,
                     y_test_state,
                 ],
+            )
+
+            train_df_state.change(
+                fn=lambda x: x, inputs=train_df_state, outputs=train_df_state
             )
 
             X_train_state.change(
@@ -327,32 +335,223 @@ with gr.Blocks() as app:
 
         with gr.Tab("Inference"):
             with gr.Row():
-                tooth_input = gr.Number(label="Tooth", value=43)
-                toothtype_input = gr.Number(label="Tooth Type", value=1)
-                rootnumber_input = gr.Number(label="Root Number", value=0)
-                mobility_input = gr.Number(label="Mobility", value=1)
-                restoration_input = gr.Number(label="Restoration", value=1)
-                percussion_input = gr.Number(label="Percussion Sensitivity", value=0)
-                sensitivity_input = gr.Number(label="Sensitivity", value=0)
-                furcation_input = gr.Number(label="Furcation Baseline", value=0)
-                side_input = gr.Number(label="Side", value=3)
-                pdbaseline_input = gr.Number(label="PD Baseline", value=6)
-                recbaseline_input = gr.Number(label="REC Baseline", value=4)
-                plaque_input = gr.Number(label="Plaque", value=0)
-                bop_input = gr.Number(label="BOP", value=0)
-                age_input = gr.Number(label="Age", value=30)
-                gender_input = gr.Number(label="Gender", value=1)
-                bmi_input = gr.Number(label="Body Mass Index", value=35.0)
-                perio_history_input = gr.Number(label="Perio Family History", value=2)
-                diabetes_input = gr.Number(label="Diabetes", value=1)
-                smokingtype_input = gr.Number(label="Smoking Type", value=1)
-                cigarettenumber_input = gr.Number(label="Cigarette Number", value=0)
-                antibiotics_input = gr.Number(label="Antibiotic Treatment", value=1)
+                age_input = gr.Number(
+                    label="Age", value=30, minimum=0, maximum=120, step=1
+                )
+                gender_input = gr.Radio(
+                    label="Gender", choices=[0, 1], value=1
+                )  # 0 or 1
+                bmi_input = gr.Number(label="Body Mass Index", value=35.0, minimum=0)
+                perio_history_input = gr.Number(
+                    label="Perio Family History", value=2, minimum=0, maximum=2, step=1
+                )
+                diabetes_input = gr.Number(
+                    label="Diabetes", value=1, minimum=0, maximum=3, step=1
+                )
+                smokingtype_input = gr.Number(
+                    label="Smoking Type", value=1, minimum=0, maximum=4, step=1
+                )
+                cigarettenumber_input = gr.Number(
+                    label="Cigarette Number", value=0, minimum=0, step=1
+                )
+                antibiotics_input = gr.Radio(
+                    label="Antibiotic Treatment", choices=[0, 1], value=1
+                )
                 stresslvl_input = gr.Dropdown(
                     label="Stress Level",
                     choices=["low", "medium", "high"],
                     value="high",
                 )
+
+            jaw_dropdown = gr.Dropdown(
+                label="Select Jaw Side",
+                choices=["Upper Right", "Upper Left", "Lower Right", "Lower Left"],
+                value="Upper Right",
+            )
+
+            teeth_numbers = {
+                "Upper Right": [18, 17, 16, 15, 14, 13, 12, 11],
+                "Upper Left": [21, 22, 23, 24, 25, 26, 27, 28],
+                "Lower Right": [48, 47, 46, 45, 44, 43, 42, 41],
+                "Lower Left": [31, 32, 33, 34, 35, 36, 37, 38],
+            }
+            all_teeth = (
+                teeth_numbers["Upper Right"]
+                + teeth_numbers["Upper Left"]
+                + teeth_numbers["Lower Right"]
+                + teeth_numbers["Lower Left"]
+            )
+
+            features = [
+                ("Mobility", "mobility", "dropdown", [0, 1]),  # 0 or 1
+                ("Restoration", "restoration", "dropdown", [0, 1, 2]),  # 0 to 2
+                ("Percussion", "percussion", "dropdown", [0, 1]),  # 0 or 1
+                ("Sensitivity", "sensitivity", "dropdown", [0, 1]),  # 0 or 1
+                ("**Side Features**", "sideheader", "markdown"),
+                (
+                    "Select Side",
+                    "side_dropdown",
+                    "dropdown",
+                    ["Side 1", "Side 2", "Side 3", "Side 4", "Side 5", "Side 6"],
+                    "Side 1",
+                ),
+                ("Furcation", "furcation_input", "dropdown", [0, 1, 2]),  # 0 to 2
+                ("PD Baseline", "pdbaseline_input", "textbox"),  # Positive integer
+                ("REC Baseline", "recbaseline_input", "textbox"),  # Positive integer
+                ("Plaque", "plaque_input", "dropdown", [0, 1]),  # 0 or 1
+                ("BOP", "bop_input", "dropdown", [0, 1]),  # 0 or 1
+            ]
+
+            choices_or_limits: Union[str, list[str], list[int], None]
+            default_value: Union[str, list[str], list[int], None]
+            teeth_components: Dict[int, Dict[str, Any]] = {}
+            tooth_columns = {}
+            tooth_states = gr.State({})
+
+            with gr.Column() as grid_column:
+                with gr.Row():
+                    gr.Markdown("**Tooth Feature**")
+                    for tooth in all_teeth:
+                        with gr.Column(
+                            visible=(tooth in teeth_numbers["Upper Right"]),
+                            scale=0.5,
+                            min_width=120,
+                        ) as tooth_header_column:
+                            gr.Markdown(f"**Tooth {tooth}**")
+                            tooth_str = str(tooth)
+                            teeth_components[tooth] = {}
+                            tooth_columns[tooth] = [tooth_header_column]
+                            tooth_states.value[str(tooth)] = {
+                                "current_side": "Side 1",
+                                "sides": {},
+                            }
+
+                for feature in features:
+                    if len(feature) == 5:
+                        (
+                            feature_label,
+                            feature_key,
+                            input_type,
+                            choices_or_limits,
+                            default_value,
+                        ) = feature
+                    elif len(feature) == 4:
+                        feature_label, feature_key, input_type, choices_or_limits = (
+                            feature
+                        )
+                    else:
+                        feature_label, feature_key, input_type = feature
+                        choices_or_limits = None
+
+                    with gr.Row():
+                        gr.Markdown(feature_label)
+                        for tooth in all_teeth:
+                            with gr.Column(
+                                visible=(tooth in teeth_numbers["Upper Right"]),
+                                scale=0.5,
+                                min_width=120,
+                            ) as tooth_column:
+                                if input_type == "number":
+                                    pass
+                                elif input_type == "textbox":
+                                    input_component = gr.Textbox(
+                                        show_label=False,
+                                        value="",
+                                        placeholder="Enter number",
+                                        max_lines=1,
+                                    )
+                                elif input_type == "markdown":
+                                    input_component = gr.Markdown("")
+                                elif input_type == "dropdown":
+                                    default_value = (
+                                        feature[4] if len(feature) > 4 else None
+                                    )
+                                    input_component = gr.Dropdown(
+                                        show_label=False,
+                                        choices=choices_or_limits,
+                                        value=default_value,
+                                    )
+                                else:
+                                    input_component = gr.Textbox(
+                                        show_label=False, value="", max_lines=1
+                                    )
+
+                                teeth_components[tooth][
+                                    str(feature_key)
+                                ] = input_component
+                                tooth_columns[tooth].append(tooth_column)
+
+                all_columns = []
+                for tooth_cols in tooth_columns.values():
+                    all_columns.extend(tooth_cols)
+
+                jaw_dropdown.change(
+                    fn=update_teeth_ui, inputs=[jaw_dropdown], outputs=all_columns
+                )
+
+                for tooth in all_teeth:
+                    side_dropdown = teeth_components[tooth]["side_dropdown"]
+                    furcation_input = teeth_components[tooth]["furcation_input"]
+                    pdbaseline_input = teeth_components[tooth]["pdbaseline_input"]
+                    recbaseline_input = teeth_components[tooth]["recbaseline_input"]
+                    plaque_input = teeth_components[tooth]["plaque_input"]
+                    bop_input = teeth_components[tooth]["bop_input"]
+
+                    handle_side_change_fn = create_handle_side_change_fn(tooth)
+
+                    side_dropdown.change(
+                        fn=handle_side_change_fn,
+                        inputs=[
+                            tooth_states,
+                            side_dropdown,
+                            furcation_input,
+                            pdbaseline_input,
+                            recbaseline_input,
+                            plaque_input,
+                            bop_input,
+                        ],
+                        outputs=[
+                            tooth_states,
+                            furcation_input,
+                            pdbaseline_input,
+                            recbaseline_input,
+                            plaque_input,
+                            bop_input,
+                        ],
+                    )
+
+            submit_button = gr.Button("Submit")
+
+            patient_inputs = [
+                age_input,
+                gender_input,
+                bmi_input,
+                perio_history_input,
+                diabetes_input,
+                smokingtype_input,
+                cigarettenumber_input,
+                antibiotics_input,
+                stresslvl_input,
+            ]
+
+            tooth_inputs: List[Any] = []
+            for tooth in all_teeth:
+                tooth_inputs.extend(teeth_components[tooth].values())
+
+            output_message = gr.Textbox(label="Output")
+
+            patient_data = gr.Dataframe(visible=False)
+            results = gr.DataFrame(visible=False)
+
+            collect_data_fn = partial(
+                collect_data, teeth_components=teeth_components, all_teeth=all_teeth
+            )
+
+            submit_button.click(
+                fn=collect_data_fn,
+                inputs=patient_inputs + tooth_inputs + [tooth_states],
+                outputs=[output_message, patient_data],
+            )
 
             task_display = gr.Textbox(
                 label="Selected Task", value="", interactive=False
@@ -374,26 +573,34 @@ with gr.Blocks() as app:
             )
 
             task_input.change(
-                fn=lambda task, encoding: load_data(
-                    InputProcessor.process_tasks([task])[0], encoding
-                )[1:],
+                fn=load_data_wrapper,
                 inputs=[task_input, encoding_input],
-                outputs=[X_train_state, y_train_state, X_test_state, y_test_state],
+                outputs=[
+                    load_status_output,
+                    train_df_state,
+                    X_train_state,
+                    y_train_state,
+                    X_test_state,
+                    y_test_state,
+                ],
             )
 
             encoding_input.change(
-                fn=lambda task, encoding: load_data(
-                    InputProcessor.process_tasks([task])[0], encoding
-                )[1:],
+                fn=load_data_wrapper,
                 inputs=[task_input, encoding_input],
-                outputs=[X_train_state, y_train_state, X_test_state, y_test_state],
+                outputs=[
+                    load_status_output,
+                    train_df_state,
+                    X_train_state,
+                    y_train_state,
+                    X_test_state,
+                    y_test_state,
+                ],
             )
 
-            predict_button = gr.Button("Run Single Prediction")
-            prediction_output = gr.Textbox(label="Prediction Output", interactive=False)
-            probability_output = gr.Textbox(
-                label="Probability Output", interactive=False
-            )
+            prediction_data = gr.Dataframe(visible=False)
+            inference_button = gr.Button("Run Inference")
+            prediction_output = gr.Dataframe(label="Prediction Results")
 
             models_state.change(
                 fn=update_model_dropdown,
@@ -401,39 +608,68 @@ with gr.Blocks() as app:
                 outputs=inference_model_dropdown,
             )
 
-            predict_button.click(
-                fn=run_single_inference,
+            inference_button.click(
+                fn=run_patient_inference,
                 inputs=[
                     task_input,
                     models_state,
                     inference_model_dropdown,
-                    tooth_input,
-                    toothtype_input,
-                    rootnumber_input,
-                    mobility_input,
-                    restoration_input,
-                    percussion_input,
-                    sensitivity_input,
-                    furcation_input,
-                    side_input,
-                    pdbaseline_input,
-                    recbaseline_input,
-                    plaque_input,
-                    bop_input,
-                    age_input,
-                    gender_input,
-                    bmi_input,
-                    perio_history_input,
-                    diabetes_input,
-                    smokingtype_input,
-                    cigarettenumber_input,
-                    antibiotics_input,
-                    stresslvl_input,
+                    patient_data,
                     encoding_input,
                     X_train_state,
                     y_train_state,
                 ],
-                outputs=[prediction_output, probability_output],
+                outputs=[prediction_data, prediction_output, results],
+            )
+
+            load_data_button = gr.Button("Load Data")
+            load_status_output = gr.Textbox(label="Status")
+
+            sample_fraction_input = gr.Slider(
+                label="Sample Fraction for Jackknife Resampling",
+                minimum=0.1,
+                maximum=1.0,
+                step=0.1,
+                value=1.0,
+            )
+
+            n_jobs_input = gr.Number(
+                label="Number of Parallel Jobs (n_jobs)",
+                value=-1,
+                precision=0,
+            )
+
+            load_data_button.click(
+                fn=load_data_wrapper,
+                inputs=[task_input, encoding_input],
+                outputs=[
+                    load_status_output,
+                    train_df_state,
+                    X_train_state,
+                    y_train_state,
+                    X_test_state,
+                    y_test_state,
+                ],
+            )
+
+            jackknife_button = gr.Button("Run Jackknife Inference")
+            jackknife_output = gr.Dataframe(label="Jackknife Prediction Results")
+            jackknife_plot = gr.Plot(label="Confidence Intervals Plot")
+
+            jackknife_button.click(
+                fn=run_jackknife_inference,
+                inputs=[
+                    task_input,
+                    models_state,
+                    inference_model_dropdown,
+                    train_df_state,
+                    prediction_data,
+                    encoding_input,
+                    results,
+                    sample_fraction_input,
+                    n_jobs_input,
+                ],
+                outputs=[jackknife_output, jackknife_plot],
             )
 
 app.launch()
