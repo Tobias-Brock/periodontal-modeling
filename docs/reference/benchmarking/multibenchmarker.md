@@ -1,1 +1,0 @@
-::: pamod.benchmarking.MultiBenchmarker

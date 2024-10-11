@@ -21,8 +21,8 @@ nav:
   - pamod: index.md
   - pamod.app: "reference/app.md"
   - pamod.benchmarking:
+      - Experiment: "reference/benchmarking/experiment.md"
       - Becnhmarker: "reference/benchmarking/benchmarker.md"
-      - MultiBecnhmarker: "reference/benchmarking/multibenchmarker.md"
       - InputProcessor: "reference/benchmarking/processor.md"
   - pamod.data:
       - StaticProcessEngine: "reference/data/staticengine.md"

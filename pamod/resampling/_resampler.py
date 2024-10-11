@@ -88,8 +88,12 @@ class Resampler(BaseValidator, BaseData):
         else:
             return X, y
 
-    def _apply_target_encoding(
-        self, X_train: pd.DataFrame, X_val: pd.DataFrame, y_train: pd.Series
+    def apply_target_encoding(
+        self,
+        X_train: pd.DataFrame,
+        X_val: pd.DataFrame,
+        y_train: pd.Series,
+        jackknife: bool = False,
     ) -> pd.DataFrame:
         """Applies target encoding to categorical variables.
 
@@ -97,6 +101,8 @@ class Resampler(BaseValidator, BaseData):
             X_train (pd.DataFrame): Training dataset.
             X_val (pd.DataFrame): Validation dataset.
             y_train (pd.Series): The target variable.
+            jackknife (bool, optional): If True, do not transform X_val.
+                Defaults to False.
 
         Returns:
             pd.DataFrame: Dataset with target encoded features.
@@ -106,7 +112,11 @@ class Resampler(BaseValidator, BaseData):
         if cat_vars:
             encoder = TargetEncoder(target_type=self.classification)
             X_train_encoded = encoder.fit_transform(X_train[cat_vars], y_train)
-            X_val_encoded = encoder.transform(X_val[cat_vars])
+
+            if not jackknife and X_val is not None:
+                X_val_encoded = encoder.transform(X_val[cat_vars])
+            else:
+                X_val_encoded = None  # If jackknife is True, skip encoding X_val
 
             if self.classification == "multiclass":
                 n_classes = len(set(y_train))
@@ -119,24 +129,34 @@ class Resampler(BaseValidator, BaseData):
             X_train_encoded = pd.DataFrame(
                 X_train_encoded, columns=encoded_cols, index=X_train.index
             )
-            X_val_encoded = pd.DataFrame(
-                X_val_encoded, columns=encoded_cols, index=X_val.index
-            )
+
+            if X_val_encoded is not None:
+                X_val_encoded = pd.DataFrame(
+                    X_val_encoded, columns=encoded_cols, index=X_val.index
+                )
 
             X_train.drop(columns=cat_vars, inplace=True)
-            X_val.drop(columns=cat_vars, inplace=True)
+            if X_val is not None:
+                X_val.drop(columns=cat_vars, inplace=True)
+
             X_train = pd.concat([X_train, X_train_encoded], axis=1)
-            X_val = pd.concat([X_val, X_val_encoded], axis=1)
+            if X_val_encoded is not None:
+                X_val = pd.concat([X_val, X_val_encoded], axis=1)
 
         return X_train, X_val
 
     def split_train_test_df(
-        self, df: pd.DataFrame
+        self,
+        df: pd.DataFrame,
+        seed: Optional[int] = None,
+        test_size: Optional[float] = None,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Splits the dataset into train_df and test_df based on group identifiers.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
+            seed (Optional[int], optional): Random seed for splitting. Defaults to None.
+            test_size (Optional[float]): Size of grouped train test split.
 
         Returns:
             tuple: Tuple containing the training and test DataFrames
@@ -146,12 +166,12 @@ class Resampler(BaseValidator, BaseData):
             ValueError: If required columns are missing from the input DataFrame.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        self.validate_dataframe(df, ["y", self.group_col])
+        self.validate_dataframe(df, [self.target, self.group_col])
 
         gss = GroupShuffleSplit(
             n_splits=1,
-            test_size=self.test_set_size,
-            random_state=self.random_state_split,
+            test_size=test_size if test_size is not None else self.test_set_size,
+            random_state=seed if seed is not None else self.random_state_split,
         )
         train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
 
@@ -192,13 +212,13 @@ class Resampler(BaseValidator, BaseData):
         Raises:
             ValueError: If required columns are missing or sampling method is invalid.
         """
-        X_train = train_df.drop(["y"], axis=1)
-        y_train = train_df["y"]
-        X_test = test_df.drop(["y"], axis=1)
-        y_test = test_df["y"]
+        X_train = train_df.drop([self.target], axis=1)
+        y_train = train_df[self.target]
+        X_test = test_df.drop([self.target], axis=1)
+        y_test = test_df[self.target]
 
         if self.encoding == "target":
-            X_train, X_test = self._apply_target_encoding(X_train, X_test, y_train)
+            X_train, X_test = self.apply_target_encoding(X_train, X_test, y_train)
 
         if sampling is not None:
             X_train, y_train = self.apply_sampling(X_train, y_train, sampling, factor)
@@ -215,6 +235,8 @@ class Resampler(BaseValidator, BaseData):
         df: pd.DataFrame,
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
+        seed: Optional[int] = None,
+        n_folds: Optional[int] = None,
     ) -> Tuple[list, list]:
         """Performs cross-validation with group constraints.
 
@@ -226,6 +248,11 @@ class Resampler(BaseValidator, BaseData):
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
+            seed (Optional[int], optional): Random seed for reproducibility. Defaults
+            to None.
+            n_folds (Optional[int], optional): Number of folds for cross-validation.
+                Defaults to None, in which case the class's `n_folds` will be used.
+
 
         Returns:
             tuple: A tuple containing outer splits and cross-validation fold indices.
@@ -234,25 +261,29 @@ class Resampler(BaseValidator, BaseData):
             ValueError: If required columns are missing or folds are inconsistent.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        np.random.default_rng(self.random_state_cv)
+        np.random.default_rng(
+            random_state=seed if seed is not None else self.random_state_cv
+        )
 
-        self.validate_dataframe(df, ["y", self.group_col])
+        self.validate_dataframe(df, [self.target, self.group_col])
         self.validate_n_folds(self.n_folds)
         train_df, _ = self.split_train_test_df(df)
-        gkf = GroupKFold(n_splits=self.n_folds)
+        gkf = GroupKFold(n_splits=n_folds if n_folds is not None else self.n_folds)
 
         cv_folds_indices = []
         outer_splits = []
         original_validation_data = []
 
         for train_idx, test_idx in gkf.split(train_df, groups=train_df[self.group_col]):
-            X_train_fold = train_df.iloc[train_idx].drop(["y"], axis=1)
-            y_train_fold = train_df.iloc[train_idx]["y"]
-            X_test_fold = train_df.iloc[test_idx].drop(["y"], axis=1)
-            y_test_fold = train_df.iloc[test_idx]["y"]
+            X_train_fold = train_df.iloc[train_idx].drop([self.target], axis=1)
+            y_train_fold = train_df.iloc[train_idx][self.target]
+            X_test_fold = train_df.iloc[test_idx].drop([self.target], axis=1)
+            y_test_fold = train_df.iloc[test_idx][self.target]
 
             original_validation_data.append(
-                train_df.iloc[test_idx].drop(["y"], axis=1).reset_index(drop=True)
+                train_df.iloc[test_idx]
+                .drop([self.target], axis=1)
+                .reset_index(drop=True)
             )
 
             if sampling is not None:
@@ -277,7 +308,7 @@ class Resampler(BaseValidator, BaseData):
             outer_splits_t = []
 
             for (X_t, y_t), (X_val, y_val) in outer_splits:
-                X_t, y_t, X_val = self._apply_target_encoding(X_t, y_t, X_val)
+                X_t, y_t, X_val = self.apply_target_encoding(X_t, y_t, X_val)
                 if sampling == "smote":
                     X_t, y_t = self.apply_sampling(X_t, y_t, sampling, factor)
 

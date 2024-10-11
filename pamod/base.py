@@ -1,6 +1,7 @@
 """Base classes."""
 
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 import hydra
 import pandas as pd
@@ -28,7 +29,46 @@ def validate_hpo(hpo: Optional[str]) -> None:
         raise ValueError("Unsupported HPO. Choose either 'rs' or 'hebo'.")
 
 
-class BaseValidator:
+class BaseHydra:
+    """Base class to initialize Hydra configuration."""
+
+    def __init__(
+        self, config_path: str = "../config", config_name: str = "config"
+    ) -> None:
+        """Initializes the Hydra configuration for use in other classes.
+
+        Args:
+            config_path (str): Path to the Hydra config directory.
+            config_name (str): The name of the config file.
+        """
+        with hydra.initialize(config_path=config_path, version_base="1.2"):
+            self.cfg = hydra.compose(config_name=config_name)
+
+        self.random_state_sampling = self.cfg.resample.random_state_sampling
+        self.random_state_split = self.cfg.resample.random_state_split
+        self.random_state_cv = self.cfg.resample.random_state_cv
+        self.random_state_val = self.cfg.tuning.random_state_val
+        self.test_set_size = self.cfg.resample.test_set_size
+        self.val_set_size = self.cfg.resample.val_set_size
+        self.group_col = self.cfg.resample.group_col
+        self.n_folds = self.cfg.resample.n_folds
+        self.target = self.cfg.resample.target
+        self.random_state_model = self.cfg.learner.random_state_model
+        self.xgb_obj_binary = self.cfg.learner.xgb_obj_binary
+        self.xgb_loss_binary = self.cfg.learner.xgb_loss_binary
+        self.xgb_obj_multi = self.cfg.learner.xgb_obj_multi
+        self.xgb_loss_multi = self.cfg.learner.xgb_loss_multi
+        self.lr_solver_binary = self.cfg.learner.lr_solver_binary
+        self.lr_solver_multi = self.cfg.learner.lr_solver_multi
+        self.lr_multi_loss = self.cfg.learner.lr_multi_loss
+        self.random_state = self.cfg.resample.random_state_cv
+        self.random_state_val = self.cfg.tuning.random_state_val
+        self.tol = self.cfg.mlp.mlp_tol
+        self.n_iter_no_change = self.cfg.mlp.mlp_no_improve
+        self.mlp_training = self.cfg.mlp.mlp_training
+
+
+class BaseValidator(BaseHydra):
     """BaseValidator method."""
 
     def __init__(self, classification: str, hpo: Optional[str] = None) -> None:
@@ -43,35 +83,19 @@ class BaseValidator:
             hpo (Optional[str], optional): The hyperparameter optimization type
                 ('rs' or 'hebo'). Defaults to None.
         """
-        with hydra.initialize(config_path="../config", version_base="1.2"):
-            cfg = hydra.compose(config_name="config")
+        super().__init__()  # Initialize BaseHydra
         validate_classification(classification)
         validate_hpo(hpo)
         self.classification = classification
         self.hpo = hpo
-        self.random_state_sampling = cfg.resample.random_state_sampling
-        self.random_state_split = cfg.resample.random_state_split
-        self.random_state_cv = cfg.resample.random_state_cv
-        self.random_state_val = cfg.tuning.random_state_val
-        self.test_set_size = cfg.resample.test_set_size
-        self.group_col = cfg.resample.group_col
-        self.n_folds = cfg.resample.n_folds
-        self.random_state_model = cfg.learner.random_state_model
-        self.xgb_obj_binary = cfg.learner.xgb_obj_binary
-        self.xgb_loss_binary = cfg.learner.xgb_loss_binary
-        self.xgb_obj_multi = cfg.learner.xgb_obj_multi
-        self.xgb_loss_multi = cfg.learner.xgb_loss_multi
-        self.lr_solver_binary = cfg.learner.lr_solver_binary
-        self.lr_solver_multi = cfg.learner.lr_solver_multi
-        self.lr_multi_loss = cfg.learner.lr_multi_loss
 
     def validate_dataframe(self, df: pd.DataFrame, required_columns: list) -> None:
-        """Validates that the input is a pandas DataFrame and contains required columns.
+        """Validate input is a pandas DataFrame and contains required columns.
 
         Args:
             df (pd.DataFrame): The DataFrame to validate.
-            required_columns (list): A list of column names that are required in the
-                DataFrame.
+            required_columns (list): A list of column names that are required in
+                the DataFrame.
 
         Raises:
             TypeError: If the input is not a pandas DataFrame.
@@ -118,8 +142,8 @@ class BaseValidator:
             )
 
 
-class BaseEvaluator:
-    """_BaseEvaluator method."""
+class BaseEvaluator(BaseHydra):
+    """BaseEvaluator method."""
 
     def __init__(
         self,
@@ -134,13 +158,12 @@ class BaseEvaluator:
             classification (str): The type of classification ('binary' or
                 'multiclass').
             criterion (str): The evaluation criterion.
-            tuning (Optional[str], optional): The tuning method ('holdout' or 'cv').
-                Defaults to None.
-            hpo (Optional[str], optional): The hyperparameter optimization type ('rs'
-                or 'hebo'). Defaults to None.
+            tuning (Optional[str], optional): The tuning method ('holdout' or
+                'cv'). Defaults to None.
+            hpo (Optional[str], optional): The hyperparameter optimization type
+                ('rs' or 'hebo'). Defaults to None.
         """
-        with hydra.initialize(config_path="../config", version_base="1.2"):
-            self.cfg = hydra.compose(config_name="config")
+        super().__init__()  # Initialize BaseHydra
         validate_classification(classification)
         self._validate_criterion(criterion)
         validate_hpo(hpo)
@@ -149,10 +172,6 @@ class BaseEvaluator:
         self.criterion = criterion
         self.hpo = hpo
         self.tuning = tuning
-        self.random_state = self.cfg.resample.random_state_cv
-        self.random_state_val = self.cfg.tuning.random_state_val
-        self.tol = self.cfg.mlp.mlp_tol
-        self.n_iter_no_change = self.cfg.mlp.mlp_no_improve
 
     def _validate_criterion(self, criterion: str) -> None:
         """Validates the evaluation criterion.
@@ -190,21 +209,8 @@ class BaseData:
 
     def __init__(self) -> None:
         """Initializes the BaseData class with shared attributes."""
-        self.required_columns = [
+        self.patient_columns = [
             "ID_patient",
-            "Tooth",
-            "Toothtype",
-            "RootNumber",
-            "Mobility",
-            "Restoration",
-            "Percussion-sensitivity",
-            "Sensitivity",
-            "FurcationBaseline",
-            "Side",
-            "PdBaseline",
-            "RecBaseline",
-            "Plaque",
-            "BOP",
             "Age",
             "Gender",
             "BodyMassIndex",
@@ -218,6 +224,26 @@ class BaseData:
             "BOPRevaluation",
             "Pregnant",
         ]
+        self.tooth_columns = [
+            "Tooth",
+            "Toothtype",
+            "RootNumber",
+            "Mobility",
+            "Restoration",
+            "Percussion-sensitivity",
+            "Sensitivity",
+        ]
+        self.side_columns = [
+            "FurcationBaseline",
+            "Side",
+            "PdBaseline",
+            "RecBaseline",
+            "Plaque",
+            "BOP",
+        ]
+        self.required_columns = (
+            self.patient_columns + self.tooth_columns + self.side_columns
+        )
         self.cat_vars = [
             "side",
             "restoration",
@@ -258,3 +284,159 @@ class BaseData:
             ],
         }
         self.all_cat_vars = self.cat_vars + self.behavior_columns["categorical"]
+
+
+@dataclass
+class Side:
+    """Dataclass to represent a single side of a tooth."""
+
+    furcationbaseline: Optional[int]
+    side: int
+    pdbaseline: Optional[int]
+    recbaseline: Optional[int]
+    plaque: Optional[int]
+    bop: Optional[int]
+
+
+@dataclass
+class Tooth:
+    """Dataclass to represent a tooth, which contains up to 6 sides."""
+
+    tooth: int
+    toothtype: int
+    rootnumber: int
+    mobility: Optional[int]
+    restoration: Optional[int]
+    percussion: Optional[int]
+    sensitivity: Optional[int]
+    sides: List[Side] = field(default_factory=list)
+
+
+@dataclass
+class Patient:
+    """Dataclass to represent teeth and patient-level information."""
+
+    age: int
+    gender: int
+    bmi: float
+    perio_history: int
+    diabetes: int
+    smokingtype: int
+    cigarettenumber: int
+    antibiotics: int
+    stresslvl: str
+    teeth: List[Tooth] = field(default_factory=list)
+
+
+def create_predict_data(
+    raw_data: pd.DataFrame, patient_data: pd.DataFrame, encoding: str, model
+) -> pd.DataFrame:
+    """Creates prediction data for model inference.
+
+    Args:
+        raw_data (pd.DataFrame): The raw, preprocessed data.
+        patient_data (pd.DataFrame): Original patient data before preprocessing.
+        encoding (str): Type of encoding used ('one_hot' or 'target').
+        model: The trained model to retrieve feature names from.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the prepared data for model prediction.
+    """
+    base_data = raw_data.copy()
+
+    if encoding == "one_hot":
+        drop_columns = [
+            "tooth",
+            "side",
+            "restoration",
+            "periofamilyhistory",
+            "diabetes",
+            "toothtype",
+            "furcationbaseline",
+            "smokingtype",
+            "stresslvl",
+            "infected_neighbors",  # Add this to avoid duplication
+            "side_infected",  # Add this to avoid duplication
+            "tooth_infected",  # Add this to avoid duplication
+        ]
+        base_data = base_data.drop(columns=drop_columns, errors="ignore")
+        encoded_data = pd.DataFrame(index=base_data.index)
+
+        for i in range(1, 7):
+            encoded_data[f"side_{i}"] = 0
+
+        for tooth_num in range(11, 49):
+            if tooth_num % 10 == 0 or tooth_num % 10 == 9:
+                continue
+            encoded_data[f"tooth_{tooth_num}"] = 0
+
+        categorical_features = [
+            ("restoration", 3),
+            ("periofamilyhistory", 3),
+            ("diabetes", 4),
+            ("furcationbaseline", 3),
+            ("smokingtype", 5),
+            ("toothtype", 3),
+        ]
+
+        for feature, max_val in categorical_features:
+            for i in range(0, max_val + 1):
+                encoded_data[f"{feature}_{i}"] = 0
+
+        for stresslvl in ["high", "low", "medium"]:
+            encoded_data[f"stresslvl_{stresslvl}"] = 0
+
+        for idx, row in patient_data.iterrows():
+            encoded_data.at[idx, f"tooth_{row['tooth']}"] = 1
+            encoded_data.at[idx, f"side_{row['side']}"] = 1
+
+            encoded_data.at[idx, f"toothtype_{row['toothtype']}"] = 1
+            encoded_data.at[idx, f"furcationbaseline_{row['furcationbaseline']}"] = 1
+            encoded_data.at[idx, f"smokingtype_{row['smokingtype']}"] = 1
+            encoded_data.at[idx, f"restoration_{row['restoration']}"] = 1
+            encoded_data.at[idx, f"periofamilyhistory_{row['periofamilyhistory']}"] = 1
+            encoded_data.at[idx, f"diabetes_{row['diabetes']}"] = 1
+            encoded_data.at[idx, f"stresslvl_{row['stresslvl']}"] = 1
+
+        complete_data = pd.concat(
+            [base_data.reset_index(drop=True), encoded_data.reset_index(drop=True)],
+            axis=1,
+        )
+
+        complete_data = complete_data.loc[:, ~complete_data.columns.duplicated()]
+        duplicates = complete_data.columns[complete_data.columns.duplicated()].unique()
+        if len(duplicates) > 0:
+            print("Duplicate columns found:", duplicates)
+
+    elif encoding == "target":
+        complete_data = base_data.copy()
+        numerical_columns = {
+            "mobility": "mobility",
+            "percussion-sensitivity": "percussion-sensitivity",
+            "sensitivity": "sensitivity",
+            "pdbaseline": "pdbaseline",
+            "recbaseline": "recbaseline",
+            "plaque": "plaque",
+            "bop": "bop",
+            "age": "age",
+            "gender": "gender",
+            "bodymassindex": "bodymassindex",
+            "cigarettenumber": "cigarettenumber",
+            "antibiotictreatment": "antibiotictreatment",
+            "rootnumber": "rootnumber",
+        }
+        for key, value in numerical_columns.items():
+            if value in patient_data.columns:
+                complete_data[key] = patient_data[value].values
+
+    else:
+        raise ValueError(f"Unsupported encoding type: {encoding}")
+
+    model_features = model.get_booster().feature_names
+    for feature in model_features:
+        if feature not in complete_data.columns:
+            complete_data[feature] = 0
+
+    predict_data = complete_data[model_features]
+
+    return predict_data
