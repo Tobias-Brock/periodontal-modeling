@@ -4,11 +4,95 @@ import numpy as np
 import pandas as pd
 
 
+def _get_side() -> dict:
+    """Dict containing tooth-side combinations which should have furcation.
+
+    Returns:
+        dict: Dict mapping tooth numbers to corresponding sides with furcation.
+    """
+    return {
+        (14, 24): [1, 3],
+        (16, 17, 18, 26, 27, 28): [2, 4, 6],
+        (36, 37, 38, 46, 47, 48): [2, 5],
+    }
+
+
+def _get_teeth_neighbors() -> dict:
+    """Creates a dictionary assigning each tooth its neighbors.
+
+    Returns:
+        dict: Dict mapping tooth number to a list of neighboring tooth numbers.
+    """
+    return {
+        11: [12, 21],
+        12: [11, 13],
+        13: [12, 14],
+        14: [13, 15],
+        15: [14, 16],
+        16: [15, 17],
+        17: [16, 18],
+        18: [17],
+        21: [11, 22],
+        22: [21, 23],
+        23: [22, 24],
+        24: [23, 25],
+        25: [24, 26],
+        26: [25, 27],
+        27: [26, 28],
+        28: [27],
+        31: [31, 41],
+        32: [31, 33],
+        33: [32, 34],
+        34: [33, 35],
+        35: [34, 36],
+        36: [35, 37],
+        37: [36, 38],
+        38: [37],
+        41: [31, 42],
+        42: [41, 43],
+        43: [42, 44],
+        44: [43, 45],
+        45: [44, 46],
+        46: [45, 47],
+        47: [46, 48],
+        48: [47],
+    }
+
+
+def _plaque_values(row: pd.Series, modes_dict: dict) -> int:
+    """Calculate new values for the Plaque column.
+
+    Args:
+        row (pd.Series): A row from the DataFrame.
+        modes_dict (dict): Dict mapping (tooth, side, pdbaseline_grouped)
+        to the mode plaque value.
+
+    Returns:
+        int: Imputed plaque value for the given row.
+    """
+    if row["plaque_all_na"] == 1:
+        key = (row["tooth"], row["side"], row["pdbaseline_grouped"])
+        mode_value = modes_dict.get(key, None)
+        if mode_value is not None:
+            if isinstance(mode_value, tuple) and 2 in mode_value:
+                return 2
+            elif mode_value == 1:
+                return 1
+            elif mode_value == 2:
+                return 2
+    else:
+        if pd.isna(row["plaque"]):
+            return 1
+        else:
+            return row["plaque"]
+    return 1  # Default value if no other condition matches
+
+
 class ProcessDataHelper:
     def __init__(self):
         """Initialize Preprocessor with helper data without storing the DataFrame."""
-        self.teeth_neighbors = self.get_teeth_neighbors()
-        self.sides_with_fur = self.get_side()
+        self.teeth_neighbors = _get_teeth_neighbors()
+        self.sides_with_fur = _get_side()
 
     def check_infection(self, depth: int, boprevaluation: int) -> int:
         """Check if a given tooth side is infected.
@@ -25,47 +109,6 @@ class ProcessDataHelper:
         elif depth == 4 and boprevaluation == 2:
             return 1
         return 0
-
-    def get_teeth_neighbors(self) -> dict:
-        """Creates a dictionary assigning each tooth its neighbors.
-
-        Returns:
-            dict: Dict mapping tooth number to a list of neighboring tooth numbers.
-        """
-        return {
-            11: [12, 21],
-            12: [11, 13],
-            13: [12, 14],
-            14: [13, 15],
-            15: [14, 16],
-            16: [15, 17],
-            17: [16, 18],
-            18: [17],
-            21: [11, 22],
-            22: [21, 23],
-            23: [22, 24],
-            24: [23, 25],
-            25: [24, 26],
-            26: [25, 27],
-            27: [26, 28],
-            28: [27],
-            31: [31, 41],
-            32: [31, 33],
-            33: [32, 34],
-            34: [33, 35],
-            35: [34, 36],
-            36: [35, 37],
-            37: [36, 38],
-            38: [37],
-            41: [31, 42],
-            42: [41, 43],
-            43: [42, 44],
-            44: [43, 45],
-            45: [44, 46],
-            46: [45, 47],
-            47: [46, 48],
-            48: [47],
-        }
 
     def tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
         """Returns adjacent teeth for a given tooth.
@@ -110,34 +153,6 @@ class ProcessDataHelper:
 
         return df
 
-    def plaque_values(self, row: pd.Series, modes_dict: dict) -> int:
-        """Calculate new values for the Plaque column.
-
-        Args:
-            row (pd.Series): A row from the DataFrame.
-            modes_dict (dict): Dict mapping (tooth, side, pdbaseline_grouped)
-            to the mode plaque value.
-
-        Returns:
-            int: Imputed plaque value for the given row.
-        """
-        if row["plaque_all_na"] == 1:
-            key = (row["tooth"], row["side"], row["pdbaseline_grouped"])
-            mode_value = modes_dict.get(key, None)
-            if mode_value is not None:
-                if isinstance(mode_value, tuple) and 2 in mode_value:
-                    return 2
-                elif mode_value == 1:
-                    return 1
-                elif mode_value == 2:
-                    return 2
-        else:
-            if pd.isna(row["plaque"]):
-                return 1
-            else:
-                return row["plaque"]
-        return 1  # Default value if no other condition matches
-
     def plaque_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
         """Imputes values for Plaque without affecting other columns.
 
@@ -180,25 +195,13 @@ class ProcessDataHelper:
             ["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]
         ].copy()
         temp_data["plaque"] = temp_data.apply(
-            lambda row: self.plaque_values(row, modes_dict), axis=1
+            lambda row: _plaque_values(row, modes_dict), axis=1
         )
 
         df["plaque"] = temp_data["plaque"]
         df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
 
         return df
-
-    def get_side(self) -> dict:
-        """Dict containing tooth-side combinations which should have furcation.
-
-        Returns:
-            dict: Dict mapping tooth numbers to corresponding sides with furcation.
-        """
-        return {
-            (14, 24): [1, 3],
-            (16, 17, 18, 26, 27, 28): [2, 4, 6],
-            (36, 37, 38, 46, 47, 48): [2, 5],
-        }
 
     def fur_side(self, nr: int) -> Union[np.ndarray, str]:
         """Returns the sides for the input tooth that should have furcations.

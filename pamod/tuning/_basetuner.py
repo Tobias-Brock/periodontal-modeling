@@ -25,7 +25,17 @@ class BaseTuner(BaseEvaluator):
     """Base class for different hyperparameter tuning strategies."""
 
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str
+        self,
+        classification: str,
+        criterion: str,
+        tuning: str,
+        hpo: str,
+        n_configs: int = 10,
+        n_jobs: Optional[int] = None,
+        verbosity: bool = True,
+        trainer: Optional[Trainer] = None,
+        metric_evaluator: Optional[MetricEvaluator] = None,
+        mlp_training: bool = True,
     ) -> None:
         """Initializes the base tuner class with common parameters.
 
@@ -34,12 +44,36 @@ class BaseTuner(BaseEvaluator):
             criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): The type of tuning ('holdout' or 'cv').
             hpo (str): The hyperparameter optimization method.
+            n_configs (int): The number of configurations to evaluate during HPO.
+            n_jobs (Optional[int]): The number of parallel jobs for model training.
+            verbosity (bool): Whether to print detailed logs during optimization.
+            trainer (Optional[Trainer]): Instance of Trainer class.
+            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
+            mlp_training (bool): Flag for MLP training with early stopping.
         """
         super().__init__(classification, criterion, tuning, hpo)
-        self.trainer = Trainer(
-            self.classification, self.criterion, self.tuning, self.hpo
+        self.n_configs = n_configs
+        self.n_jobs = n_jobs if n_jobs is not None else 1
+        self.verbosity = verbosity
+        self.mlp_training = mlp_training
+
+        self.metric_evaluator = (
+            metric_evaluator
+            if metric_evaluator
+            else MetricEvaluator(self.classification, self.criterion)
         )
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.trainer = (
+            trainer
+            if trainer
+            else Trainer(
+                self.classification,
+                self.criterion,
+                self.tuning,
+                self.hpo,
+                self.mlp_training,
+                self.metric_evaluator,
+            )
+        )
 
     def _print_iteration_info(
         self,

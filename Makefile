@@ -17,29 +17,36 @@ requirements:
 	$(PYTHON_INTERPRETER) -m pip install -U pip
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
-
-
-
 ## Delete all compiled Python files
 .PHONY: clean
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 
-## Lint using flake8 and black (use `make format` to do formatting)
-.PHONY: lint
-lint:
-	flake8 pamod
-	isort --check --diff --profile black pamod
-	black --check --config pyproject.toml pamod
-
 ## Format source code with black
-.PHONY: format
-format:
+.PHONY: black
+black:
 	black --config pyproject.toml pamod
 
+## Format source code with ruff
+.PHONY: ruff
+ruff:
+	ruff format .
 
+## Lint source code with ruff
+.PHONY: lint
+lint:
+	ruff check .
 
+## Run pre-commit hooks
+.PHONY: pre-commit
+pre-commit:
+	pre-commit run --all-files
+
+## Create docs
+.PHONY: docs
+docs:
+	mkdocs serve
 
 ## Set up python interpreter environment
 .PHONY: create_environment
@@ -50,33 +57,19 @@ create_environment:
 	@echo ">>> conda env created. Activate with:\nconda activate $(PROJECT_NAME)"
 
 
-
-
 #################################################################################
 # PROJECT RULES                                                                 #
 #################################################################################
 
 
-## Make Dataset
-.PHONY: data
-data: requirements
-	$(PYTHON_INTERPRETER) pamod/dataset.py
+.PHONY: preprocess
+preprocess:
+	$(PYTHON_INTERPRETER) pamod/data/_preprocessing.py ${ARGS}
 
+.PHONY: benchmark
+benchmark:
+	$(PYTHON_INTERPRETER) pamod/benchmarking/_benchmark.py ${ARGS}
 
-#################################################################################
-# Self Documenting Commands                                                     #
-#################################################################################
-
-.DEFAULT_GOAL := help
-
-define PRINT_HELP_PYSCRIPT
-import re, sys; \
-lines = '\n'.join([line for line in sys.stdin]); \
-matches = re.findall(r'\n## (.*)\n[\s\S]+?\n([a-zA-Z_-]+):', lines); \
-print('Available rules:\n'); \
-print('\n'.join(['{:25}{}'.format(*reversed(match)) for match in matches]))
-endef
-export PRINT_HELP_PYSCRIPT
-
-help:
-	@$(PYTHON_INTERPRETER) -c "${PRINT_HELP_PYSCRIPT}" < $(MAKEFILE_LIST)
+.PHONY: app
+app:
+	$(PYTHON_INTERPRETER) pamod/app/app.py

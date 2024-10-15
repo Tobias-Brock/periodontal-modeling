@@ -1,7 +1,7 @@
 import itertools
 from pathlib import Path
 import traceback
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -9,7 +9,7 @@ from pamod.base import BaseEvaluator
 from pamod.config import PROCESSED_BASE_DIR
 from pamod.data import ProcessedDataLoader
 from pamod.resampling import Resampler
-from pamod.training import Trainer
+from pamod.training import MetricEvaluator, Trainer
 from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
@@ -23,11 +23,11 @@ class Experiment(BaseEvaluator):
         encoding: str,
         tuning: Optional[str],
         hpo: Optional[str],
-        sampling: Optional[str],
-        factor: Optional[float],
-        n_configs: int,
-        racing_folds: Optional[int],
-        n_jobs: int,
+        sampling: Optional[str] = None,
+        factor: Optional[float] = None,
+        n_configs: int = 10,
+        racing_folds: Optional[int] = None,
+        n_jobs: Optional[int] = None,
         cv_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
@@ -46,11 +46,14 @@ class Experiment(BaseEvaluator):
             encoding (str): Encoding type ('one_hot' or 'binary')
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
             hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            sampling (str): Sampling strategy.
-            factor (float): Factor for resampling.
+            sampling (Optional[str]): Sampling strategy to use. Defaults to None.
+            factor (Optional[float]): Factor for resampling. Defaults to None.
             n_configs (int): Number of configurations for hyperparameter tuning.
+                Defaults to 10.
             racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            n_jobs (int): Number of parallel jobs to run for evaluation.
+                Defaults to None.
+            n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
+                Defaults to None.
             cv_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
             test_seed (Optional[int], optional): Random seed for splitting.
@@ -80,12 +83,14 @@ class Experiment(BaseEvaluator):
         self.verbosity = verbosity
         self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
         self.resampler = Resampler(self.classification, self.encoding)
+        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
         self.trainer = Trainer(
             self.classification,
             self.criterion,
-            tuning=None,
-            hpo=None,
+            tuning=self.tuning,
+            hpo=self.hpo,
             mlp_training=self.mlp_flag,
+            metric_evaluator=self.metric_evaluator,
         )
         self.tuner = self._initialize_tuner()
 
@@ -107,9 +112,31 @@ class Experiment(BaseEvaluator):
     def _initialize_tuner(self):
         """Initialize the appropriate tuner based on the hpo method."""
         if self.hpo == "rs":
-            return RandomSearchTuner(self.classification, self.criterion, self.tuning)
+            return RandomSearchTuner(
+                self.classification,
+                self.criterion,
+                self.tuning,
+                self.hpo,
+                self.n_configs,
+                self.n_jobs,
+                self.verbosity,
+                self.trainer,
+                self.metric_evaluator,
+                self.mlp_flag,
+            )
         elif self.hpo == "hebo":
-            return HEBOTuner(self.classification, self.criterion, self.tuning)
+            return HEBOTuner(
+                self.classification,
+                self.criterion,
+                self.tuning,
+                self.hpo,
+                self.n_configs,
+                self.n_jobs,
+                self.verbosity,
+                self.trainer,
+                self.metric_evaluator,
+                self.mlp_flag,
+            )
         else:
             raise ValueError(f"Unsupported HPO method: {self.hpo}")
 
@@ -129,6 +156,30 @@ class Experiment(BaseEvaluator):
             return self._evaluate_cv()
         else:
             raise ValueError(f"Unsupported tuning method: {self.tuning}")
+
+    def _train_final_model(
+        self, final_model_tuple: Tuple[str, Dict, Optional[float]]
+    ) -> dict:
+        """Helper method to train the final model with best parameters.
+
+        Args:
+            final_model_tuple (Tuple[str, Dict, Optional[float]]): A tuple containing
+                the learner name, best hyperparameters, and an optional best threshold.
+
+        Returns:
+            dict: A dictionary containing the trained model and its evaluation metrics.
+        """
+        return self.trainer.train_final_model(
+            self.df,
+            self.resampler,
+            final_model_tuple,
+            self.sampling,
+            self.factor,
+            self.n_jobs,
+            self.test_seed,
+            self.test_size,
+            self.verbosity,
+        )
 
     def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
         """Perform holdout validation and return the final model metrics.
@@ -151,22 +202,10 @@ class Experiment(BaseEvaluator):
             y_train_h,
             X_val,
             y_val,
-            self.n_configs,
-            self.n_jobs,
-            self.verbosity,
         )
         final_model = (self.learner, best_params, best_threshold)
 
-        return self.trainer.train_final_model(
-            self.df,
-            self.resampler,
-            final_model,
-            self.sampling,
-            self.factor,
-            self.n_jobs,
-            self.test_seed,
-            self.test_size,
-        )
+        return self._train_final_model(final_model)
 
     def _evaluate_cv(self) -> dict:
         """Perform cross-validation and return the final model metrics.
@@ -182,21 +221,10 @@ class Experiment(BaseEvaluator):
             outer_splits,
             self.n_configs,
             self.racing_folds,
-            self.n_jobs,
-            self.verbosity,
         )
         final_model = (self.learner, best_params, best_threshold)
 
-        return self.trainer.train_final_model(
-            self.df,
-            self.resampler,
-            final_model,
-            self.sampling,
-            self.factor,
-            self.n_jobs,
-            self.test_seed,
-            self.test_size,
-        )
+        return self._train_final_model(final_model)
 
 
 class Benchmarker:
@@ -208,11 +236,11 @@ class Benchmarker:
         hpo_methods: List[str],
         criteria: List[str],
         encodings: List[str],
-        sampling: Optional[str],
-        factor: Optional[float],
-        n_configs: int,
-        racing_folds: int,
-        n_jobs: int,
+        sampling: Optional[str] = None,
+        factor: Optional[float] = None,
+        n_configs: int = 10,
+        racing_folds: Optional[int] = None,
+        n_jobs: Optional[int] = None,
         cv_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
@@ -232,11 +260,14 @@ class Benchmarker:
             hpo_methods (List[str]): List of HPO methods ('hebo', 'rs').
             criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
             encodings (List[str]): List of encodings ('one_hot' or 'target').
-            sampling (str): Sampling strategy to use.
-            factor (float): Factor for resampling.
+            sampling (Optional[str]): Sampling strategy to use. Defaults to None.
+            factor (Optional[float]): Factor for resampling. Defaults to None.
             n_configs (int): Number of configurations for hyperparameter tuning.
-            racing_folds (int): Number of racing folds for Random Search.
-            n_jobs (int): Number of parallel jobs to run.
+                Defaults to 10.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+                Defaults to None.
+            n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
+                Defaults to None.
             cv_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
             test_seed (Optional[int], optional): Random seed for splitting.
@@ -279,7 +310,7 @@ class Benchmarker:
         """
         data_cache = {}
         for task, encoding in itertools.product(self.tasks, self.encodings):
-            cache_key = (task, encoding)  # Use task and encoding as key for caching
+            cache_key = (task, encoding)
 
             if cache_key not in data_cache:
                 dataloader = ProcessedDataLoader(task, encoding)
@@ -307,11 +338,11 @@ class Benchmarker:
             ):
                 print(f"Criterion '{criterion}' and task '{task}' not valid.")
                 continue
-
-            print(
-                f"\nRunning benchmark for Task: {task}, Learner: {learner}, "
-                f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}"
-            )
+            if self.verbosity:
+                print(
+                    f"\nRunning benchmark for Task: {task}, Learner: {learner}, "
+                    f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}"
+                )
 
             df = self.data_cache[(task, encoding)]
 
@@ -367,19 +398,14 @@ class Benchmarker:
                 traceback.print_exc()
 
         df_results = pd.DataFrame(results)
-        self._print_results_table(df_results)
-        return df_results, learners_dict
-
-    def _print_results_table(self, df_results: pd.DataFrame) -> None:
-        """Print the benchmark results in a tabular format.
-
-        Args:
-            df_results (pd.DataFrame): DataFrame of benchmark results.
-        """
         pd.set_option("display.max_columns", None)
         pd.set_option("display.width", 1000)
-        print("\nBenchmark Results Summary:")
-        print(df_results)
+
+        if self.verbosity:
+            print("\nBenchmark Results Summary:")
+            print(df_results)
+
+        return df_results, learners_dict
 
 
 def main():

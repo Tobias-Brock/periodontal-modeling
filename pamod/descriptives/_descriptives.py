@@ -100,7 +100,7 @@ class DescriptivesPlotter:
 
         if save:
             if name is None:
-                raise ValueError("'name' argument must required when 'save' is True.")
+                raise ValueError("'name' argument required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
         plt.show()

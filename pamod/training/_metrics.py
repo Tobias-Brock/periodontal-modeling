@@ -57,7 +57,7 @@ def final_metrics(
     y_test: np.ndarray,
     preds: np.ndarray,
     probs: Union[np.ndarray, None],
-    threshold: float,
+    threshold: Union[float, None] = None,
 ) -> Dict[str, Any]:
     """Calculate final metrics for binary or multiclass classification.
 
@@ -67,7 +67,8 @@ def final_metrics(
         preds (np.ndarray): Predicted labels from the model.
         probs (Union[np.ndarray, None]): Predicted probabilities from model.
             Only used for binary classification and if available.
-        threshold (float): Best threshold used for binary classification.
+        threshold (Union[float, None]): Best threshold used for binary classification.
+            Defaults to None.
 
     Returns:
         Dict[str, Any]: Dictionary of evaluation metrics.

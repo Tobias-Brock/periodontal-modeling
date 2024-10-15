@@ -1,5 +1,7 @@
-from typing import List, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,57 +11,9 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import brier_score_loss
+from sklearn.metrics import brier_score_loss, confusion_matrix
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
-
-
-def brier_score_groups(model, X_test, y_test, group_by="y"):
-    """Calculates Brier score within groups.
-
-    Args:
-        model (object): Model with a `predict_proba` method for probability estimation.
-        X_test (pd.DataFrame): The input features as a pandas DataFrame.
-        y_test (pd.Series): The true labels corresponding to the input data `X`.
-        group_by (str): Grouping varuable.
-
-    Returns:
-        pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
-    """
-    if not hasattr(model, "predict_proba"):
-        raise ValueError("The provided model cannot predict probabilities.")
-
-    probas = model.predict_proba(X_test)
-
-    if len(probas[0]) == 1:
-        brier_scores = [
-            brier_score_loss([true_label], [pred_proba[0]])
-            for true_label, pred_proba in zip(y_test, probas, strict=False)
-        ]
-    else:
-        brier_scores = [
-            brier_score_loss(
-                [1 if true_label == idx else 0 for idx in range(len(proba))], proba
-            )
-            for true_label, proba in zip(y_test, probas, strict=False)
-        ]
-
-        data = pd.DataFrame({group_by: y_test, "Brier_Score": brier_scores})
-        data_grouped = data.groupby(group_by)
-
-    summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
-
-    print(f"Average and Median Brier Scores by {group_by}:")
-    print(summary)
-
-    plt.figure(figsize=(10, 6), dpi=300)
-    sns.boxplot(x=group_by, y="Brier_Score", data=data)
-    plt.title("Distribution of Brier Scores", fontsize=18)
-    plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
-    plt.ylabel("Brier Score", fontsize=18)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.show()
 
 
 def _is_one_hot_encoded(feature: str) -> bool:
@@ -72,7 +26,7 @@ def _is_one_hot_encoded(feature: str) -> bool:
         bool: True if the feature is one-hot encoded.
     """
     parts = feature.rsplit("_", 1)
-    return len(parts) > 1 and (parts[1].isdigit() or feature.startswith("Stresslvl"))
+    return len(parts) > 1 and (parts[1].isdigit())
 
 
 def _get_base_name(feature: str) -> str:
@@ -84,98 +38,269 @@ def _get_base_name(feature: str) -> str:
     Returns:
         str: The base name of the feature.
     """
-    if feature.startswith("Stresslvl"):
-        return "Stresslvl"
     if _is_one_hot_encoded(feature):
         return feature.rsplit("_", 1)[0]
     return feature
 
 
-class FeatureImportanceEngine:
+def _aggregate_one_hot_importances(feature_importance_df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate importance scores of one-hot encoded variables.
+
+    Args:
+        feature_importance_df (pd.DataFrame): DataFrame with features and their
+            importance scores.
+
+    Returns:
+        pd.DataFrame: Updated DataFrame with aggregated importance scores.
+    """
+    base_names = feature_importance_df["Feature"].apply(_get_base_name)
+    aggregated_importances = (
+        feature_importance_df.groupby(base_names)["Importance"].sum().reset_index()
+    )
+    aggregated_importances.columns = ["Feature", "Importance"]
+    original_features = feature_importance_df["Feature"][
+        ~feature_importance_df["Feature"].apply(_is_one_hot_encoded)
+    ].unique()
+
+    aggregated_or_original = (
+        pd.concat(
+            [
+                aggregated_importances,
+                feature_importance_df[
+                    feature_importance_df["Feature"].isin(original_features)
+                ],
+            ]
+        )
+        .drop_duplicates()
+        .sort_values(by="Importance", ascending=False)
+    )
+
+    return aggregated_or_original.reset_index(drop=True)
+
+
+def _aggregate_shap_one_hot(
+    shap_values: np.ndarray, feature_names: List[str]
+) -> Tuple[np.ndarray, List[str]]:
+    """Aggregate SHAP values of one-hot encoded variables.
+
+    Args:
+        shap_values (np.ndarray): SHAP values with shape (n_samples, n_features).
+        feature_names (List[str]): List of features corresponding to SHAP values.
+
+    Returns:
+        Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
+        feature names.
+    """
+    shap_df = pd.DataFrame(shap_values, columns=feature_names)
+    base_names = [_get_base_name(feature) for feature in shap_df.columns]
+    feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
+    aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
+    updated_feature_names = list(aggregated_shap_df.columns)
+    aggregated_shap_values = aggregated_shap_df.values
+
+    return aggregated_shap_values, updated_feature_names
+
+
+def _aggregate_one_hot_features_for_clustering(X: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate one-hot encoded features for clustering based on categorical variables.
+
+    Args:
+        X (pd.DataFrame): Input DataFrame with one-hot encoded features.
+
+    Returns:
+        pd.DataFrame: DataFrame with aggregated one-hot encoded features.
+    """
+    X_copy = X.copy()
+    one_hot_encoded_columns = [
+        col for col in X_copy.columns if _is_one_hot_encoded(col)
+    ]
+    base_names = {col: _get_base_name(col) for col in one_hot_encoded_columns}
+    aggregated_data = X_copy.groupby(base_names, axis=1).sum()
+    non_one_hot_columns = [
+        col for col in X_copy.columns if col not in one_hot_encoded_columns
+    ]
+    X_aggregated = pd.concat([X_copy[non_one_hot_columns], aggregated_data], axis=1)
+
+    return X_aggregated
+
+
+class Evaluator:
     def __init__(
         self,
-        models: List[
-            Union[
-                RandomForestClassifier, LogisticRegression, MLPClassifier, XGBClassifier
-            ]
-        ],
         X_test: pd.DataFrame,
         y_test: pd.Series,
-        encoding: str,
+        model: Union[
+            RandomForestClassifier,
+            LogisticRegression,
+            MLPClassifier,
+            XGBClassifier,
+            None,
+        ] = None,
+        models: Union[
+            List[
+                Union[
+                    RandomForestClassifier,
+                    LogisticRegression,
+                    MLPClassifier,
+                    XGBClassifier,
+                ]
+            ],
+            None,
+        ] = None,
+        encoding: Union[str, None] = None,
         aggregate: bool = True,
     ) -> None:
         """Initialize the FeatureImportance class.
 
         Args:
-            models (List[sklearn estimators]): List of trained models.
             X_test (pd.DataFrame): Test dataset features.
             y_test (pd.Series): Test dataset labels.
-            encoding (str): Determines encoding for plot titles ('one_hot' or 'target').
+            model ([sklearn estimators]): Trained sklearn models.
+            models (List[sklearn estimators]): List of trained models.
+            encoding (Union[str, None]): Determines encoding for plot titles
+                ('one_hot' or 'target'). Defaults to None.
             aggregate (bool): If True, aggregates importance values of one-hot features.
         """
-        self.models = models
         self.X_test = X_test
         self.y_test = y_test
+        self.model = model
+        self.models = models if models is not None else []
         self.encoding = encoding
         self.aggregate = aggregate
 
-    def _aggregate_one_hot_importances(
-        self, feature_importance_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """Aggregate importance scores of one-hot encoded variables.
+    def brier_score_groups(self, group_by: str = "y"):
+        """Calculates Brier score within groups.
 
         Args:
-            feature_importance_df (pd.DataFrame): DataFrame with features and their
-                importance scores.
+            model (object): Model with `predict_proba` method.
+            group_by (str): Grouping variable. Defaults to "y".
 
         Returns:
-            pd.DataFrame: Updated DataFrame with aggregated importance scores.
+            pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
         """
-        base_names = feature_importance_df["Feature"].apply(_get_base_name)
-        aggregated_importances = (
-            feature_importance_df.groupby(base_names)["Importance"].sum().reset_index()
-        )
-        aggregated_importances.columns = ["Feature", "Importance"]
-        original_features = feature_importance_df["Feature"][
-            ~feature_importance_df["Feature"].apply(_is_one_hot_encoded)
-        ].unique()
+        if not hasattr(self.model, "predict_proba"):
+            raise ValueError("The provided model cannot predict probabilities.")
 
-        aggregated_or_original = (
-            pd.concat(
-                [
-                    aggregated_importances,
-                    feature_importance_df[
-                        feature_importance_df["Feature"].isin(original_features)
-                    ],
-                ]
+        if self.model is None:
+            return None
+
+        probas = self.model.predict_proba(self.X_test)
+
+        if len(probas[0]) == 1:
+            brier_scores = [
+                brier_score_loss([true_label], [pred_proba[0]])
+                for true_label, pred_proba in zip(self.y_test, probas, strict=False)
+            ]
+        else:
+            brier_scores = [
+                brier_score_loss(
+                    [1 if true_label == idx else 0 for idx in range(len(proba))], proba
+                )
+                for true_label, proba in zip(self.y_test, probas, strict=False)
+            ]
+
+            data = pd.DataFrame({group_by: self.y_test, "Brier_Score": brier_scores})
+            data_grouped = data.groupby(group_by)
+
+        summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
+
+        print(f"Average and Median Brier Scores by {group_by}:")
+        print(summary)
+
+        plt.figure(figsize=(10, 6), dpi=300)
+        sns.boxplot(x=group_by, y="Brier_Score", data=data)
+        plt.title("Distribution of Brier Scores", fontsize=18)
+        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
+        plt.ylabel("Brier Score", fontsize=18)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.show()
+
+    def plot_confusion_matrix(
+        self,
+        col: Optional[pd.Series] = None,
+        y_label: str = "True",
+        normalize: str = "rows",
+    ):
+        """Generates a styled confusion matrix for the given model and test data.
+
+        Args:
+            col (Optional[pd.Series]): Column for y label. Defaults to None.
+            y_label (str): Description of y label. Defaults to "True".
+            normalize (str, optional): Normalization method ('rows' or 'columns').
+                Defaults to 'rows'.
+
+        Returns:
+        plt.Figure: Confusion matrix heatmap plot.
+        """
+        if not self.model:
+            return "No model available."
+
+        pred = self.model.predict(self.X_test)
+
+        if col is not None:
+            cm = confusion_matrix(col, pred)
+        else:
+            cm = confusion_matrix(self.y_test, pred)
+
+        if normalize == "rows":
+            row_sums = cm.sum(axis=1)
+            normalized_cm = (cm / row_sums[:, np.newaxis]) * 100
+        elif normalize == "columns":
+            col_sums = cm.sum(axis=0)
+            normalized_cm = (cm / col_sums) * 100
+        else:
+            raise ValueError("Invalid value for 'normalize'. Use 'rows' or 'columns'.")
+
+        custom_cmap = LinearSegmentedColormap.from_list(
+            "teal_cmap", ["#FFFFFF", "#078294"]
+        )
+
+        plt.figure(figsize=(6, 4), dpi=300)
+        sns.heatmap(
+            normalized_cm,
+            cmap=custom_cmap,
+            fmt="g",
+            linewidths=0.5,
+            square=True,
+            annot=False,  # We will manually annotate for better control
+            cbar_kws={"label": "Percent"},
+        )
+
+        for i in range(len(cm)):
+            for j in range(len(cm)):
+                if normalized_cm[i, j] > 50:
+                    plt.text(
+                        j + 0.5,
+                        i + 0.5,
+                        cm[i, j],
+                        ha="center",
+                        va="center",
+                        color="white",
+                    )
+                else:
+                    plt.text(j + 0.5, i + 0.5, cm[i, j], ha="center", va="center")
+
+        plt.title("Confusion Matrix", fontsize=12)
+        plt.xlabel("Predicted", fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
+
+        ax = plt.gca()
+
+        ax.xaxis.set_ticks_position("top")
+        ax.xaxis.set_label_position("top")
+        cbar = ax.collections[0].colorbar
+        cbar.outline.set_edgecolor("black")
+        cbar.outline.set_linewidth(1)
+
+        ax.add_patch(
+            Rectangle(
+                (0, 0), cm.shape[1], cm.shape[0], fill=False, edgecolor="black", lw=2
             )
-            .drop_duplicates()
-            .sort_values(by="Importance", ascending=False)
         )
 
-        return aggregated_or_original.reset_index(drop=True)
-
-    def _aggregate_shap_one_hot(
-        self, shap_values: np.ndarray, feature_names: List[str]
-    ) -> Tuple[np.ndarray, List[str]]:
-        """Aggregate SHAP values of one-hot encoded variables.
-
-        Args:
-            shap_values (np.ndarray): SHAP values with shape (n_samples, n_features).
-            feature_names (List[str]): List of features corresponding to SHAP values.
-
-        Returns:
-            Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
-            feature names.
-        """
-        shap_df = pd.DataFrame(shap_values, columns=feature_names)
-        base_names = [_get_base_name(feature) for feature in shap_df.columns]
-        feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
-        aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
-        updated_feature_names = list(aggregated_shap_df.columns)
-        aggregated_shap_values = aggregated_shap_df.values
-
-        return aggregated_shap_values, updated_feature_names
+        plt.tick_params(axis="both", which="major", labelsize=12)
+        plt.show()
 
     def evaluate_feature_importance(self, importance_types: List[str]) -> None:
         """Evaluate the feature importance for a list of trained models.
@@ -188,6 +313,12 @@ class FeatureImportanceEngine:
             Dict[str, pd.DataFrame]: A dictionary containing DataFrames of features and
             their importance scores for each model.
         """
+        if self.models and self.model is None:
+            return None
+
+        if not self.models and self.model:
+            self.models = [self.model]
+
         feature_names = self.X_test.columns.tolist()
         importance_dict = {}
 
@@ -248,7 +379,7 @@ class FeatureImportanceEngine:
                 if self.aggregate:
                     if importance_type == "shap":
                         aggregated_shap_values, aggregated_feature_names = (
-                            self._aggregate_shap_one_hot(shap_values, feature_names)
+                            _aggregate_shap_one_hot(shap_values, feature_names)
                         )
                         aggregated_shap_df = pd.DataFrame(
                             aggregated_shap_values, columns=aggregated_feature_names
@@ -269,7 +400,7 @@ class FeatureImportanceEngine:
                         )
                     else:
                         feature_importance_df_aggregated = (
-                            self._aggregate_one_hot_importances(feature_importance_df)
+                            _aggregate_one_hot_importances(feature_importance_df)
                         )
                         feature_importance_df_aggregated.sort_values(
                             by="Importance", ascending=False, inplace=True
@@ -319,18 +450,12 @@ class FeatureImportanceEngine:
 
     def analyze_brier_within_clusters(
         self,
-        model: Union[
-            RandomForestClassifier, LogisticRegression, MLPClassifier, XGBClassifier
-        ],
         clustering_algorithm: Type = AgglomerativeClustering,
         n_clusters: int = 3,
     ) -> pd.DataFrame:
         """Analyze distribution of Brier scores within clusters formed by input data.
 
         Args:
-            model (sklearn estimator): A trained model that supports `predict_proba`.
-            X (pd.DataFrame): Input features dataframe without the target variable.
-            y (pd.Series or np.ndarray): True labels corresponding to X.
             clustering_algorithm (Type): Clustering algorithm class from sklearn to use
                 for clustering.
             n_clusters (int): Number of clusters to form.
@@ -342,18 +467,27 @@ class FeatureImportanceEngine:
         Raises:
             ValueError: If the provided model cannot predict probabilities.
         """
-        if not hasattr(model, "predict_proba"):
+        if self.model is None:
+            return None
+
+        if not hasattr(self.model, "predict_proba"):
             raise ValueError("The provided model cannot predict probabilities.")
 
-        probas = model.predict_proba(self.X_test)[:, 1]
+        probas = self.model.predict_proba(self.X_test)[:, 1]
         brier_scores = [
             brier_score_loss([true], [proba])
             for true, proba in zip(self.y_test, probas, strict=False)
         ]
-        clustering_algo = clustering_algorithm(n_clusters=n_clusters)
-        cluster_labels = clustering_algo.fit_predict(self.X_test)
 
-        X_clustered = self.X_test.copy()
+        if self.aggregate and self.encoding == "one_hot":
+            X_cluster_input = _aggregate_one_hot_features_for_clustering(self.X_test)
+        else:
+            X_cluster_input = self.X_test
+
+        clustering_algo = clustering_algorithm(n_clusters=n_clusters)
+        cluster_labels = clustering_algo.fit_predict(X_cluster_input)
+
+        X_clustered = X_cluster_input.copy()
         X_clustered["Cluster"] = cluster_labels
         X_clustered["Brier_Score"] = brier_scores
 

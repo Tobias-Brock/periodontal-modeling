@@ -3,36 +3,61 @@ from pathlib import Path
 from typing import Union
 import warnings
 
-import hydra
 import numpy as np
-from omegaconf import DictConfig
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
 
 from pamod.base import BaseData
 from pamod.config import PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR, RAW_DATA_DIR
 from pamod.data import ProcessDataHelper
 
 
+def _create_outcome_variables(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds outcome variables to the DataFrame.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        pd.DataFrame: The DataFrame with new outcome variables.
+    """
+    df["pocketclosure"] = df.apply(
+        lambda row: (
+            0
+            if row["pdrevaluation"] == 4
+            and row["boprevaluation"] == 2
+            or row["pdrevaluation"] > 4
+            else 1
+        ),
+        axis=1,
+    )
+    df["pdgroupbase"] = df["pdbaseline"].apply(
+        lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+    )
+    df["pdgrouprevaluation"] = df["pdrevaluation"].apply(
+        lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+    )
+    df["improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
+    return df
+
+
 class StaticProcessEngine(BaseData):
     """Preprocesses periodontal dataset for machine learning."""
 
-    def __init__(self, scale: bool, behavior: bool) -> None:
+    def __init__(self, behavior: bool = False) -> None:
         """Initializes the StaticProcessEngine.
 
         Args:
-            scale (bool): If True, performs scaling on numeric columns.
             behavior (bool): If True, includes behavioral columns in processing.
+                Defaults to False.
         """
         super().__init__()
         self.behavior = behavior
-        self.scale = scale
         self.function_preprocessor = ProcessDataHelper()
 
     def load_data(
         self,
         path: Path = RAW_DATA_DIR,
-        name: str = "Periodontitis_ML_Dataset_Renamed.xlsx",
+        name: str = "Periodontitis_ML_Dataset.xlsx",
     ) -> pd.DataFrame:
         """Loads the dataset and validates required columns.
 
@@ -81,21 +106,8 @@ class StaticProcessEngine(BaseData):
 
         return df[actual_required_columns]
 
-    def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Scales numeric columns in the DataFrame.
-
-        Args:
-            df (pd.DataFrame): The DataFrame containing numeric columns.
-
-        Returns:
-            pd.DataFrame: The DataFrame with scaled numeric columns.
-        """
-        df[self.scale_vars] = df[self.scale_vars].apply(pd.to_numeric, errors="coerce")
-        scaler = StandardScaler()
-        df[self.scale_vars] = scaler.fit_transform(df[self.scale_vars])
-        return df
-
-    def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
 
         Args:
@@ -133,72 +145,19 @@ class StaticProcessEngine(BaseData):
         df["stresslvl"] = pd.to_numeric(df["stresslvl"], errors="coerce")
         median_stress = df["stresslvl"].median()
         df["stresslvl"] = df["stresslvl"].fillna(median_stress).astype(float)
-        df["stresslvl"] = df["stresslvl"].astype(object)
 
         conditions_stress = [
             df["stresslvl"] <= 3,
             (df["stresslvl"] >= 4) & (df["stresslvl"] <= 6),
             df["stresslvl"] >= 7,
         ]
-        choices_stress = ["low", "medium", "high"]
-        df["stresslvl"] = np.select(
-            conditions_stress, choices_stress, default="Not Specified"
-        )
+
+        choices_stress = [0, 1, 2]
+        df["stresslvl"] = np.select(conditions_stress, choices_stress, default=-1)
+
+        df["stresslvl"] = df["stresslvl"].astype(int)
 
         return df
-
-    def _create_outcome_variables(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Adds outcome variables to the DataFrame.
-
-        Args:
-            df (pd.DataFrame): The input DataFrame.
-
-        Returns:
-            pd.DataFrame: The DataFrame with new outcome variables.
-        """
-        df["pocketclosure"] = df.apply(
-            lambda row: (
-                0
-                if row["pdrevaluation"] == 4
-                and row["boprevaluation"] == 2
-                or row["pdrevaluation"] > 4
-                else 1
-            ),
-            axis=1,
-        )
-        df["pdgroupbase"] = df["pdbaseline"].apply(
-            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
-        )
-        df["pdgrouprevaluation"] = df["pdrevaluation"].apply(
-            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
-        )
-        df["improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
-        return df
-
-    def _check_scaled_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Verifies that scaled columns are within expected ranges.
-
-        Args:
-            df (pd.DataFrame): The DataFrame to check.
-
-        Raises:
-            ValueError: If any columns are not correctly scaled.
-        """
-        numeric_columns = [
-            "pdbaseline",
-            "age",
-            "bodymassindex",
-            "recbaseline",
-            "cigarettenumber",
-        ]
-
-        if self.scale:
-            for col in numeric_columns:
-                scaled_min = df[col].min()
-                scaled_max = df[col].max()
-                if scaled_min < -5 or scaled_max > 15:
-                    raise ValueError(f"Column {col} is not correctly scaled.")
-        print("All required columns are correctly processed and present.")
 
     def create_tooth_features(
         self, df: pd.DataFrame, neighbors: bool = True, patient_id: bool = True
@@ -274,7 +233,7 @@ class StaticProcessEngine(BaseData):
 
         df = self._impute_missing_values(df)
         df = self.create_tooth_features(df)
-        df = self._create_outcome_variables(df)
+        df = _create_outcome_variables(df)
 
         if self.behavior:
             self.bin_var += [col.lower() for col in self.behavior_columns["binary"]]
@@ -299,10 +258,6 @@ class StaticProcessEngine(BaseData):
                     print(f"Patients with missing {col}: {missing_patients}")
         else:
             print("No missing values after imputation.")
-
-        if self.scale:
-            df = self.scale_numeric_columns(df)
-            self._check_scaled_columns(df)
 
         return df
 
@@ -334,9 +289,8 @@ class StaticProcessEngine(BaseData):
         print(f"Data saved to {processed_file_path}")
 
 
-@hydra.main(config_path="../../config", config_name="config", version_base="1.2")
-def main(cfg: DictConfig):
-    engine = StaticProcessEngine(behavior=cfg.data.behavior, scale=cfg.data.scale)
+def main():
+    engine = StaticProcessEngine(behavior=False)
     df = engine.load_data()
     df = engine.process_data(df)
     engine.save_processed_data(df)

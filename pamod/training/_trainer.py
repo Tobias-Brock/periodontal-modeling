@@ -23,6 +23,7 @@ class Trainer(BaseEvaluator):
         tuning: Optional[str],
         hpo: Optional[str],
         mlp_training: bool = True,
+        metric_evaluator: Optional[MetricEvaluator] = None,
     ) -> None:
         """Initializes the Trainer with classification type and criterion.
 
@@ -34,9 +35,15 @@ class Trainer(BaseEvaluator):
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
             hpo (Optional[str]): The hyperparameter optimization method. Can be None.
             mlp_training (bool): Flag for separate MLP training with early stopping.
+            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
+                If None, a default instance will be created.
         """
         super().__init__(classification, criterion, tuning, hpo)
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.metric_evaluator = (
+            metric_evaluator
+            if metric_evaluator
+            else MetricEvaluator(self.classification, self.criterion)
+        )
         self.mlp_training = mlp_training
 
     def train(
@@ -61,7 +68,11 @@ class Trainer(BaseEvaluator):
         """
         if isinstance(model, MLPClassifier) and self.mlp_training:
             mlp_trainer = MLPTrainer(
-                self.classification, self.criterion, self.tuning, self.hpo
+                self.classification,
+                self.criterion,
+                self.tuning,
+                self.hpo,
+                self.metric_evaluator,
             )
             score, model, best_threshold = mlp_trainer.train(
                 model, X_train, y_train, X_val, y_val
@@ -108,11 +119,9 @@ class Trainer(BaseEvaluator):
             warnings.filterwarnings("ignore", category=UserWarning)
             warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-            # Train the model and get the score
             score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
 
             if return_probs:
-                # Get predicted probabilities if requested
                 if hasattr(model, "predict_proba"):
                     probs = model.predict_proba(X_val)[:, 1]
                     return score, y_val, probs
@@ -191,7 +200,7 @@ class Trainer(BaseEvaluator):
         model: Tuple,
         sampling: Optional[str],
         factor: Optional[float],
-        n_jobs: int,
+        n_jobs: Optional[int],
         seed: int,
         test_size: float,
         verbosity: bool = True,
@@ -227,7 +236,9 @@ class Trainer(BaseEvaluator):
             train_df, test_df, sampling, factor
         )
         if learner == "mlp" and self.mlp_training:
-            mlp = MLPTrainer(self.classification, self.criterion, None, None)
+            mlp = MLPTrainer(
+                self.classification, self.criterion, None, None, self.metric_evaluator
+            )
             train_df_h, test_df_h = resampler.split_train_test_df(
                 train_df, seed, test_size
             )

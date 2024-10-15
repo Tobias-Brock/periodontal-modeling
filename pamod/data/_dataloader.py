@@ -2,27 +2,31 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from pamod.base import BaseData
 from pamod.config import PROCESSED_BASE_DIR
 
 
 class ProcessedDataLoader(BaseData):
-    def __init__(self, target: str, encoding: str) -> None:
+    def __init__(self, target: str, encoding: str, scale: bool = True) -> None:
         """Initializes the ProcessedDataLoader with the specified target column.
 
         Args:
             target (str): The target column name.
             encoding (str): Specifies the encoding for categorical columns.
                 Options: 'one_hot', 'target', or None.
+            scale (bool): If True, performs scaling on numeric columns.
+                Defaults to True.
         """
-        super().__init__()  # No need for behavior flag anymore
+        super().__init__()
+        self.scale = scale
         self.target = target
         self.encoding = encoding
 
+    @staticmethod
     def load_data(
-        self, path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
+        path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
     ) -> pd.DataFrame:
         """Loads the processed data from the specified path.
 
@@ -101,6 +105,36 @@ class ProcessedDataLoader(BaseData):
         else:
             raise ValueError(f"Invalid encoding '{self.encoding}'.")
 
+    def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Scales numeric columns in the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing numeric columns.
+
+        Returns:
+            pd.DataFrame: The DataFrame with scaled numeric columns.
+        """
+        df[self.scale_vars] = df[self.scale_vars].apply(pd.to_numeric, errors="coerce")
+        scaler = StandardScaler()
+        df[self.scale_vars] = scaler.fit_transform(df[self.scale_vars])
+        return df
+
+    def _check_scaled_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Verifies that scaled columns are within expected ranges.
+
+        Args:
+            df (pd.DataFrame): The DataFrame to check.
+
+        Raises:
+            ValueError: If any columns are not correctly scaled.
+        """
+        if self.scale:
+            for col in self.scale_vars:
+                scaled_min = df[col].min()
+                scaled_max = df[col].max()
+                if scaled_min < -5 or scaled_max > 15:
+                    raise ValueError(f"Column {col} is not correctly scaled.")
+
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Select target column, rename to 'y', and delete remaining targets.
 
@@ -112,6 +146,10 @@ class ProcessedDataLoader(BaseData):
         """
         df = self.encode_categorical_columns(df)
         self._check_encoded_columns(df)
+
+        if self.scale:
+            df = self.scale_numeric_columns(df)
+            self._check_scaled_columns(df)
 
         if self.target not in df.columns:
             raise ValueError(
