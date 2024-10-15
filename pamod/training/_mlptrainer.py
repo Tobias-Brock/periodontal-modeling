@@ -14,6 +14,7 @@ class MLPTrainer(BaseEvaluator):
         criterion: str,
         tuning: Optional[str],
         hpo: Optional[str],
+        metric_evaluator: Optional[MetricEvaluator] = None,
     ) -> None:
         """Initializes the MLPTrainer with training parameters.
 
@@ -23,10 +24,16 @@ class MLPTrainer(BaseEvaluator):
             criterion (str): The performance criterion to optimize (e.g., 'f1',
                 'brier_score').
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
+            hpo (str): The hyperparameter optimization method (default is 'HEBO').
+            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
+                If None, a default instance will be created.
         """
         super().__init__(classification, criterion, tuning, hpo)
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.metric_evaluator = (
+            metric_evaluator
+            if metric_evaluator
+            else MetricEvaluator(self.classification, self.criterion)
+        )
 
     def train(
         self,

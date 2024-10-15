@@ -8,12 +8,23 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
+from pamod.training import MetricEvaluator, Trainer
 from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
 class RandomSearchTuner(BaseTuner, MetaTuner):
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str = "rs"
+        self,
+        classification: str,
+        criterion: str,
+        tuning: str,
+        hpo: str = "rs",
+        n_configs: int = 10,
+        n_jobs: Optional[int] = None,
+        verbosity: bool = True,
+        trainer: Optional[Trainer] = None,
+        metric_evaluator: Optional[MetricEvaluator] = None,
+        mlp_training: bool = True,
     ) -> None:
         """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
 
@@ -22,9 +33,31 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             criterion (str): Evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): Type of tuning ('holdout' or 'cv').
             hpo (str, optional): Hyperparameter optimization method (default is 'rs').
+            n_configs (int): The number of configurations to evaluate during HPO.
+                Defaults to 10.
+            n_jobs (Optional[int]): The number of parallel jobs for model training.
+                Defaults to None.
+            verbosity (bool): Whether to print detailed logs during hebo optimization.
+                Defaults to True.
+            trainer (Optional[Trainer]): An instance of Trainer. If None, a default
+                instance will be created.
+            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
+                If None, a default instance will be created.
+            mlp_training (bool): Flag for MLP training with early stopping.
+                Defaults to True.
         """
-        super().__init__(classification, criterion, tuning, hpo)
-        self.random_state = self.random_state_val
+        super().__init__(
+            classification,
+            criterion,
+            tuning,
+            hpo,
+            n_configs,
+            n_jobs,
+            verbosity,
+            trainer,
+            metric_evaluator,
+            mlp_training,
+        )
 
     def holdout(
         self,
@@ -33,9 +66,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         y_train_h: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
-        n_configs: int,
-        n_jobs: int,
-        verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Union[float, None]]:
         """Perform random search on the holdout set for binary and multiclass .
 
@@ -45,10 +75,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             y_train_h (pd.Series): Training labels for the holdout set.
             X_val (pd.DataFrame): Validation features for the holdout set.
             y_val (pd.Series): Validation labels for the holdout set.
-            n_configs (int): The number of configurations to evaluate during random
-                search.
-            n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during random search.
 
         Returns:
             tuple:
@@ -64,11 +90,11 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             model,
         ) = self._initialize_search(learner)
 
-        for i in range(n_configs):
+        for i in range(self.n_configs):
             params = self._sample_params(param_grid, i)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
-                model_clone.set_params(n_jobs=n_jobs)
+                model_clone.set_params(n_jobs=self.n_jobs)
 
             score, model_clone, threshold = self.trainer.train(
                 model_clone, X_train_h, y_train_h, X_val, y_val
@@ -78,7 +104,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 score, params, threshold, best_score, best_params, best_threshold
             )
 
-            if verbosity:
+            if self.verbosity:
                 self._print_iteration_info(
                     i, model_clone, params, score, best_threshold
                 )
@@ -91,8 +117,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         n_configs: int,
         racing_folds: Union[int, None],
-        n_jobs: int,
-        verbosity: bool,
     ) -> Tuple[dict, Union[float, None]]:
         """Perform cross-validation with optional racing and hyperparameter tuning.
 
@@ -114,21 +138,21 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             params = self._sample_params(param_grid)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
-                model_clone.set_params(n_jobs=n_jobs)
+                model_clone.set_params(n_jobs=self.n_jobs)
             scores = self._evaluate_folds(
-                model_clone, best_score, outer_splits, racing_folds, n_jobs
+                model_clone, best_score, outer_splits, racing_folds
             )
             avg_score = np.mean(scores)
             best_score, best_params, _ = self._update_best(
                 avg_score, params, None, best_score, best_params, None
             )
 
-            if verbosity:
+            if self.verbosity:
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
         if self.classification == "binary" and self.criterion == "f1":
             optimal_threshold = self.trainer.optimize_threshold(
-                model_clone, outer_splits, n_jobs
+                model_clone, outer_splits, self.n_jobs
             )
         else:
             optimal_threshold = None
@@ -141,7 +165,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         best_score: float,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         racing_folds: Union[int, None],
-        n_jobs: Union[int, None],
     ):
         """Evaluate the model across folds using cross-validation or racing strategy.
 
@@ -157,22 +180,19 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         """
         num_folds = len(outer_splits)
         if racing_folds is None or racing_folds >= num_folds:
-            # Standard cross-validation evaluation
-            scores = Parallel(n_jobs=n_jobs)(
+            scores = Parallel(n_jobs=self.n_jobs)(
                 delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
                 for fold in outer_splits
             )
         else:
-            # Racing strategy: evaluate on a subset of folds first
             selected_indices = random.sample(range(num_folds), racing_folds)
             selected_folds = [outer_splits[i] for i in selected_indices]
-            initial_scores = Parallel(n_jobs=n_jobs)(
+            initial_scores = Parallel(n_jobs=self.n_jobs)(
                 delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
                 for fold in selected_folds
             )
             avg_initial_score = np.mean(initial_scores)
 
-            # Continue evaluation on remaining folds if initial score is promising
             if (
                 self.criterion in ["f1", "macro_f1"] and avg_initial_score > best_score
             ) or (self.criterion == "brier_score" and avg_initial_score < best_score):
@@ -181,7 +201,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                     for i in range(num_folds)
                     if i not in selected_indices
                 ]
-                continued_scores = Parallel(n_jobs=n_jobs)(
+                continued_scores = Parallel(n_jobs=self.n_jobs)(
                     delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
                     for fold in remaining_folds
                 )
@@ -207,7 +227,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 - param_grid: The parameter grid for the specified model.
                 - model: The model instance.
         """
-        random.seed(self.random_state)
+        random.seed(self.random_state_val)
         best_score = (
             -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         )
@@ -263,25 +283,24 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         Returns:
             dict: Sampled hyperparameters.
         """
-        # Calculate iteration_seed if an iteration value is provided
         iteration_seed = (
-            self.random_state + iteration
-            if self.random_state is not None and iteration is not None
+            self.random_state_val + iteration
+            if self.random_state_val is not None and iteration is not None
             else None
         )
 
         params = {}
         for k, v in param_grid.items():
-            if hasattr(v, "rvs"):  # For distributions like scipy.stats distributions
+            if hasattr(v, "rvs"):
                 params[k] = v.rvs(random_state=iteration_seed)
             elif isinstance(v, list):
                 if iteration_seed is not None:
                     random.seed(iteration_seed)
-                params[k] = random.choice(v)  # For list-based grids
-            elif isinstance(v, np.ndarray):  # Handle numpy arrays
+                params[k] = random.choice(v)
+            elif isinstance(v, np.ndarray):
                 if iteration_seed is not None:
                     random.seed(iteration_seed)
-                params[k] = random.choice(v.tolist())  # Convert numpy array to list
+                params[k] = random.choice(v.tolist())
             else:
                 raise TypeError(f"Unsupported type for parameter '{k}': {type(v)}")
 

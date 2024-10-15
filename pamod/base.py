@@ -1,4 +1,4 @@
-"""Base classes."""
+"""Base Methods."""
 
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -83,13 +83,14 @@ class BaseValidator(BaseHydra):
             hpo (Optional[str], optional): The hyperparameter optimization type
                 ('rs' or 'hebo'). Defaults to None.
         """
-        super().__init__()  # Initialize BaseHydra
+        super().__init__()
         validate_classification(classification)
         validate_hpo(hpo)
         self.classification = classification
         self.hpo = hpo
 
-    def validate_dataframe(self, df: pd.DataFrame, required_columns: list) -> None:
+    @staticmethod
+    def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
         """Validate input is a pandas DataFrame and contains required columns.
 
         Args:
@@ -113,7 +114,8 @@ class BaseValidator(BaseHydra):
                 f"{', '.join(missing_columns)}."
             )
 
-    def validate_n_folds(self, n_folds: int) -> None:
+    @staticmethod
+    def validate_n_folds(n_folds: int) -> None:
         """Validates the number of folds used in cross-validation.
 
         Args:
@@ -125,7 +127,8 @@ class BaseValidator(BaseHydra):
         if not isinstance(n_folds, int) or n_folds <= 0:
             raise ValueError("'n_folds' must be a positive integer.")
 
-    def validate_sampling_strategy(self, sampling: str) -> None:
+    @staticmethod
+    def validate_sampling_strategy(sampling: str) -> None:
         """Validates the sampling strategy.
 
         Args:
@@ -324,7 +327,7 @@ class Patient:
     smokingtype: int
     cigarettenumber: int
     antibiotics: int
-    stresslvl: str
+    stresslvl: int
     teeth: List[Tooth] = field(default_factory=list)
 
 
@@ -355,9 +358,9 @@ def create_predict_data(
             "furcationbaseline",
             "smokingtype",
             "stresslvl",
-            "infected_neighbors",  # Add this to avoid duplication
-            "side_infected",  # Add this to avoid duplication
-            "tooth_infected",  # Add this to avoid duplication
+            "infected_neighbors",
+            "side_infected",
+            "tooth_infected",
         ]
         base_data = base_data.drop(columns=drop_columns, errors="ignore")
         encoded_data = pd.DataFrame(index=base_data.index)
@@ -376,15 +379,13 @@ def create_predict_data(
             ("diabetes", 4),
             ("furcationbaseline", 3),
             ("smokingtype", 5),
+            ("stresslvl", 3),
             ("toothtype", 3),
         ]
 
         for feature, max_val in categorical_features:
             for i in range(0, max_val + 1):
                 encoded_data[f"{feature}_{i}"] = 0
-
-        for stresslvl in ["high", "low", "medium"]:
-            encoded_data[f"stresslvl_{stresslvl}"] = 0
 
         for idx, row in patient_data.iterrows():
             encoded_data.at[idx, f"tooth_{row['tooth']}"] = 1

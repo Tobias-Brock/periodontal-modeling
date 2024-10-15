@@ -4,14 +4,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
 
 from pamod.base import Patient, Side, Tooth, create_predict_data
 from pamod.benchmarking import Benchmarker, InputProcessor
 from pamod.data import ProcessedDataLoader, StaticProcessEngine
 from pamod.descriptives import DescriptivesPlotter
-from pamod.evaluation import FeatureImportanceEngine, brier_score_groups
+from pamod.evaluation import Evaluator
 from pamod.inference import ModelInference
 from pamod.resampling import Resampler
 
@@ -30,7 +28,7 @@ def load_and_initialize_plotter(path: str) -> str:
     """
     global plotter
     data_path = Path(path)
-    engine = StaticProcessEngine(behavior=False, scale=False)
+    engine = StaticProcessEngine(behavior=False)
     df = engine.load_data(path=data_path.parent, name=data_path.name)
     df = engine.process_data(df)
     plotter = DescriptivesPlotter(df)
@@ -365,17 +363,7 @@ def plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
     Returns:
         plt.Figure: Confusion matrix heatmap plot.
     """
-    if not model:
-        return "No model available."
-
-    y_pred = model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred)
-
-    plt.figure(figsize=(6, 4), dpi=300)
-    sns.heatmap(cm, annot=True, fmt="g", cmap="Blues")
-    plt.title("Confusion Matrix")
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
+    Evaluator(model=model, X_test=X_test, y_test=y_test).plot_confusion_matrix()
     return plt.gcf()
 
 
@@ -401,10 +389,9 @@ def plot_fi(
     if not model:
         return "No model available."
 
-    fi_engine = FeatureImportanceEngine(
-        [model], X_test, y_test, encoding, aggregate=True
-    )
-    fi_engine.evaluate_feature_importance(importance_types)
+    Evaluator(
+        model=model, X_test=X_test, y_test=y_test, encoding=encoding
+    ).evaluate_feature_importance(importance_types)
     return plt.gcf()
 
 
@@ -431,15 +418,9 @@ def plot_cluster(
     if not model:
         return "No model available."
 
-    fi_engine = FeatureImportanceEngine(
-        [model], X_test, y_test, encoding, aggregate=True
-    )
-
-    brier_plot, heatmap_plot, _ = fi_engine.analyze_brier_within_clusters(
-        model=model, n_clusters=n_clusters
-    )
-
-    return brier_plot, heatmap_plot
+    return Evaluator(
+        model=model, X_test=X_test, y_test=y_test, encoding=encoding
+    ).analyze_brier_within_clusters(n_clusters=n_clusters)
 
 
 def brier_score_wrapper(
@@ -456,7 +437,9 @@ def brier_score_wrapper(
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
-    brier_score_groups(models[selected_model], X_test, y_test)
+    Evaluator(
+        model=models[selected_model], X_test=X_test, y_test=y_test
+    ).brier_score_groups()
     return plt.gcf()
 
 
@@ -661,7 +644,7 @@ def collect_data(
     smokingtype: Union[int, str],
     cigarettenumber: Union[int, str],
     antibiotics: Union[int, str],
-    stresslvl: str,
+    stresslvl: int,
     *tooth_inputs_and_state,
     teeth_components: Dict[int, Dict[str, Any]],
     all_teeth: List[int],
@@ -677,7 +660,7 @@ def collect_data(
         smokingtype (Union[int, str]): Type of smoking.
         cigarettenumber (Union[int, str]): Number of cigarettes smoked.
         antibiotics (Union[int, str]): Antibiotic treatment status.
-        stresslvl (str): Stress level.
+        stresslvl (int): Stress level.
         *tooth_inputs_and_state: Flattened list of tooth input values.
         teeth_components (Dict[int, Dict[str, Any]]): Mapping of tooth numbers.
         all_teeth (List[int]): List of all tooth numbers.
@@ -695,7 +678,7 @@ def collect_data(
         smokingtype=int(smokingtype),
         cigarettenumber=int(cigarettenumber),
         antibiotics=int(antibiotics),
-        stresslvl=stresslvl,
+        stresslvl=int(stresslvl),
         teeth=[],
     )
 
@@ -717,21 +700,18 @@ def collect_data(
         ):
             tooth_dict[feature_key] = input_value
 
-        # Update tooth_states with current per-side inputs
         tooth_state = tooth_states.get(
             tooth_str, {"current_side": "Side 1", "sides": {}}
         )
         current_side = tooth_state.get("current_side", "Side 1")
         sides_data = tooth_state.get("sides", {})
 
-        # Get current per-side inputs
         furcation_input = tooth_dict.get("furcation_input")
         pdbaseline_input = tooth_dict.get("pdbaseline_input")
         recbaseline_input = tooth_dict.get("recbaseline_input")
         plaque_input = tooth_dict.get("plaque_input")
         bop_input = tooth_dict.get("bop_input")
 
-        # Update sides_data with current per-side inputs for current side
         sides_data[current_side] = {
             "furcation_input": furcation_input,
             "pdbaseline_input": pdbaseline_input,
@@ -742,8 +722,6 @@ def collect_data(
 
         tooth_state["sides"] = sides_data
         tooth_states[tooth_str] = tooth_state
-
-        # Now proceed to parse tooth data and sides as before
 
         tooth_parsed = {}
         for key, value in tooth_dict.items():
@@ -912,14 +890,14 @@ def run_patient_inference(
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
-    engine = StaticProcessEngine(behavior=False, scale=False)
+    engine = StaticProcessEngine(behavior=False)
+    dataloader = ProcessedDataLoader(task_processed, encoding)
     patient_data["id_patient"] = "inference_patient"
     raw_data = engine.create_tooth_features(
         patient_data, neighbors=True, patient_id=False
     )
 
     if encoding == "target":
-        dataloader = ProcessedDataLoader(task_processed, encoding)
         raw_data = dataloader.encode_categorical_columns(raw_data)
         resampler = Resampler(classification, encoding)
         _, raw_data = resampler.apply_target_encoding(X_train, raw_data, y_train)
@@ -947,7 +925,7 @@ def run_patient_inference(
 
     model = models[selected_model]
     predict_data = create_predict_data(raw_data, patient_data, encoding, model)
-    predict_data = engine.scale_numeric_columns(predict_data)
+    predict_data = dataloader.scale_numeric_columns(predict_data)
     inference_engine = ModelInference(classification, model)
 
     results = inference_engine.predict(predict_data)

@@ -338,9 +338,7 @@ with gr.Blocks() as app:
                 age_input = gr.Number(
                     label="Age", value=30, minimum=0, maximum=120, step=1
                 )
-                gender_input = gr.Radio(
-                    label="Gender", choices=[0, 1], value=1
-                )  # 0 or 1
+                gender_input = gr.Radio(label="Gender", choices=[0, 1], value=1)
                 bmi_input = gr.Number(label="Body Mass Index", value=35.0, minimum=0)
                 perio_history_input = gr.Number(
                     label="Perio Family History", value=2, minimum=0, maximum=2, step=1
@@ -357,10 +355,8 @@ with gr.Blocks() as app:
                 antibiotics_input = gr.Radio(
                     label="Antibiotic Treatment", choices=[0, 1], value=1
                 )
-                stresslvl_input = gr.Dropdown(
-                    label="Stress Level",
-                    choices=["low", "medium", "high"],
-                    value="high",
+                stresslvl_input = gr.Number(
+                    label="Stress Level", value=2, minimum=0, maximum=2, step=1
                 )
 
             jaw_dropdown = gr.Dropdown(
@@ -496,7 +492,7 @@ with gr.Blocks() as app:
                         jaw_dropdown,
                         all_teeth_state,
                         teeth_numbers_state,
-                    ],  # Passing 3 arguments
+                    ],
                     outputs=all_columns,
                 )
 

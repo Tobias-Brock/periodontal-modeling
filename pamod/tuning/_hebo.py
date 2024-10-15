@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
+from pamod.training import MetricEvaluator, Trainer
 from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
@@ -16,7 +17,17 @@ class HEBOTuner(BaseTuner, MetaTuner):
     """Hyperparameter tuning class using HEBO (Bayesian Optimization)."""
 
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str = "hebo"
+        self,
+        classification: str,
+        criterion: str,
+        tuning: str,
+        hpo: str = "hebo",
+        n_configs: int = 10,
+        n_jobs: Optional[int] = None,
+        verbosity: bool = True,
+        trainer: Optional[Trainer] = None,
+        metric_evaluator: Optional[MetricEvaluator] = None,
+        mlp_training: bool = True,
     ) -> None:
         """Initialize HEBOTuner with classification, criterion, and tuning method.
 
@@ -25,8 +36,31 @@ class HEBOTuner(BaseTuner, MetaTuner):
             criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
             tuning (str): The type of tuning ('holdout' or 'cv').
             hpo (str): The hyperparameter optimization method (default is 'HEBO').
+            n_configs (int): The number of configurations to evaluate during HPO.
+                Defaults to 10.
+            n_jobs (Optional[int]): The number of parallel jobs for model training.
+                Defaults to None.
+            verbosity (bool): Whether to print detailed logs during hebo optimization.
+                Defaults to True.
+            trainer (Optional[Trainer]): An instance of Trainer. If None, a default
+                instance will be created.
+            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
+                If None, a default instance will be created.
+            mlp_training (bool): Flag for MLP training with early stopping.
+                Defaults to True.
         """
-        super().__init__(classification, criterion, tuning, hpo)
+        super().__init__(
+            classification,
+            criterion,
+            tuning,
+            hpo,
+            n_configs,
+            n_jobs,
+            verbosity,
+            trainer,
+            metric_evaluator,
+            mlp_training,
+        )
 
     def holdout(
         self,
@@ -35,9 +69,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
         y_train_h: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
-        n_configs: int,
-        n_jobs: int,
-        verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
         """Perform Bayesian Optimization using hebo for holdout validation.
 
@@ -47,9 +78,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
             y_train_h (pd.Series): The training labels for the holdout set.
             X_val (pd.DataFrame): The validation features for the holdout set.
             y_val (pd.Series): The validation labels for the holdout set.
-            n_configs (int): The number of configurations to evaluate during HPO.
-            n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during hebo optimization.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
@@ -62,18 +90,12 @@ class HEBOTuner(BaseTuner, MetaTuner):
             X_val,
             y_val,
             None,
-            n_configs,
-            n_jobs,
-            verbosity,
         )
 
     def cv(
         self,
         learner: str,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
-        n_configs: int,
-        n_jobs: int,
-        verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
         """Perform Bayesian Optimization using HEBO with cross-validation.
 
@@ -81,17 +103,12 @@ class HEBOTuner(BaseTuner, MetaTuner):
             learner (str): The machine learning model to evaluate.
             outer_splits (List[Tuple[pd.DataFrame, pd.DataFrame]]):
                 List of cross-validation folds.
-            n_configs (int): The number of configurations to evaluate during HPO.
-            n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during HEBO optimization.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
                 The best hyperparameters and the best threshold.
         """
-        return self._run_optimization(
-            learner, None, None, None, None, outer_splits, n_configs, n_jobs, verbosity
-        )
+        return self._run_optimization(learner, None, None, None, None, outer_splits)
 
     def _run_optimization(
         self,
@@ -101,9 +118,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
         X_val: Optional[pd.DataFrame],
         y_val: Optional[pd.Series],
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
-        n_configs: int,
-        n_jobs: int,
-        verbosity: bool,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
         """Perform Bayesian Optimization using HEBO for holdout and cross-validation.
 
@@ -119,9 +133,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 (None if using CV).
             outer_splits (Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]]):
                 Cross-validation folds (None if using holdout).
-            n_configs (int): The number of configurations to evaluate during HPO.
-            n_jobs (int): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during HEBO optimization.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
@@ -133,7 +144,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         space = DesignSpace().parse(search_space)
         optimizer = HEBO(space)
 
-        for i in range(n_configs):
+        for i in range(self.n_configs):
             params_suggestion = optimizer.suggest(n_suggestions=1).iloc[0]
             params_dict = params_func(params_suggestion)
 
@@ -145,14 +156,12 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 X_val,
                 y_val,
                 outer_splits,
-                n_jobs,
             )
             optimizer.observe(pd.DataFrame([params_suggestion]), np.array([score]))
 
-            if verbosity:
+            if self.verbosity:
                 self._print_iteration_info(i, model, params_dict, score)
 
-        # Extract best parameters
         best_params_idx = optimizer.y.argmin()
         best_params_df = optimizer.X.iloc[best_params_idx]
         best_params = params_func(best_params_df)
@@ -167,7 +176,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
 
                 elif self.tuning == "cv":
                     best_threshold = self.trainer.optimize_threshold(
-                        model_clone, outer_splits, n_jobs
+                        model_clone, outer_splits, self.n_jobs
                     )
 
         return best_params, best_threshold
@@ -181,7 +190,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
         X_val: Optional[pd.DataFrame],
         y_val: Optional[pd.Series],
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
-        n_jobs: int,
     ) -> float:
         """Evaluate the model performance for both holdout and cross-validation.
 
@@ -199,7 +207,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 (None for CV).
             outer_splits (Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]]):
                 Cross-validation folds (None for holdout).
-            n_jobs (int): The number of parallel jobs for model training.
 
         Returns:
             float: The evaluation score to be minimized by HEBO.
@@ -208,7 +215,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         model_clone.set_params(**params_dict)
 
         if "n_jobs" in model_clone.get_params():
-            model_clone.set_params(n_jobs=n_jobs if n_jobs is not None else 1)
+            model_clone.set_params(n_jobs=self.n_jobs if self.n_jobs is not None else 1)
 
         score = self.evaluate_objective(
             model_clone,
@@ -217,7 +224,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
             X_val,
             y_val,
             outer_splits,
-            n_jobs if n_jobs is not None else 1,
         )
 
         return -score if self.criterion in ["f1", "macro_f1"] else score
@@ -230,7 +236,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
         X_val: pd.DataFrame,
         y_val: pd.Series,
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.Series]]],
-        n_jobs: int,
     ) -> float:
         """Evaluates the model's performance based on the tuning strategy.
 
@@ -247,7 +252,6 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 'holdout' tuning).
             outer_splits (List[tuple]): List of cross-validation folds, each a tuple
                 containing (X_train_fold, y_train_fold).
-            n_jobs (int): Number of parallel jobs to use for cross-validation.
 
         Returns:
             float: The model's performance metric based on tuning strategy.
@@ -263,7 +267,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 raise ValueError(
                     "outer_splits cannot be None when using cross-validation."
                 )
-            scores = Parallel(n_jobs=n_jobs)(
+            scores = Parallel(n_jobs=self.n_jobs)(
                 delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
                 for fold in outer_splits
             )
