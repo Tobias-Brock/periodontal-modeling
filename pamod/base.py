@@ -15,7 +15,8 @@ def validate_classification(classification: str) -> None:
     """
     if classification.lower().strip() not in ["binary", "multiclass"]:
         raise ValueError(
-            "Invalid classification type. Choose 'binary' or 'multiclass'."
+            f"{classification} is an invalid classification type."
+            f"Choose 'binary' or 'multiclass'."
         )
 
 
@@ -26,7 +27,9 @@ def validate_hpo(hpo: Optional[str]) -> None:
         hpo (Optional[str]): The type of hpo ('rs' or 'hebo').
     """
     if hpo not in [None, "rs", "hebo"]:
-        raise ValueError("Unsupported HPO. Choose either 'rs' or 'hebo'.")
+        raise ValueError(
+            f" {hpo} is an unsupported HPO type." f"Choose either 'rs' or 'hebo'."
+        )
 
 
 class BaseHydra:
@@ -433,7 +436,13 @@ def create_predict_data(
     else:
         raise ValueError(f"Unsupported encoding type: {encoding}")
 
-    model_features = model.get_booster().feature_names
+    if hasattr(model, "get_booster"):
+        model_features = model.get_booster().feature_names
+    elif hasattr(model, "feature_names_in_"):
+        model_features = model.feature_names_in_
+    else:
+        raise ValueError("Model type not supported for feature extraction")
+
     for feature in model_features:
         if feature not in complete_data.columns:
             complete_data[feature] = 0

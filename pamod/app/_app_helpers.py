@@ -126,13 +126,13 @@ def plot_outcome_descriptive(outcome: str, title: str):
 
 
 def run_benchmarks(
-    tasks: list,
+    task: str,
     learners: list,
     tuning_methods: list,
     hpo_methods: list,
     criteria: list,
     encoding: list,
-    sampling: Optional[str],
+    sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
     racing_folds: int,
@@ -142,8 +142,8 @@ def run_benchmarks(
     """Run benchmark evaluations for different configurations.
 
     Args:
-        tasks (list): List of task names to benchmark (e.g., ['pocketclosure',
-            'improve']).
+        task (str): Task name to benchmark (e.g., 'pocketclosure',
+            or 'improve').
         learners (list): List of learners to be evaluated (e.g., ['xgb',
             'logreg']).
         tuning_methods (list): List of tuning methods to apply ('holdout', 'cv').
@@ -152,7 +152,7 @@ def run_benchmarks(
         criteria (list): List of evaluation criteria ('f1', 'brier_score', etc.).
         encoding (list): List of encoding methods to apply to categorical data
             ('one_hot', 'target').
-        sampling (Optional[str]): Sampling strategy to use, if any.
+        sampling (Optional[List[Optional[str]]]): Sampling strategy to use, if any.
         factor (Optional[float]): Factor to control the resampling process, if
             applicable.
         n_configs (int): Number of configurations for hyperparameter tuning.
@@ -168,7 +168,7 @@ def run_benchmarks(
               Accuracy, etc.) for each learner.
             - A confusion matrix plot (if available).
     """
-    tasks = InputProcessor.process_tasks(tasks)
+    task = InputProcessor.process_task(task)
     learners = InputProcessor.process_learners(learners)
     tuning_methods = InputProcessor.process_tuning(tuning_methods)
     hpo_methods = InputProcessor.process_hpo(hpo_methods)
@@ -180,21 +180,23 @@ def run_benchmarks(
         raise ValueError("No valid encodings provided.")
     encodings = InputProcessor.process_encoding(encodings)
 
-    sampling = None if sampling == "None" else sampling
-    factor = None if factor == "None" else float(factor) if factor else None
+    sampling_benchmark: Optional[List[Union[str, None]]] = (
+        [s if s != "None" else None for s in sampling] if sampling else None
+    )
+    factor = None if factor == "" or factor is None else float(factor)
 
     data_path = Path(path)
     file_path = data_path.parent
     file_name = data_path.name
 
     benchmarker = Benchmarker(
-        tasks=tasks,
+        task=task,
         learners=learners,
         tuning_methods=tuning_methods,
         hpo_methods=hpo_methods,
         criteria=criteria,
         encodings=encodings,
-        sampling=sampling,
+        sampling=sampling_benchmark,
         factor=factor,
         n_configs=int(n_configs),
         racing_folds=int(racing_folds),
@@ -210,7 +212,7 @@ def run_benchmarks(
 
     df_results = df_results.round(4)
 
-    classification = "multiclass" if "pdgrouprevaluation" in tasks else "binary"
+    classification = "multiclass" if "pdgrouprevaluation" in task else "binary"
 
     available_metrics = df_results.columns.tolist()
 
@@ -256,7 +258,7 @@ def benchmarks_wrapper(*args: Any) -> Any:
             - hpo_methods (List[str]): List of hyperparameter optimization methods.
             - criteria (List[str]): List of evaluation criteria.
             - encodings (List[str]): List of encodings for categorical features.
-            - sampling (Optional[str]): The sampling method.
+            - sampling (Optional[List[str]]): The sampling method.
             - factor (Optional[float]): The sampling factor.
             - n_configs (int): Number of configurations.
             - racing_folds (int): Number of folds for racing methods.
@@ -281,7 +283,7 @@ def benchmarks_wrapper(*args: Any) -> Any:
         path,
     ) = args
     return run_benchmarks(
-        [task],
+        task,
         learners,
         tuning_methods,
         hpo_methods,
@@ -336,7 +338,7 @@ def load_data_wrapper(
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
-    return load_data(InputProcessor.process_tasks([task])[0], encoding)
+    return load_data(InputProcessor.process_task(task), encoding)
 
 
 def update_model_dropdown(models: Dict[str, Any]) -> dict:
@@ -886,7 +888,7 @@ def run_patient_inference(
     print("Patient Data Received for Inference:")
     print(patient_data)
 
-    task_processed = InputProcessor.process_tasks([task])[0]
+    task_processed = InputProcessor.process_task(task)
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
@@ -964,7 +966,7 @@ def run_jackknife_inference(
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
     """
-    task_processed = InputProcessor.process_tasks([task])[0]
+    task_processed = InputProcessor.process_task(task)
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )

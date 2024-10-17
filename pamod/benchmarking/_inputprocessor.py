@@ -36,8 +36,8 @@ class InputProcessor:
     }
 
     @classmethod
-    def process_tasks(cls, tasks: list) -> list:
-        return [cls.task_map[task] for task in tasks]
+    def process_task(cls, task: str) -> str:
+        return cls.task_map.get(task, task)
 
     @classmethod
     def process_learners(cls, learners: list) -> list:

@@ -9,11 +9,11 @@ from pamod.config import PROCESSED_BASE_DIR
 
 
 class ProcessedDataLoader(BaseData):
-    def __init__(self, target: str, encoding: str, scale: bool = True) -> None:
-        """Initializes the ProcessedDataLoader with the specified target column.
+    def __init__(self, task: str, encoding: str, scale: bool = True) -> None:
+        """Initializes the ProcessedDataLoader with the specified task column.
 
         Args:
-            target (str): The target column name.
+            task (str): The task column name.
             encoding (str): Specifies the encoding for categorical columns.
                 Options: 'one_hot', 'target', or None.
             scale (bool): If True, performs scaling on numeric columns.
@@ -21,7 +21,7 @@ class ProcessedDataLoader(BaseData):
         """
         super().__init__()
         self.scale = scale
-        self.target = target
+        self.task = task
         self.encoding = encoding
 
     @staticmethod
@@ -136,13 +136,13 @@ class ProcessedDataLoader(BaseData):
                     raise ValueError(f"Column {col} is not correctly scaled.")
 
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Select target column, rename to 'y', and delete remaining targets.
+        """Select task column, rename to 'y', and delete remaining tasks.
 
         Args:
             df (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame with the selected target 'y'.
+            pd.DataFrame: DataFrame with the selected task 'y'.
         """
         df = self.encode_categorical_columns(df)
         self._check_encoded_columns(df)
@@ -151,32 +151,31 @@ class ProcessedDataLoader(BaseData):
             df = self.scale_numeric_columns(df)
             self._check_scaled_columns(df)
 
-        if self.target not in df.columns:
-            raise ValueError(
-                f"Target column '{self.target}' not found in the DataFrame."
-            )
+        if self.task not in df.columns:
+            raise ValueError(f"task column '{self.task}' not found in the DataFrame.")
 
-        target_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
+        task_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
 
         columns_to_drop = [
-            col for col in target_columns if col != self.target and col in df.columns
+            col for col in task_columns if col != self.task and col in df.columns
         ]
+        if self.task == "improve":
+            if "pdgroupbase" in df.columns:
+                df = df.query("pdgroupbase in [1, 2]")
+
         df = df.drop(columns=columns_to_drop)
         df = df.drop(
             columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"],
             errors="ignore",
         )
-        if self.target == "improve":
-            if "pdgroupbase" in df.columns:
-                df = df.query("pdgroupbase == 0")
-        df = df.rename(columns={self.target: "y"})
+        df = df.rename(columns={self.task: "y"})
 
         if "y" not in df.columns:
-            raise ValueError(f"Target column '{self.target}' was not renamed to 'y'.")
+            raise ValueError(f"task column '{self.task}' was not renamed to 'y'.")
 
         if any(col in df.columns for col in columns_to_drop):
             raise ValueError(
-                f"Error removing targets: Remaining columns: {columns_to_drop}"
+                f"Error removing tasks: Remaining columns: {columns_to_drop}"
             )
 
         return df

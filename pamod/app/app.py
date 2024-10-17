@@ -140,7 +140,7 @@ with gr.Blocks() as app:
             )
 
             task_input = gr.Dropdown(
-                label="Tasks",
+                label="Task",
                 choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
                 value="Pocket closure",
             )
@@ -180,10 +180,10 @@ with gr.Blocks() as app:
                 value=["One-hot"],  # Default value can be set
             )
 
-            sampling_input = gr.Dropdown(
+            sampling_input = gr.CheckboxGroup(
                 label="Sampling Strategy",
                 choices=["None", "upsampling", "downsampling", "smote"],
-                value="None",  # Default value is None
+                value=["None"],  # Default value is None
             )
 
             factor_input = gr.Textbox(label="Sampling Factor", value="")
