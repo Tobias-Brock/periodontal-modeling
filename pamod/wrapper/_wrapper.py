@@ -1,71 +1,59 @@
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
-from pamod.base import BaseHydra
-from pamod.benchmarking import Baseline, Benchmarker
+from pamod.benchmarking import BaseBenchmark, Baseline, Benchmarker
+from pamod.config import PROCESSED_BASE_DIR
 from pamod.data import ProcessedDataLoader
 from pamod.evaluation import Evaluator
 from pamod.resampling import Resampler
 
 
-class BenchmarkWrapper(BaseHydra):
-    """Benchmarking and Evaluation Wrapper.
-
-    This class streamlines benchmarking and model evaluation for specific tasks,
-    such as 'pocketclosure' or 'pdgrouprevaluation'.
-
-    Attributes:
-        task (str): Task for evaluation. Can be "pocketclosure",
-            "pdgrouprevaluation", or "improvement".
-        encoding (str): Type of encoding. Can be "one_hot" or "target".
-        learners (List[str]): List of learners for benchmarking.
-        tuning (List[str]): Tuning methods for learners.
-        hpo (List[str]): Hyperparameter optimization methods.
-        criteria (List[str]): Evaluation criteria for benchmarking.
-        n_configs (int): Number of configurations to test in HPO.
-        n_jobs (Optional[int]): Number of jobs for parallel processing.
-        verbosity (bool): Whether to print progress during benchmarking.
-        classification (str): Classification type ("multiclass" or "binary").
-    """
+class BenchmarkWrapper(BaseBenchmark):
+    """Benchmarking and Evaluation Wrapper."""
 
     def __init__(
         self,
         task: str,
-        encoding: str,
+        encodings: List[str],
         learners: List[str],
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
-        sampling: Optional[str] = None,
+        sampling: Optional[List[Union[str, None]]] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
         verbosity: bool = False,
         cv_folds: Optional[int] = None,
+        racing_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
         val_size: Optional[float] = None,
         cv_seed: Optional[int] = None,
         mlp_flag: Optional[bool] = None,
+        path: Path = PROCESSED_BASE_DIR,
+        name: str = "processed_data.csv",
     ) -> None:
         """Initializes the BenchmarkWrapper.
 
         Args:
             task (str): Task for evaluation. Can be "pocketclosure",
                 "pdgrouprevaluation", or "improvement".
-            encoding (str): Type of encoding. Can be "one_hot" or "target".
+            encodings (List[str]): Type of encoding. Can be "one_hot" or "target".
             learners (List[str]): List of learners for benchmarking.
             tuning_methods (List[str]): Tuning methods for learners.
             hpo_methods (List[str]): Hyperparameter optimization methods.
             criteria (List[str]): Evaluation criteria for benchmarking.
-            sampling (Optional[str]): Sampling strategy to use. Defaults to None.
+            sampling (Optional[List[str]]): Sampling strategy to use. Defaults to None.
             factor (Optional[float]): Factor for resampling. Defaults to None.
             n_configs (int, optional): Number of configurations to test in HPO.
                 Defaults to 10.
             n_jobs (Optional[int], optional): Number of parallel jobs. Defaults to None.
             cv_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
             test_seed (Optional[int], optional): Random seed for splitting.
                 Defaults to None.
             test_size (Optional[float]): Size of grouped train test split.
@@ -73,43 +61,69 @@ class BenchmarkWrapper(BaseHydra):
             cv_seed (int): Seed for splitting CV folds.
             mlp_flag (bool): Flag for MLP training with early stopping.
             verbosity (bool): Enables verbose output if set to True.
+            path (str): Directory path for the processed data.
+            name (str): File name for the processed data.
         """
-        super().__init__()
-        self.task = task
-        self.encoding = encoding
-        self.learners = learners
-        self.tuning = tuning_methods
-        self.hpo = hpo_methods
-        self.criteria = criteria
-        self.sampling = sampling
-        self.factor = factor
-        self.n_configs = n_configs
-        self.n_jobs = n_jobs
-        self.verbosity = verbosity
-        self.cv_folds = cv_folds
-        self.test_seed = test_seed
-        self.test_size = test_size
-        self.val_size = val_size
-        self.cv_seed = cv_seed
-        self.mlp_flag = mlp_flag
+        super().__init__(
+            task,
+            learners,
+            tuning_methods,
+            hpo_methods,
+            criteria,
+            encodings,
+            sampling,
+            factor,
+            n_configs,
+            n_jobs,
+            cv_folds,
+            racing_folds,
+            test_seed,
+            test_size,
+            val_size,
+            cv_seed,
+            mlp_flag,
+            verbosity,
+            path,
+            name,
+        )
         self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
 
-    def wrapped_benchmark(self) -> Tuple[pd.DataFrame, pd.DataFrame, dict]:
+    def baseline(self) -> pd.DataFrame:
+        """Runs baseline benchmark for each encoding type.
+
+        Returns:
+            pd.DataFrame: Combined baseline benchmark dataframe with encoding info.
+        """
+        baseline_dfs = []
+
+        for encoding in self.encodings:
+            baseline_df = Baseline(task=self.task, encoding=encoding).baseline()
+            baseline_df["Encoding"] = encoding
+            baseline_dfs.append(baseline_df)
+
+        combined_baseline_df = pd.concat(baseline_dfs, ignore_index=True)
+        column_order = ["Model", "Encoding"] + [
+            col
+            for col in combined_baseline_df.columns
+            if col not in ["Model", "Encoding"]
+        ]
+        combined_baseline_df = combined_baseline_df[column_order]
+
+        return combined_baseline_df
+
+    def wrapped_benchmark(self) -> Tuple[pd.DataFrame, dict]:
         """Runs baseline and benchmarking tasks.
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame, dict]: The baseline, benchmark,
-            and learners used for evaluation.
+            Tuple[pd.DataFrame, dict]: Benchmark and learners used for evaluation.
         """
-        baseline = Baseline(task=self.task, encoding=self.encoding).baseline()
-
         benchmarker = Benchmarker(
-            tasks=[self.task],
+            task=self.task,
             learners=self.learners,
-            tuning_methods=self.tuning,
-            hpo_methods=self.hpo,
+            tuning_methods=self.tuning_methods,
+            hpo_methods=self.hpo_methods,
             criteria=self.criteria,
-            encodings=[self.encoding],
+            encodings=self.encodings,
             sampling=self.sampling,
             factor=self.factor,
             n_configs=self.n_configs,
@@ -121,22 +135,31 @@ class BenchmarkWrapper(BaseHydra):
             cv_seed=self.cv_seed,
             mlp_flag=self.mlp_flag,
             verbosity=self.verbosity,
+            path=self.path,
+            name=self.name,
         )
 
-        benchmark, learners = benchmarker.run_all_benchmarks()
+        return benchmarker.run_all_benchmarks()
 
-        return baseline, benchmark, learners
-
-    def wrapped_evaluator(self, model: object) -> None:
-        """Runs evaluation on a specific model.
+    def wrapped_evaluator(self, learners_dict: dict) -> None:
+        """Runs evaluation on the best-ranked model from learners_dict.
 
         Args:
-            model (object): The model to be evaluated.
+            learners_dict (dict): Dictionary containing models and their metadata.
         """
-        dataloader = ProcessedDataLoader(target=self.task, encoding=self.encoding)
-        resampler = Resampler(
-            classification=self.classification, encoding=self.encoding
-        )
+        best_model_key = next((key for key in learners_dict if "rank1" in key), None)
+
+        if not best_model_key:
+            raise ValueError("No model with rank1 found in learners_dict")
+
+        best_model = learners_dict[best_model_key]
+        encoding = "one_hot" if best_model_key.split("_")[-6] == "one" else "target"
+
+        if encoding not in ["one_hot", "target"]:
+            raise ValueError(f"Invalid encoding extracted: {encoding}")
+
+        dataloader = ProcessedDataLoader(task=self.task, encoding=encoding)
+        resampler = Resampler(classification=self.classification, encoding=encoding)
         df = dataloader.load_data()
 
         if self.task in ["pocketclosure", "pdgrouprevaluation"]:
@@ -154,10 +177,10 @@ class BenchmarkWrapper(BaseHydra):
         _, _, X_test, y_test = resampler.split_x_y(train_df, test_df)
 
         evaluator = Evaluator(
-            model=model,
+            model=best_model,
             X_test=X_test,
             y_test=y_test,
-            encoding=self.encoding,
+            encoding=encoding,
         )
 
         evaluator.plot_confusion_matrix()

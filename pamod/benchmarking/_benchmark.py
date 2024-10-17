@@ -1,19 +1,16 @@
 import itertools
 from pathlib import Path
 import traceback
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from pamod.base import BaseEvaluator
+from pamod.benchmarking import BaseBenchmark, BaseExperiment
 from pamod.config import PROCESSED_BASE_DIR
 from pamod.data import ProcessedDataLoader
-from pamod.resampling import Resampler
-from pamod.training import MetricEvaluator, Trainer
-from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
-class Experiment(BaseEvaluator):
+class Experiment(BaseExperiment):
     def __init__(
         self,
         df: pd.DataFrame,
@@ -65,80 +62,26 @@ class Experiment(BaseEvaluator):
             verbosity (bool): Enables verbose output if set to True.
         """
         self.df = df
-        self.task = task
-        classification = self._determine_classification()
-        super().__init__(classification, criterion, tuning, hpo)
-        self.learner = learner
-        self.encoding = encoding
-        self.sampling = sampling
-        self.factor = factor
-        self.n_configs = n_configs
-        self.racing_folds = racing_folds
-        self.n_jobs = n_jobs
-        self.cv_folds = cv_folds if cv_folds is not None else self.n_folds
-        self.test_seed = test_seed if test_seed is not None else self.random_state_split
-        self.test_size = test_size if test_size is not None else self.test_set_size
-        self.val_size = val_size if val_size is not None else self.val_set_size
-        self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
-        self.verbosity = verbosity
-        self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
-        self.resampler = Resampler(self.classification, self.encoding)
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
-        self.trainer = Trainer(
-            self.classification,
-            self.criterion,
-            tuning=self.tuning,
-            hpo=self.hpo,
-            mlp_training=self.mlp_flag,
-            metric_evaluator=self.metric_evaluator,
+        super().__init__(
+            task=task,
+            learner=learner,
+            criterion=criterion,
+            encoding=encoding,
+            tuning=tuning,
+            hpo=hpo,
+            sampling=sampling,
+            factor=factor,
+            n_configs=n_configs,
+            racing_folds=racing_folds,
+            n_jobs=n_jobs,
+            cv_folds=cv_folds,
+            test_seed=test_seed,
+            test_size=test_size,
+            val_size=val_size,
+            cv_seed=cv_seed,
+            mlp_flag=mlp_flag,
+            verbosity=verbosity,
         )
-        self.tuner = self._initialize_tuner()
-
-    def _determine_classification(self) -> str:
-        """Determine classification type based on the task name.
-
-        Returns:
-            str: The classification type ('binary' or 'multiclass').
-        """
-        if self.task in ["pocketclosure", "improve"]:
-            return "binary"
-        elif self.task == "pdgrouprevaluation":
-            return "multiclass"
-        else:
-            raise ValueError(
-                f"Unknown task: {self.task}. Unable to determine classification."
-            )
-
-    def _initialize_tuner(self):
-        """Initialize the appropriate tuner based on the hpo method."""
-        if self.hpo == "rs":
-            return RandomSearchTuner(
-                self.classification,
-                self.criterion,
-                self.tuning,
-                self.hpo,
-                self.n_configs,
-                self.n_jobs,
-                self.verbosity,
-                self.trainer,
-                self.metric_evaluator,
-                self.mlp_flag,
-            )
-        elif self.hpo == "hebo":
-            return HEBOTuner(
-                self.classification,
-                self.criterion,
-                self.tuning,
-                self.hpo,
-                self.n_configs,
-                self.n_jobs,
-                self.verbosity,
-                self.trainer,
-                self.metric_evaluator,
-                self.mlp_flag,
-            )
-        else:
-            raise ValueError(f"Unsupported HPO method: {self.hpo}")
 
     def perform_evaluation(self) -> dict:
         """Perform model evaluation and return final metrics.
@@ -227,21 +170,21 @@ class Experiment(BaseEvaluator):
         return self._train_final_model(final_model)
 
 
-class Benchmarker:
+class Benchmarker(BaseBenchmark):
     def __init__(
         self,
-        tasks: List[str],
+        task: str,
         learners: List[str],
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
         encodings: List[str],
-        sampling: Optional[str] = None,
+        sampling: Optional[List[Union[str, None]]] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
-        racing_folds: Optional[int] = None,
         n_jobs: Optional[int] = None,
         cv_folds: Optional[int] = None,
+        racing_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
         val_size: Optional[float] = None,
@@ -254,22 +197,22 @@ class Benchmarker:
         """Initialize the Experiment with different tasks, learners, etc.
 
         Args:
-            tasks (List[str]): List of tasks (e.g., 'pocketclosure', 'improve').
+            task (str): Task (e.g., 'pocketclosure', 'improve').
             learners (List[str]): List of learners to benchmark (e.g., 'xgb', etc.).
             tuning_methods (List[str]): List of tuning methods ('holdout', 'cv').
             hpo_methods (List[str]): List of HPO methods ('hebo', 'rs').
             criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
             encodings (List[str]): List of encodings ('one_hot' or 'target').
-            sampling (Optional[str]): Sampling strategy to use. Defaults to None.
+            sampling (OptionalList[str]]): Sampling strategy to use. Defaults to None.
             factor (Optional[float]): Factor for resampling. Defaults to None.
             n_configs (int): Number of configurations for hyperparameter tuning.
                 Defaults to 10.
-            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-                Defaults to None.
             n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
                 Defaults to None.
             cv_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+                Defaults to None.
             test_seed (Optional[int], optional): Random seed for splitting.
                 Defaults to None.
             test_size (Optional[float]): Size of grouped train test split.
@@ -280,26 +223,28 @@ class Benchmarker:
             path (str): Directory path for the processed data.
             name (str): File name for the processed data.
         """
-        self.tasks = tasks
-        self.learners = learners
-        self.tuning_methods = tuning_methods
-        self.hpo_methods = hpo_methods
-        self.criteria = criteria
-        self.encodings = encodings
-        self.sampling = sampling
-        self.factor = factor
-        self.n_configs = n_configs
-        self.racing_folds = racing_folds
-        self.n_jobs = n_jobs
-        self.verbosity = verbosity
-        self.cv_folds = cv_folds
-        self.test_seed = test_seed
-        self.test_size = test_size
-        self.val_size = val_size
-        self.cv_seed = cv_seed
-        self.mlp_flag = mlp_flag
-        self.path = path
-        self.name = name
+        super().__init__(
+            task,
+            learners,
+            tuning_methods,
+            hpo_methods,
+            criteria,
+            encodings,
+            sampling,
+            factor,
+            n_configs,
+            n_jobs,
+            cv_folds,
+            racing_folds,
+            test_seed,
+            test_size,
+            val_size,
+            cv_seed,
+            mlp_flag,
+            verbosity,
+            path,
+            name,
+        )
         self.data_cache = self._load_data_for_tasks()
 
     def _load_data_for_tasks(self) -> dict:
@@ -309,11 +254,11 @@ class Benchmarker:
             dict: A dictionary containing transformed data for each task-encoding pair.
         """
         data_cache = {}
-        for task, encoding in itertools.product(self.tasks, self.encodings):
-            cache_key = (task, encoding)
+        for encoding in self.encodings:
+            cache_key = encoding
 
             if cache_key not in data_cache:
-                dataloader = ProcessedDataLoader(task, encoding)
+                dataloader = ProcessedDataLoader(self.task, encoding)
                 df = dataloader.load_data(self.path, self.name)
                 transformed_df = dataloader.transform_data(df)
                 data_cache[cache_key] = transformed_df
@@ -324,37 +269,45 @@ class Benchmarker:
         """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
         results = []
         learners_dict = {}
+        top_models_per_criterion: Dict[
+            str, List[Tuple[float, object, str, str, str, str]]
+        ] = {criterion: [] for criterion in self.criteria}
+        metric_map = {
+            "f1": "F1 Score",
+            "brier_score": "Brier Score",
+            "macro_f1": "Macro F1 Score",
+        }
 
-        for task, learner, tuning, hpo, criterion, encoding in itertools.product(
-            self.tasks,
+        for learner, tuning, hpo, criterion, encoding, sampling in itertools.product(
             self.learners,
             self.tuning_methods,
             self.hpo_methods,
             self.criteria,
             self.encodings,
+            self.sampling or ["no_sampling"],
         ):
-            if (criterion == "macro_f1" and task != "pdgrouprevaluation") or (
-                criterion == "f1" and task == "pdgrouprevaluation"
+            if (criterion == "macro_f1" and self.task != "pdgrouprevaluation") or (
+                criterion == "f1" and self.task == "pdgrouprevaluation"
             ):
-                print(f"Criterion '{criterion}' and task '{task}' not valid.")
+                print(f"Criterion '{criterion}' and task '{self.task}' not valid.")
                 continue
             if self.verbosity:
                 print(
-                    f"\nRunning benchmark for Task: {task}, Learner: {learner}, "
-                    f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}"
+                    f"\nRunning benchmark for Task: {self.task}, Learner: {learner}, "
+                    f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}, "
+                    f"Sampling: {sampling}, Factor: {self.factor}."
                 )
-
-            df = self.data_cache[(task, encoding)]
+            df = self.data_cache[(encoding)]
 
             exp = Experiment(
                 df=df,
-                task=task,
+                task=self.task,
                 learner=learner,
                 criterion=criterion,
                 encoding=encoding,
                 tuning=tuning,
                 hpo=hpo,
-                sampling=self.sampling,
+                sampling=sampling,
                 factor=self.factor,
                 n_configs=self.n_configs,
                 racing_folds=self.racing_folds,
@@ -380,22 +333,74 @@ class Benchmarker:
 
                 results.append(
                     {
-                        "Task": task,
+                        "Task": self.task,
                         "Learner": learner,
                         "Tuning": tuning,
                         "HPO": hpo,
                         "Criterion": criterion,
+                        "Sampling": sampling,
+                        "Factor": self.factor,
                         **unpacked_metrics,
                     }
                 )
 
-                learners_dict[
-                    f"{task}_{learner}_{tuning}_{hpo}_{criterion}_{encoding}"
-                ] = trained_model
+                metric_key = metric_map.get(criterion)
+                if metric_key is None:
+                    raise KeyError(f"Unknown criterion '{criterion}'")
+
+                criterion_value = metrics[metric_key]
+
+                current_model_data = (
+                    criterion_value,
+                    trained_model,
+                    learner,
+                    tuning,
+                    hpo,
+                    encoding,
+                )
+
+                if len(top_models_per_criterion[criterion]) < 4:
+                    top_models_per_criterion[criterion].append(current_model_data)
+                else:
+                    worst_model_idx = min(
+                        range(len(top_models_per_criterion[criterion])),
+                        key=lambda idx: (
+                            top_models_per_criterion[criterion][idx][0]
+                            if criterion != "brier_score"
+                            else -top_models_per_criterion[criterion][idx][0]
+                        ),
+                    )
+                    worst_model_score = top_models_per_criterion[criterion][
+                        worst_model_idx
+                    ][0]
+                    if (
+                        criterion != "brier_score"
+                        and criterion_value > worst_model_score
+                    ) or (
+                        criterion == "brier_score"
+                        and criterion_value < worst_model_score
+                    ):
+                        top_models_per_criterion[criterion][
+                            worst_model_idx
+                        ] = current_model_data
 
             except Exception as e:
-                print(f"Error running benchmark for {task}, {learner}: {e}\n")
+                print(f"Error running benchmark for {self.task}, {learner}: {e}\n")
                 traceback.print_exc()
+
+        for criterion, models in top_models_per_criterion.items():
+            sorted_models = sorted(
+                models, key=lambda x: -x[0] if criterion != "brier_score" else x[0]
+            )
+            for idx, (score, model, learner, tuning, hpo, encoding) in enumerate(
+                sorted_models
+            ):
+                learners_dict_key = (
+                    f"{self.task}_{learner}_{tuning}_{hpo}_{criterion}_{encoding}_"
+                    f"{sampling or 'no_sampling'}_factor{self.factor}_rank{idx+1}_"
+                    f"score{round(score, 4)}"
+                )
+                learners_dict[learners_dict_key] = model
 
         df_results = pd.DataFrame(results)
         pd.set_option("display.max_columns", None)
@@ -409,23 +414,23 @@ class Benchmarker:
 
 
 def main():
-    tasks = ["pdgrouprevaluation"]
-    learners = ["xgb", "rf", "lr", "mlp"]
-    # learners = ["xgb"]
+    task = "pdgrouprevaluation"
+    # learners = ["xgb", "rf", "lr", "mlp"]
+    learners = ["xgb"]
     tuning_methods = ["holdout"]
     hpo_methods = ["hebo"]
     criteria = ["macro_f1"]
     encoding = ["one_hot"]
 
     benchmarker = Benchmarker(
-        tasks=tasks,
+        task=task,
         learners=learners,
         tuning_methods=tuning_methods,
         hpo_methods=hpo_methods,
         criteria=criteria,
         encodings=encoding,
-        sampling=None,
-        factor=None,
+        sampling="upsampling",
+        factor=2,
         n_configs=3,
         racing_folds=3,
         n_jobs=-1,

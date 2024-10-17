@@ -108,15 +108,17 @@ class Baseline(BaseHydra):
                 else None
             )
             metrics = final_metrics(self.classification, y_test, preds, probs)
+            metrics["Model"] = model_name
             results.append(metrics)
-            model_names.append(model_name)  # Collect the model name
+            model_names.append(model_name)
             trained_models[(model_name, "Baseline")] = model
 
-        results_df = pd.DataFrame(results, index=model_names)
+        results_df = pd.DataFrame(results)
         baseline_order = ["Dummy Classifier", "Logistic Regression", "Random Forest"]
-
-        if all(model in model_names for model in baseline_order):
-            results_df = results_df.reindex(baseline_order)
+        results_df["Model"] = pd.Categorical(
+            results_df["Model"], categories=baseline_order, ordered=True
+        )
+        results_df = results_df.sort_values("Model").reset_index(drop=True)
 
         pd.set_option("display.max_columns", None)
         pd.set_option("display.width", 1000)

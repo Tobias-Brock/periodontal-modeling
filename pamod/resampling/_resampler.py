@@ -53,11 +53,11 @@ class Resampler(BaseValidator, BaseData):
         if sampling == "smote":
             if self.classification == "multiclass":
                 smote_strategy = {
-                    1: sum(y == 1) * sampling_factor,
-                    2: sum(y == 2) * sampling_factor,
+                    1: int(sum(y == 1) * sampling_factor),
+                    2: int(sum(y == 2) * sampling_factor),
                 }
             elif self.classification == "binary":
-                smote_strategy = {1: sum(y == 1) * sampling_factor}
+                smote_strategy = {1: int(sum(y == 1) * sampling_factor)}
             smote_sampler = SMOTE(
                 sampling_strategy=smote_strategy,
                 random_state=self.random_state_sampling,
@@ -67,11 +67,11 @@ class Resampler(BaseValidator, BaseData):
         elif sampling == "upsampling":
             if self.classification == "multiclass":
                 up_strategy = {
-                    1: sum(y == 1) * sampling_factor,
-                    2: sum(y == 2) * sampling_factor,
+                    1: int(sum(y == 1) * sampling_factor),
+                    2: int(sum(y == 2) * sampling_factor),
                 }
             elif self.classification == "binary":
-                up_strategy = {0: sum(y == 0) * sampling_factor}
+                up_strategy = {0: int(sum(y == 0) * sampling_factor)}
             up_sampler = RandomOverSampler(
                 sampling_strategy=up_strategy, random_state=self.random_state_sampling
             )
@@ -79,7 +79,7 @@ class Resampler(BaseValidator, BaseData):
 
         elif sampling == "downsampling":
             if self.classification in ["binary", "multiclass"]:
-                down_strategy = {1: sum(y == 1) // sampling_factor}
+                down_strategy = {1: int(sum(y == 1) // sampling_factor)}
             down_sampler = RandomUnderSampler(
                 sampling_strategy=down_strategy, random_state=self.random_state_sampling
             )
