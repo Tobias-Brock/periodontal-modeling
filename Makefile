@@ -73,3 +73,13 @@ benchmark:
 .PHONY: app
 app:
 	$(PYTHON_INTERPRETER) pamod/app/app.py
+
+## Build Docker image
+.PHONY: docker-build
+docker-build:
+	docker build -f docker/app.dockerfile -t myapp-image .
+
+## Run Docker container
+.PHONY: docker-run
+docker-run:
+	docker run -p 8000:8000 myapp-image

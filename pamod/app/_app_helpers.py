@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gradio as gr
 import matplotlib.pyplot as plt
@@ -14,6 +14,41 @@ from pamod.inference import ModelInference
 from pamod.resampling import Resampler
 
 plotter = None
+
+all_teeth = [
+    18,
+    17,
+    16,
+    15,
+    14,
+    13,
+    12,
+    11,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    48,
+    47,
+    46,
+    45,
+    44,
+    43,
+    42,
+    41,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+]
 
 
 def load_and_initialize_plotter(path: str) -> str:
@@ -505,305 +540,203 @@ def plot_cluster_wrapper(
     )
 
 
-def update_teeth_ui(
-    jaw_side: str, all_teeth: list, teeth_numbers: dict, tooth_columns: dict
-) -> List:
-    """Updates the visibility of teeth UI components based on the selected jaw side.
+def handle_tooth_selection(
+    selected_tooth: Union[str, int],
+    tooth_states_value: Dict[str, Any],
+    tooth_components: Dict[str, gr.components.Component],
+    sides_components: Dict[int, Dict[str, gr.components.Component]],
+) -> List[Any]:
+    """Handle the selection of a tooth and update UI components accordingly.
 
     Args:
-        jaw_side (str): The selected jaw side (e.g., 'Upper Right', 'Lower Left').
-        all_teeth (list): List of all teeth numbers.
-        teeth_numbers (dict): A dictionary mapping jaw sides to lists of tooth
-            numbers.
-        tooth_columns (dict): A dictionary mapping tooth numbers to the respective
-            UI components for each tooth.
+        selected_tooth: The selected tooth number as a string or integer.
+        tooth_states_value: A dictionary storing the state of each tooth.
+        tooth_components: A dictionary of tooth-level UI components.
+        sides_components: A dictionary of side-level UI components for each side.
 
     Returns:
-        List: A list of Gradio update objects to change the visibility of teeth UI
-            components.
+        A list of updates for the UI components to reflect the selected tooth's data.
     """
-    updates = []
-    for tooth in all_teeth:
-        visible = tooth in teeth_numbers[jaw_side]
-        for _ in tooth_columns[tooth]:  # Access tooth_columns from the argument now
-            updates.append(gr.update(visible=visible))
+    selected_tooth = str(selected_tooth)
+    tooth_updates = []
+    tooth_data = tooth_states_value.get(selected_tooth, {})
 
-    return updates
+    for key, _ in tooth_components.items():
+        value = tooth_data.get(key, None)
+        tooth_updates.append(gr.update(value=value))
+
+    side_updates = []
+    for side_num in range(1, 7):
+        side_data = tooth_data.get("sides", {}).get(str(side_num), {})
+        side_components = sides_components[side_num]
+        for key, _ in side_components.items():
+            value = side_data.get(key, None)
+            side_updates.append(gr.update(value=value))
+
+    return tooth_updates + side_updates
 
 
-def teeth_ui_wrapper(
-    jaw_side: str, all_teeth: list, teeth_numbers: dict, tooth_columns: dict
-) -> List:
-    """Wrapper to pass additional arguments to the update_teeth_ui function.
+def update_tooth_state(
+    tooth_states_value: Dict[str, Any],
+    selected_tooth: Union[str, int],
+    input_value: Any,
+    input_name: str,
+) -> Dict[str, Any]:
+    """Update the state of a tooth when a tooth-level input changes.
 
     Args:
-        jaw_side (str): The selected jaw side (e.g., 'Upper Right', 'Lower Left').
-        all_teeth (list): List of all teeth numbers.
-        teeth_numbers (dict): A dictionary mapping jaw sides to lists of tooth
-            numbers.
-        tooth_columns (dict): A dictionary mapping tooth numbers to the respective
-            UI components for each tooth.
+        tooth_states_value: A dictionary storing the state of each tooth.
+        selected_tooth: The selected tooth number as a string or integer.
+        input_value: The new value of the input that changed.
+        input_name: The name of the input field.
 
     Returns:
-        List: A list of Gradio update objects to change the visibility of teeth UI
-            components.
+        The updated tooth_states_value dictionary.
     """
-    return update_teeth_ui(jaw_side, all_teeth, teeth_numbers, tooth_columns)
+    selected_tooth = str(selected_tooth)
+    if selected_tooth not in tooth_states_value:
+        tooth_states_value[selected_tooth] = {}
+    tooth_states_value[selected_tooth][input_name] = input_value
+    return tooth_states_value
 
 
-def create_handle_side_change_fn(
-    tooth: int,
-) -> Callable[
-    [Dict[str, Any], str, Any, Any, Any, Any, Any],
-    Tuple[Dict[str, Any], Any, Any, Any, Any, Any],
-]:
-    """Creates a function to handle side selection change for a specific tooth.
+def update_side_state(
+    tooth_states_value: Dict[str, Any],
+    selected_tooth: Union[str, int],
+    input_value: Any,
+    side_num: int,
+    input_name: str,
+) -> Dict[str, Any]:
+    """Update the state of a side when a side-level input changes.
 
     Args:
-        tooth (int): The tooth number.
+        tooth_states_value: A dictionary storing the state of each tooth.
+        selected_tooth: The selected tooth number as a string or integer.
+        input_value: The new value of the input that changed.
+        side_num: The side number (1-6) where the input changed.
+        input_name: The name of the input field.
 
     Returns:
-        Callable: A function that handles side changes for the given tooth.
+        The updated tooth_states_value dictionary.
     """
-
-    def handle_side_change(
-        tooth_states_value: Dict[str, Any],
-        selected_side: str,
-        furcation_input_value: Any,
-        pdbaseline_input_value: Any,
-        recbaseline_input_value: Any,
-        plaque_input_value: Any,
-        bop_input_value: Any,
-    ) -> Tuple[Dict[str, Any], Any, Any, Any, Any, Any]:
-        """Handles the change in selected side and updates the tooth state.
-
-        Args:
-            tooth_states_value (Dict[str, Any]): The current state of all teeth.
-            selected_side (str): The newly selected side.
-            furcation_input_value (Any): Value of furcation input.
-            pdbaseline_input_value (Any): Value of PD baseline input.
-            recbaseline_input_value (Any): Value of REC baseline input.
-            plaque_input_value (Any): Value of plaque input.
-            bop_input_value (Any): Value of BOP input.
-
-        Returns:
-            Tuple[Dict[str, Any], Any, Any, Any, Any, Any]:
-                Updated tooth states and input values for the new side.
-        """
-        tooth_str = str(tooth)
-
-        tooth_state = tooth_states_value.get(
-            tooth_str, {"current_side": "Side 1", "sides": {}}
-        )
-        previous_side = tooth_state.get("current_side", "Side 1")
-        sides_data = tooth_state.get("sides", {})
-
-        sides_data[previous_side] = {
-            "furcation_input": furcation_input_value,
-            "pdbaseline_input": pdbaseline_input_value,
-            "recbaseline_input": recbaseline_input_value,
-            "plaque_input": plaque_input_value,
-            "bop_input": bop_input_value,
-        }
-
-        tooth_state["current_side"] = selected_side
-        tooth_state["sides"] = sides_data  # Update sides data
-
-        tooth_states_value[tooth_str] = tooth_state
-
-        if selected_side in sides_data:
-            data = sides_data[selected_side]
-            furcation_output = data.get("furcation_input", None)
-            pdbaseline_output = data.get("pdbaseline_input", "")
-            recbaseline_output = data.get("recbaseline_input", "")
-            plaque_output = data.get("plaque_input", None)
-            bop_output = data.get("bop_input", None)
-        else:
-            furcation_output = None
-            pdbaseline_output = ""
-            recbaseline_output = ""
-            plaque_output = None
-            bop_output = None
-
-        return (
-            tooth_states_value,
-            furcation_output,
-            pdbaseline_output,
-            recbaseline_output,
-            plaque_output,
-            bop_output,
-        )
-
-    return handle_side_change
+    selected_tooth = str(selected_tooth)
+    side_num_str = str(side_num)
+    if selected_tooth not in tooth_states_value:
+        tooth_states_value[selected_tooth] = {}
+    if "sides" not in tooth_states_value[selected_tooth]:
+        tooth_states_value[selected_tooth]["sides"] = {}
+    if side_num_str not in tooth_states_value[selected_tooth]["sides"]:
+        tooth_states_value[selected_tooth]["sides"][side_num_str] = {}
+    tooth_states_value[selected_tooth]["sides"][side_num_str][input_name] = input_value
+    return tooth_states_value
 
 
 def collect_data(
-    age: Union[int, float, str],
-    gender: Union[int, str],
-    bodymassindex: Union[float, str],
-    periofamilyhistory: Union[int, str],
-    diabetes: Union[int, str],
-    smokingtype: Union[int, str],
-    cigarettenumber: Union[int, str],
-    antibioticstreatment: Union[int, str],
+    age: Union[int, float],
+    gender: int,
+    bmi: float,
+    perio_history: int,
+    diabetes: int,
+    smokingtype: int,
+    cigarettenumber: int,
+    antibiotics: int,
     stresslvl: int,
-    *tooth_inputs_and_state,
-    teeth_components: Dict[int, Dict[str, Any]],
-    all_teeth: List[int],
+    tooth_states_value: Dict[str, Any],
 ) -> Tuple[str, pd.DataFrame]:
-    """Collects data from inputs and constructs a Patient object.
+    """Collect data from the inputs and construct a Patient object and DataFrame.
 
     Args:
-        age (Union[int, float, str]): Age of the patient.
-        gender (Union[int, str]): Gender of the patient.
-        bodymassindex (Union[float, str]): Body Mass Index of the patient.
-        periofamilyhistory (Union[int, str]): Periodontal history.
-        diabetes (Union[int, str]): Diabetes status.
-        smokingtype (Union[int, str]): Type of smoking.
-        cigarettenumber (Union[int, str]): Number of cigarettes smoked.
-        antibioticstreatment (Union[int, str]): Antibiotic treatment status.
-        stresslvl (int): Stress level.
-        *tooth_inputs_and_state: Flattened list of tooth input values.
-        teeth_components (Dict[int, Dict[str, Any]]): Mapping of tooth numbers.
-        all_teeth (List[int]): List of all tooth numbers.
+        age: The age of the patient.
+        gender: The gender of the patient.
+        bmi: The body mass index of the patient.
+        perio_history: The periodontal family history.
+        diabetes: The diabetes status.
+        smokingtype: The smoking type.
+        cigarettenumber: The number of cigarettes.
+        antibiotics: The antibiotic treatment status.
+        stresslvl: The stress level.
+        tooth_states_value: A dictionary storing the state of each tooth.
 
     Returns:
-        Tuple[str, pd.DataFrame]: Success message and DataFrame of patient data.
+        A tuple containing a success message and the patient data as a DataFrame.
     """
-    *tooth_inputs, tooth_states = tooth_inputs_and_state
     patient = Patient(
         age=int(age),
         gender=int(gender),
-        bodymassindex=float(bodymassindex),
-        periofamilyhistory=int(periofamilyhistory),
+        bodymassindex=float(bmi),
+        periofamilyhistory=int(perio_history),
         diabetes=int(diabetes),
         smokingtype=int(smokingtype),
         cigarettenumber=int(cigarettenumber),
-        antibiotictreatment=int(antibioticstreatment),
+        antibiotictreatment=int(antibiotics),
         stresslvl=int(stresslvl),
         teeth=[],
     )
-
-    num_features_per_tooth = len(teeth_components[all_teeth[0]])
-    num_teeth = len(all_teeth)
-    total_inputs = num_features_per_tooth * num_teeth
-
-    if len(tooth_inputs) != total_inputs:
-        raise ValueError("Number of tooth inputs does not match expected total inputs.")
-
-    for idx, tooth in enumerate(all_teeth):
-        tooth_str = str(tooth)
-        start_idx = idx * num_features_per_tooth
-        end_idx = start_idx + num_features_per_tooth
-        tooth_data = tooth_inputs[start_idx:end_idx]
-        tooth_dict = {}
-        for feature_key, input_value in zip(
-            teeth_components[tooth].keys(), tooth_data, strict=False
-        ):
-            tooth_dict[feature_key] = input_value
-
-        tooth_state = tooth_states.get(
-            tooth_str, {"current_side": "Side 1", "sides": {}}
-        )
-        current_side = tooth_state.get("current_side", "Side 1")
-        sides_data = tooth_state.get("sides", {})
-
-        furcation_input = tooth_dict.get("furcation_input")
-        pdbaseline_input = tooth_dict.get("pdbaseline_input")
-        recbaseline_input = tooth_dict.get("recbaseline_input")
-        plaque_input = tooth_dict.get("plaque_input")
-        bop_input = tooth_dict.get("bop_input")
-
-        sides_data[current_side] = {
-            "furcation_input": furcation_input,
-            "pdbaseline_input": pdbaseline_input,
-            "recbaseline_input": recbaseline_input,
-            "plaque_input": plaque_input,
-            "bop_input": bop_input,
-        }
-
-        tooth_state["sides"] = sides_data
-        tooth_states[tooth_str] = tooth_state
-
-        tooth_parsed = {}
-        for key, value in tooth_dict.items():
-            if key == "side_dropdown":
-                tooth_parsed[key] = value  # For dropdowns
-            else:
-                input_component = teeth_components[tooth][key]
-                if isinstance(input_component, gr.Dropdown):
-                    tooth_parsed[key] = int(value) if value is not None else None
-                else:  # Textbox
-                    if isinstance(value, str):
-                        value = value.strip()
-                        if value == "":
-                            tooth_parsed[key] = None
-                        else:
-                            try:
-                                tooth_parsed[key] = int(value)
-                            except ValueError:
-                                tooth_parsed[key] = None  # Handle invalid input
-                    else:
-                        tooth_parsed[key] = int(value) if value is not None else None
+    for tooth_str, tooth_data in tooth_states_value.items():
+        tooth_number = int(tooth_str)
+        if tooth_number in [11, 12, 21, 22, 31, 32, 41, 42, 13, 23, 33, 43]:
+            toothtype = 0
+            rootnumber = 0
+        elif tooth_number in [14, 15, 24, 25, 34, 35, 44, 45]:
+            toothtype = 1
+            rootnumber = 1
+        else:
+            toothtype = 2
+            rootnumber = 1
 
         tooth_has_data = any(
-            v is not None for k, v in tooth_parsed.items() if k != "side_dropdown"
+            tooth_data.get(key) is not None
+            for key in ["mobility", "restoration", "percussion", "sensitivity"]
         )
 
         sides = []
-        sides_data = tooth_state.get("sides", {})
-        for side_name, side_values in sides_data.items():
-            side_parsed = {}
-            for k, v in side_values.items():
-                input_component = teeth_components[tooth][k]
-                if isinstance(input_component, gr.Dropdown):
-                    side_parsed[k] = int(v) if v is not None else None
-                else:  # Textbox
-                    if isinstance(v, str):
-                        v = v.strip()
-                        if v == "":
-                            side_parsed[k] = None
-                        else:
-                            try:
-                                side_parsed[k] = int(v)
-                            except ValueError:
-                                side_parsed[k] = None  # Handle invalid input
-                    else:
-                        side_parsed[k] = int(v) if v is not None else None
-
-            side_has_data = any(value is not None for value in side_parsed.values())
+        for side_num_str, side_data in tooth_data.get("sides", {}).items():
+            side_has_data = any(
+                side_data.get(key) not in (None, "", "None")
+                for key in [
+                    "furcationbaseline",
+                    "pdbaseline",
+                    "recbaseline",
+                    "plaque",
+                    "bop",
+                ]
+            )
             if side_has_data:
-                sides.append(
-                    Side(
-                        furcationbaseline=side_parsed.get("furcation_input"),
-                        side=int(side_name.split()[-1]),
-                        pdbaseline=side_parsed.get("pdbaseline_input"),
-                        recbaseline=side_parsed.get("recbaseline_input"),
-                        plaque=side_parsed.get("plaque_input"),
-                        bop=side_parsed.get("bop_input"),
-                    )
+                side_obj = Side(
+                    furcationbaseline=int(side_data.get("furcationbaseline")),
+                    side=int(side_num_str),
+                    pdbaseline=int(side_data.get("pdbaseline")),
+                    recbaseline=int(side_data.get("recbaseline")),
+                    plaque=int(side_data.get("plaque")),
+                    bop=int(side_data.get("bop")),
                 )
+                sides.append(side_obj)
 
         if tooth_has_data or sides:
-            tooth_number = tooth
-            if tooth in [11, 12, 21, 22, 31, 32, 41, 42, 13, 23, 33, 43]:
-                toothtype = 0
-                rootnumber = 0
-            elif tooth in [14, 15, 24, 25, 34, 35, 44, 45]:
-                toothtype = 1
-                rootnumber = 1
-            else:
-                toothtype = 2
-                rootnumber = 1
-
             tooth_obj = Tooth(
                 tooth=tooth_number,
                 toothtype=toothtype,
                 rootnumber=rootnumber,
-                mobility=tooth_parsed.get("mobility"),
-                restoration=tooth_parsed.get("restoration"),
-                percussion=tooth_parsed.get("percussion"),
-                sensitivity=tooth_parsed.get("sensitivity"),
+                mobility=(
+                    int(tooth_data.get("mobility"))
+                    if tooth_data.get("mobility") is not None
+                    else None
+                ),
+                restoration=(
+                    int(tooth_data.get("restoration"))
+                    if tooth_data.get("restoration") is not None
+                    else None
+                ),
+                percussion=(
+                    int(tooth_data.get("percussion"))
+                    if tooth_data.get("percussion") is not None
+                    else None
+                ),
+                sensitivity=(
+                    int(tooth_data.get("sensitivity"))
+                    if tooth_data.get("sensitivity") is not None
+                    else None
+                ),
                 sides=sides,
             )
             patient.teeth.append(tooth_obj)
@@ -811,7 +744,6 @@ def collect_data(
     patient_df = patient_to_dataframe(patient)
     print("Collected Patient Data:")
     print(patient_df)
-
     return "Patient data collected successfully!", patient_df
 
 
@@ -886,8 +818,7 @@ def run_jackknife_inference(
     model = models[selected_model]
 
     inference_engine = ModelInference(classification=classification, model=model)
-
-    return inference_engine.jackknife_inference(
+    _, ci_plot = inference_engine.jackknife_inference(
         model,
         train_df,
         patient_data,
@@ -896,3 +827,5 @@ def run_jackknife_inference(
         sample_fraction,
         n_jobs,
     )
+
+    return ci_plot

@@ -402,7 +402,8 @@ class ModelInference(BaseHydra):
 
         if self.classification == "multiclass":
             num_classes = len(np.unique(train_df[self.y]))
-            model_params["num_class"] = num_classes
+            if "num_class" in model.get_params().keys():
+                model_params["num_class"] = num_classes
 
         jackknife_results = self.jackknife_resampling(
             train_df=train_df,
