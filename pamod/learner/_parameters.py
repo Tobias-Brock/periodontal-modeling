@@ -91,8 +91,6 @@ def get_xgb_params_hebo(params_row):
         The parameter names in `params_row` should match the expected parameter names.
     """
     params = params_row.to_dict()
-
-    # Ensure integer parameters are cast to integers
     params["n_estimators"] = int(params["n_estimators"])
     params["max_depth"] = int(params["max_depth"])
     params["min_child_weight"] = int(params["min_child_weight"])
@@ -132,8 +130,6 @@ def get_rf_params_hebo(params_row):
         The parameter names in `params_row` should match the expected parameter names.
     """
     params = params_row.to_dict()
-
-    # Ensure integer parameters are cast to integers
     params["min_samples_split"] = int(params["min_samples_split"])
     params["min_samples_leaf"] = int(params["min_samples_leaf"])
 
@@ -173,8 +169,6 @@ def get_lr_params_hebo_oh(params_row):
         The parameter names in `params_row` should match the expected parameter names.
     """
     params = params_row.to_dict()
-
-    # Cast numeric parameters if necessary
     params["C"] = float(params["C"])
 
     return params
@@ -205,8 +199,6 @@ def get_lr_params_hebo_t(params_row):
         The parameter names in `params_row` should match the expected parameter names.
     """
     params = params_row.to_dict()
-
-    # Cast numeric parameters if necessary
     params["C"] = float(params["C"])
 
     if "l1_ratio" in params:
@@ -251,12 +243,8 @@ def get_mlp_params_hebo(params_row):
         The parameter names in `params_row` should match the expected parameter names.
     """
     params = params_row.to_dict()
-
-    # Map index to hidden_layer_sizes option
     hidden_layer_sizes_index = int(params["hidden_layer_sizes_index"])
     params["hidden_layer_sizes"] = hidden_layer_sizes_options[hidden_layer_sizes_index]
-
-    # Ensure proper types for other parameters
     params["alpha"] = float(params["alpha"])
     params["learning_rate_init"] = float(params["learning_rate_init"])
     params["tol"] = float(params["tol"])
@@ -264,11 +252,9 @@ def get_mlp_params_hebo(params_row):
     params["beta_1"] = float(params["beta_1"])
     params["beta_2"] = float(params["beta_2"])
 
-    # Convert batch_size to int if not 'auto'
     if params["batch_size"] != "auto":
         params["batch_size"] = int(params["batch_size"])
 
-    # Remove 'hidden_layer_sizes_index' as it's not a valid parameter for MLPClassifier.
     del params["hidden_layer_sizes_index"]
 
     return params

@@ -5,7 +5,7 @@ import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from pamod.base import Patient, Side, Tooth, create_predict_data
+from pamod.base import Patient, Side, Tooth, patient_to_dataframe
 from pamod.benchmarking import Benchmarker, InputProcessor
 from pamod.data import ProcessedDataLoader, StaticProcessEngine
 from pamod.descriptives import DescriptivesPlotter
@@ -640,12 +640,12 @@ def create_handle_side_change_fn(
 def collect_data(
     age: Union[int, float, str],
     gender: Union[int, str],
-    bmi: Union[float, str],
-    perio_history: Union[int, str],
+    bodymassindex: Union[float, str],
+    periofamilyhistory: Union[int, str],
     diabetes: Union[int, str],
     smokingtype: Union[int, str],
     cigarettenumber: Union[int, str],
-    antibiotics: Union[int, str],
+    antibioticstreatment: Union[int, str],
     stresslvl: int,
     *tooth_inputs_and_state,
     teeth_components: Dict[int, Dict[str, Any]],
@@ -656,12 +656,12 @@ def collect_data(
     Args:
         age (Union[int, float, str]): Age of the patient.
         gender (Union[int, str]): Gender of the patient.
-        bmi (Union[float, str]): Body Mass Index of the patient.
-        perio_history (Union[int, str]): Periodontal history.
+        bodymassindex (Union[float, str]): Body Mass Index of the patient.
+        periofamilyhistory (Union[int, str]): Periodontal history.
         diabetes (Union[int, str]): Diabetes status.
         smokingtype (Union[int, str]): Type of smoking.
         cigarettenumber (Union[int, str]): Number of cigarettes smoked.
-        antibiotics (Union[int, str]): Antibiotic treatment status.
+        antibioticstreatment (Union[int, str]): Antibiotic treatment status.
         stresslvl (int): Stress level.
         *tooth_inputs_and_state: Flattened list of tooth input values.
         teeth_components (Dict[int, Dict[str, Any]]): Mapping of tooth numbers.
@@ -674,12 +674,12 @@ def collect_data(
     patient = Patient(
         age=int(age),
         gender=int(gender),
-        bmi=float(bmi),
-        perio_history=int(perio_history),
+        bodymassindex=float(bodymassindex),
+        periofamilyhistory=int(periofamilyhistory),
         diabetes=int(diabetes),
         smokingtype=int(smokingtype),
         cigarettenumber=int(cigarettenumber),
-        antibiotics=int(antibiotics),
+        antibiotictreatment=int(antibioticstreatment),
         stresslvl=int(stresslvl),
         teeth=[],
     )
@@ -815,50 +815,7 @@ def collect_data(
     return "Patient data collected successfully!", patient_df
 
 
-def patient_to_dataframe(patient: Patient) -> pd.DataFrame:
-    """Converts a Patient instance into a DataFrame suitable for prediction.
-
-    Args:
-        patient (Patient): The Patient dataclass instance.
-
-    Returns:
-        pd.DataFrame: DataFrame where each row represents a tooth side.
-    """
-    rows = []
-    for tooth in patient.teeth:
-        for side in tooth.sides:
-            data = {
-                # Patient-level data
-                "age": patient.age,
-                "gender": patient.gender,
-                "bodymassindex": patient.bmi,
-                "periofamilyhistory": patient.perio_history,
-                "diabetes": patient.diabetes,
-                "smokingtype": patient.smokingtype,
-                "cigarettenumber": patient.cigarettenumber,
-                "antibiotictreatment": patient.antibiotics,
-                "stresslvl": patient.stresslvl,
-                # Tooth-level data
-                "tooth": tooth.tooth,
-                "toothtype": tooth.toothtype,
-                "rootnumber": tooth.rootnumber,
-                "mobility": tooth.mobility,
-                "restoration": tooth.restoration,
-                "percussion-sensitivity": tooth.percussion,
-                "sensitivity": tooth.sensitivity,
-                # Side-level data
-                "furcationbaseline": side.furcationbaseline,
-                "side": side.side,
-                "pdbaseline": side.pdbaseline,
-                "recbaseline": side.recbaseline,
-                "plaque": side.plaque,
-                "bop": side.bop,
-            }
-            rows.append(data)
-    return pd.DataFrame(rows)
-
-
-def run_patient_inference(
+def app_inference(
     task: str,
     models: dict,
     selected_model: str,
@@ -881,61 +838,17 @@ def run_patient_inference(
     Returns:
         pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
     """
-    if patient_data.empty:
-        raise ValueError(
-            "Patient data empty. Please submit data before running inference."
-        )
-    print("Patient Data Received for Inference:")
-    print(patient_data)
-
+    model = models[selected_model]
     task_processed = InputProcessor.process_task(task)
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
-    engine = StaticProcessEngine(behavior=False)
-    dataloader = ProcessedDataLoader(task_processed, encoding)
-    patient_data["id_patient"] = "inference_patient"
-    raw_data = engine.create_tooth_features(
-        patient_data, neighbors=True, patient_id=False
+    inference_engine = ModelInference(classification, model)
+    predict_data, patient_data = inference_engine.prepare_inference(
+        task, patient_data, encoding, X_train, y_train
     )
 
-    if encoding == "target":
-        raw_data = dataloader.encode_categorical_columns(raw_data)
-        resampler = Resampler(classification, encoding)
-        _, raw_data = resampler.apply_target_encoding(X_train, raw_data, y_train)
-        print(raw_data)
-
-        encoded_fields = [
-            "restoration",
-            "periofamilyhistory",
-            "diabetes",
-            "toothtype",
-            "toothside",
-            "furcationbaseline",
-            "smokingtype",
-            "stresslvl",
-        ]
-
-        for key in raw_data.columns:
-            if key not in encoded_fields and key in patient_data.columns:
-                raw_data[key] = patient_data[key].values
-
-    else:
-        raw_data = create_predict_data(
-            raw_data, patient_data, encoding, models[selected_model]
-        )
-
-    model = models[selected_model]
-    predict_data = create_predict_data(raw_data, patient_data, encoding, model)
-    predict_data = dataloader.scale_numeric_columns(predict_data)
-    inference_engine = ModelInference(classification, model)
-
-    results = inference_engine.predict(predict_data)
-    output_data = patient_data[["tooth", "side"]].copy()
-    output_data["prediction"] = results["prediction"]
-    output_data["probability"] = results.drop(columns=["prediction"]).max(axis=1)
-
-    return predict_data, output_data, results
+    return inference_engine.patient_inference(predict_data, patient_data)
 
 
 def run_jackknife_inference(
@@ -971,30 +884,15 @@ def run_jackknife_inference(
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
     model = models[selected_model]
-    model_params = model.get_params()
 
     inference_engine = ModelInference(classification=classification, model=model)
 
-    jackknife_results = inference_engine.jackknife_resampling(
-        train_df=train_df,
-        patient_data=patient_data,
-        encoding=encoding,
-        model_params=model_params,
-        sample_fraction=sample_fraction,
-        n_jobs=n_jobs,
+    return inference_engine.jackknife_inference(
+        model,
+        train_df,
+        patient_data,
+        encoding,
+        inference_results,
+        sample_fraction,
+        n_jobs,
     )
-
-    ci_dict = inference_engine.jackknife_confidence_intervals(jackknife_results)
-
-    max_plots = 5
-    data_indices = patient_data.index[:max_plots]
-    original_predictions = {}
-    for data_index in data_indices:
-        original_probs = inference_results.loc[data_index].drop("prediction").to_dict()
-        original_predictions[data_index] = original_probs
-
-    ci_plot = inference_engine.plot_jackknife_intervals(
-        ci_dict, data_indices, original_preds=original_predictions
-    )
-
-    return jackknife_results, ci_plot

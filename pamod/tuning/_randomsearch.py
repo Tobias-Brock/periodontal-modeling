@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
-from pamod.training import MetricEvaluator, Trainer
+from pamod.training import Trainer
 from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
@@ -23,8 +23,8 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         n_jobs: Optional[int] = None,
         verbosity: bool = True,
         trainer: Optional[Trainer] = None,
-        metric_evaluator: Optional[MetricEvaluator] = None,
         mlp_training: bool = True,
+        threshold_tuning: bool = True,
     ) -> None:
         """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
 
@@ -41,10 +41,10 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 Defaults to True.
             trainer (Optional[Trainer]): An instance of Trainer. If None, a default
                 instance will be created.
-            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
-                If None, a default instance will be created.
             mlp_training (bool): Flag for MLP training with early stopping.
                 Defaults to True.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1". Defaults to True.
         """
         super().__init__(
             classification,
@@ -55,8 +55,8 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             n_jobs,
             verbosity,
             trainer,
-            metric_evaluator,
             mlp_training,
+            threshold_tuning,
         )
 
     def holdout(
@@ -150,7 +150,11 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             if self.verbosity:
                 self._print_iteration_info(i, model_clone, params, avg_score)
 
-        if self.classification == "binary" and self.criterion == "f1":
+        if (
+            self.classification == "binary"
+            and self.criterion == "f1"
+            and self.threshold_tuning
+        ):
             optimal_threshold = self.trainer.optimize_threshold(
                 model_clone, outer_splits, self.n_jobs
             )
@@ -231,7 +235,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         best_score = (
             -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         )
-        best_threshold = None  # Threshold is only applicable for binary classification
+        best_threshold = None
         best_params: Dict[str, Union[float, int]] = {}
         model, param_grid = Model.get(learner, self.classification, self.hpo)
 

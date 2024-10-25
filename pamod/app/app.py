@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Union
 import gradio as gr
 
 from pamod.app import (
+    app_inference,
     benchmarks_wrapper,
     brier_score_wrapper,
     collect_data,
@@ -21,7 +22,6 @@ from pamod.app import (
     plot_pocket_comparison,
     plot_pocket_group_comparison,
     run_jackknife_inference,
-    run_patient_inference,
     teeth_ui_wrapper,
     update_model_dropdown,
 )
@@ -616,7 +616,7 @@ with gr.Blocks() as app:
             )
 
             inference_button.click(
-                fn=run_patient_inference,
+                fn=app_inference,
                 inputs=[
                     task_input,
                     models_state,

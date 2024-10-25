@@ -1,3 +1,80 @@
 behavior: False
 scale: True
 encoding: 'one_hot'
+
+patient_columns:
+  - "ID_patient"
+  - "Age"
+  - "Gender"
+  - "BodyMassIndex"
+  - "PerioFamilyHistory"
+  - "Diabetes"
+  - "SmokingType"
+  - "CigaretteNumber"
+  - "AntibioticTreatment"
+  - "Stresslvl"
+  - "PdRevaluation"
+  - "BOPRevaluation"
+  - "Pregnant"
+
+tooth_columns:
+  - "Tooth"
+  - "Toothtype"
+  - "RootNumber"
+  - "Mobility"
+  - "Restoration"
+  - "Percussion-sensitivity"
+  - "Sensitivity"
+
+side_columns:
+  - "FurcationBaseline"
+  - "Side"
+  - "PdBaseline"
+  - "RecBaseline"
+  - "Plaque"
+  - "BOP"
+
+cat_vars:
+  - "side"
+  - "restoration"
+  - "periofamilyhistory"
+  - "diabetes"
+  - "toothtype"
+  - "tooth"
+  - "furcationbaseline"
+  - "smokingtype"
+  - "stresslvl"
+  - "toothside"
+
+bin_vars:
+  - "antibiotictreatment"
+  - "boprevaluation"
+  - "plaque"
+  - "bop"
+  - "mobility"
+  - "percussion-sensitivity"
+  - "sensitivity"
+  - "rootnumber"
+  - "gender"
+
+scale_vars:
+  - "pdbaseline"
+  - "age"
+  - "bodymassindex"
+  - "recbaseline"
+  - "cigarettenumber"
+
+behavior_columns:
+  binary: ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"]
+  categorical: ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"]
+
+task_cols:
+  - "pocketclosure"
+  - "pdgrouprevaluation"
+  - "improve"
+
+no_train_cols:
+  - "boprevaluation"
+  - "pdrevaluation"
+  - "pdgroup"
+  - "pdgroupbase"

@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 
 from pamod.base import BaseEvaluator
-from pamod.training import MetricEvaluator, Trainer
+from pamod.training import Trainer
 
 
 class MetaTuner(ABC):
@@ -30,12 +30,12 @@ class BaseTuner(BaseEvaluator):
         criterion: str,
         tuning: str,
         hpo: str,
-        n_configs: int = 10,
-        n_jobs: Optional[int] = None,
-        verbosity: bool = True,
-        trainer: Optional[Trainer] = None,
-        metric_evaluator: Optional[MetricEvaluator] = None,
-        mlp_training: bool = True,
+        n_configs: int,
+        n_jobs: Optional[int],
+        verbosity: bool,
+        trainer: Optional[Trainer],
+        mlp_training: bool,
+        threshold_tuning: bool,
     ) -> None:
         """Initializes the base tuner class with common parameters.
 
@@ -48,20 +48,16 @@ class BaseTuner(BaseEvaluator):
             n_jobs (Optional[int]): The number of parallel jobs for model training.
             verbosity (bool): Whether to print detailed logs during optimization.
             trainer (Optional[Trainer]): Instance of Trainer class.
-            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
             mlp_training (bool): Flag for MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1".
         """
         super().__init__(classification, criterion, tuning, hpo)
         self.n_configs = n_configs
         self.n_jobs = n_jobs if n_jobs is not None else 1
         self.verbosity = verbosity
         self.mlp_training = mlp_training
-
-        self.metric_evaluator = (
-            metric_evaluator
-            if metric_evaluator
-            else MetricEvaluator(self.classification, self.criterion)
-        )
+        self.threshold_tuning = threshold_tuning
         self.trainer = (
             trainer
             if trainer
@@ -71,7 +67,7 @@ class BaseTuner(BaseEvaluator):
                 self.tuning,
                 self.hpo,
                 self.mlp_training,
-                self.metric_evaluator,
+                self.threshold_tuning,
             )
         )
 

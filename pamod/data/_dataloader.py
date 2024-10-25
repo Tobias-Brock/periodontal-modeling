@@ -4,24 +4,29 @@ from pathlib import Path
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from pamod.base import BaseData
+from pamod.base import BaseHydra
 from pamod.config import PROCESSED_BASE_DIR
 
 
-class ProcessedDataLoader(BaseData):
-    def __init__(self, task: str, encoding: str, scale: bool = True) -> None:
+class ProcessedDataLoader(BaseHydra):
+    def __init__(
+        self, task: str, encoding: str, encode: bool = True, scale: bool = True
+    ) -> None:
         """Initializes the ProcessedDataLoader with the specified task column.
 
         Args:
             task (str): The task column name.
             encoding (str): Specifies the encoding for categorical columns.
                 Options: 'one_hot', 'target', or None.
+            encode (bool): If True, performs encodign on categorical columns.
+                Defaults to True.
             scale (bool): If True, performs scaling on numeric columns.
                 Defaults to True.
         """
         super().__init__()
         self.scale = scale
         self.task = task
+        self.encode = encode
         self.encoding = encoding
 
     @staticmethod
@@ -114,9 +119,12 @@ class ProcessedDataLoader(BaseData):
         Returns:
             pd.DataFrame: The DataFrame with scaled numeric columns.
         """
-        df[self.scale_vars] = df[self.scale_vars].apply(pd.to_numeric, errors="coerce")
+        scale_vars = [col for col in self.scale_vars if col in df.columns]
+        df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
         scaler = StandardScaler()
-        df[self.scale_vars] = scaler.fit_transform(df[self.scale_vars])
+        scaled_values = scaler.fit_transform(df[scale_vars])
+        df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
+
         return df
 
     def _check_scaled_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -144,8 +152,9 @@ class ProcessedDataLoader(BaseData):
         Returns:
             pd.DataFrame: DataFrame with the selected task 'y'.
         """
-        df = self.encode_categorical_columns(df)
-        self._check_encoded_columns(df)
+        if self.encode:
+            df = self.encode_categorical_columns(df)
+            self._check_encoded_columns(df)
 
         if self.scale:
             df = self.scale_numeric_columns(df)
@@ -154,28 +163,22 @@ class ProcessedDataLoader(BaseData):
         if self.task not in df.columns:
             raise ValueError(f"task column '{self.task}' not found in the DataFrame.")
 
-        task_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
-
-        columns_to_drop = [
-            col for col in task_columns if col != self.task and col in df.columns
+        cols_to_drop = [
+            col for col in self.task_cols if col != self.task and col in df.columns
         ]
+        cols_to_drop.extend(self.no_train_cols)
+
         if self.task == "improve":
             if "pdgroupbase" in df.columns:
                 df = df.query("pdgroupbase in [1, 2]")
 
-        df = df.drop(columns=columns_to_drop)
-        df = df.drop(
-            columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"],
-            errors="ignore",
-        )
+        df = df.drop(columns=cols_to_drop, errors="ignore")
         df = df.rename(columns={self.task: "y"})
 
         if "y" not in df.columns:
             raise ValueError(f"task column '{self.task}' was not renamed to 'y'.")
 
-        if any(col in df.columns for col in columns_to_drop):
-            raise ValueError(
-                f"Error removing tasks: Remaining columns: {columns_to_drop}"
-            )
+        if any(col in df.columns for col in cols_to_drop):
+            raise ValueError(f"Error removing tasks: Remaining columns: {cols_to_drop}")
 
         return df

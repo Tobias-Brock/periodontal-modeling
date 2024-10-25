@@ -1,13 +1,13 @@
 """Base Methods."""
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
 import hydra
 import pandas as pd
 
 
-def validate_classification(classification: str) -> None:
+def _validate_classification(classification: str) -> None:
     """Validates the classification type.
 
     Args:
@@ -20,7 +20,7 @@ def validate_classification(classification: str) -> None:
         )
 
 
-def validate_hpo(hpo: Optional[str]) -> None:
+def _validate_hpo(hpo: Optional[str]) -> None:
     """Validates the hpo.
 
     Args:
@@ -45,30 +45,42 @@ class BaseHydra:
             config_name (str): The name of the config file.
         """
         with hydra.initialize(config_path=config_path, version_base="1.2"):
-            self.cfg = hydra.compose(config_name=config_name)
+            cfg = hydra.compose(config_name=config_name)
 
-        self.random_state_sampling = self.cfg.resample.random_state_sampling
-        self.random_state_split = self.cfg.resample.random_state_split
-        self.random_state_cv = self.cfg.resample.random_state_cv
-        self.random_state_val = self.cfg.tuning.random_state_val
-        self.test_set_size = self.cfg.resample.test_set_size
-        self.val_set_size = self.cfg.resample.val_set_size
-        self.group_col = self.cfg.resample.group_col
-        self.n_folds = self.cfg.resample.n_folds
-        self.target = self.cfg.resample.target
-        self.random_state_model = self.cfg.learner.random_state_model
-        self.xgb_obj_binary = self.cfg.learner.xgb_obj_binary
-        self.xgb_loss_binary = self.cfg.learner.xgb_loss_binary
-        self.xgb_obj_multi = self.cfg.learner.xgb_obj_multi
-        self.xgb_loss_multi = self.cfg.learner.xgb_loss_multi
-        self.lr_solver_binary = self.cfg.learner.lr_solver_binary
-        self.lr_solver_multi = self.cfg.learner.lr_solver_multi
-        self.lr_multi_loss = self.cfg.learner.lr_multi_loss
-        self.random_state = self.cfg.resample.random_state_cv
-        self.random_state_val = self.cfg.tuning.random_state_val
-        self.tol = self.cfg.mlp.mlp_tol
-        self.n_iter_no_change = self.cfg.mlp.mlp_no_improve
-        self.mlp_training = self.cfg.mlp.mlp_training
+        self.random_state_sampling = cfg.resample.random_state_sampling
+        self.random_state_split = cfg.resample.random_state_split
+        self.random_state_cv = cfg.resample.random_state_cv
+        self.random_state_val = cfg.tuning.random_state_val
+        self.test_set_size = cfg.resample.test_set_size
+        self.val_set_size = cfg.resample.val_set_size
+        self.group_col = cfg.resample.group_col
+        self.n_folds = cfg.resample.n_folds
+        self.y = cfg.resample.y
+        self.random_state_model = cfg.learner.random_state_model
+        self.xgb_obj_binary = cfg.learner.xgb_obj_binary
+        self.xgb_loss_binary = cfg.learner.xgb_loss_binary
+        self.xgb_obj_multi = cfg.learner.xgb_obj_multi
+        self.xgb_loss_multi = cfg.learner.xgb_loss_multi
+        self.lr_solver_binary = cfg.learner.lr_solver_binary
+        self.lr_solver_multi = cfg.learner.lr_solver_multi
+        self.lr_multi_loss = cfg.learner.lr_multi_loss
+        self.random_state = cfg.resample.random_state_cv
+        self.tol = cfg.mlp.mlp_tol
+        self.n_iter_no_change = cfg.mlp.mlp_no_improve
+        self.mlp_training = cfg.mlp.mlp_training
+        self.patient_columns = cfg.data.patient_columns
+        self.tooth_columns = cfg.data.tooth_columns
+        self.side_columns = cfg.data.side_columns
+        self.cat_vars = cfg.data.cat_vars
+        self.bin_vars = cfg.data.bin_vars
+        self.scale_vars = cfg.data.scale_vars
+        self.behavior_columns = cfg.data.behavior_columns
+        self.task_cols = cfg.data.task_cols
+        self.no_train_cols = cfg.data.no_train_cols
+        self.all_cat_vars = self.cat_vars + cfg.data.behavior_columns["categorical"]
+        self.required_columns = (
+            self.patient_columns + self.tooth_columns + self.side_columns
+        )
 
 
 class BaseValidator(BaseHydra):
@@ -87,8 +99,8 @@ class BaseValidator(BaseHydra):
                 ('rs' or 'hebo'). Defaults to None.
         """
         super().__init__()
-        validate_classification(classification)
-        validate_hpo(hpo)
+        _validate_classification(classification)
+        _validate_hpo(hpo)
         self.classification = classification
         self.hpo = hpo
 
@@ -169,132 +181,43 @@ class BaseEvaluator(BaseHydra):
             hpo (Optional[str], optional): The hyperparameter optimization type
                 ('rs' or 'hebo'). Defaults to None.
         """
-        super().__init__()  # Initialize BaseHydra
-        validate_classification(classification)
-        self._validate_criterion(criterion)
-        validate_hpo(hpo)
-        self._validate_tuning(tuning)
+        super().__init__()
+        _validate_classification(classification)
+        _validate_hpo(hpo)
         self.classification = classification
         self.criterion = criterion
         self.hpo = hpo
         self.tuning = tuning
+        self._validate_criterion()
+        self._validate_tuning()
 
-    def _validate_criterion(self, criterion: str) -> None:
+    def _validate_criterion(self) -> None:
         """Validates the evaluation criterion.
-
-        Args:
-            criterion (str): The evaluation criterion ('f1', 'macro_f1', or
-                'brier_score').
 
         Raises:
             ValueError: If the criterion is unsupported.
         """
-        if criterion not in ["f1", "macro_f1", "brier_score"]:
+        if self.criterion not in ["f1", "macro_f1", "brier_score"]:
             raise ValueError(
                 "Unsupported criterion. Choose either 'f1', 'macro_f1', or "
                 "'brier_score'."
             )
 
-    def _validate_tuning(self, tuning: Optional[str]) -> None:
+    def _validate_tuning(self) -> None:
         """Validates the tuning method.
-
-        Args:
-            tuning (Optional[str]): The type of tuning ('holdout' or 'cv').
 
         Raises:
             ValueError: If the tuning method is unsupported.
         """
-        if tuning not in [None, "holdout", "cv"]:
+        if self.tuning not in [None, "holdout", "cv"]:
             raise ValueError(
                 "Unsupported tuning method. Choose either 'holdout' or 'cv'."
             )
 
 
-class BaseData:
-    """Base class for common data attributes used in processing periodontal datasets."""
-
-    def __init__(self) -> None:
-        """Initializes the BaseData class with shared attributes."""
-        self.patient_columns = [
-            "ID_patient",
-            "Age",
-            "Gender",
-            "BodyMassIndex",
-            "PerioFamilyHistory",
-            "Diabetes",
-            "SmokingType",
-            "CigaretteNumber",
-            "AntibioticTreatment",
-            "Stresslvl",
-            "PdRevaluation",
-            "BOPRevaluation",
-            "Pregnant",
-        ]
-        self.tooth_columns = [
-            "Tooth",
-            "Toothtype",
-            "RootNumber",
-            "Mobility",
-            "Restoration",
-            "Percussion-sensitivity",
-            "Sensitivity",
-        ]
-        self.side_columns = [
-            "FurcationBaseline",
-            "Side",
-            "PdBaseline",
-            "RecBaseline",
-            "Plaque",
-            "BOP",
-        ]
-        self.required_columns = (
-            self.patient_columns + self.tooth_columns + self.side_columns
-        )
-        self.cat_vars = [
-            "side",
-            "restoration",
-            "periofamilyhistory",
-            "diabetes",
-            "toothtype",
-            "tooth",
-            "furcationbaseline",
-            "smokingtype",
-            "stresslvl",
-            "toothside",
-        ]
-        self.bin_var = [
-            "antibiotictreatment",
-            "boprevaluation",
-            "plaque",
-            "bop",
-            "mobility",
-            "percussion-sensitivity",
-            "sensitivity",
-            "rootnumber",
-            "gender",
-        ]
-        self.scale_vars = [
-            "pdbaseline",
-            "age",
-            "bodymassindex",
-            "recbaseline",
-            "cigarettenumber",
-        ]
-        self.behavior_columns = {
-            "binary": ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"],
-            "categorical": [
-                "OrthoddonticHistory",
-                "DentalVisits",
-                "Toothbrushing",
-                "DryMouth",
-            ],
-        }
-        self.all_cat_vars = self.cat_vars + self.behavior_columns["categorical"]
-
-
 @dataclass
 class Side:
-    """Dataclass to represent a single side of a tooth."""
+    """Dataclass to represent a single side of a tooth with required field names."""
 
     furcationbaseline: Optional[int]
     side: int
@@ -306,7 +229,7 @@ class Side:
 
 @dataclass
 class Tooth:
-    """Dataclass to represent a tooth, which contains up to 6 sides."""
+    """Tooth dataclass, which contains up to 6 sides with required field names."""
 
     tooth: int
     toothtype: int
@@ -320,18 +243,42 @@ class Tooth:
 
 @dataclass
 class Patient:
-    """Dataclass to represent teeth and patient-level information."""
+    """Patient-level information with required field names."""
 
     age: int
     gender: int
-    bmi: float
-    perio_history: int
+    bodymassindex: float
+    periofamilyhistory: int
     diabetes: int
     smokingtype: int
     cigarettenumber: int
-    antibiotics: int
+    antibiotictreatment: int
     stresslvl: int
     teeth: List[Tooth] = field(default_factory=list)
+
+
+def patient_to_dataframe(patient: Patient) -> pd.DataFrame:
+    """Converts a Patient instance into a DataFrame suitable for prediction.
+
+    Args:
+        patient (Patient): The Patient dataclass instance.
+
+    Returns:
+        pd.DataFrame: DataFrame where each row represents a tooth side.
+    """
+    rows = []
+    patient_dict = asdict(patient)
+
+    for tooth in patient_dict["teeth"]:
+        for side in tooth["sides"]:
+            data = {
+                **{k: v for k, v in patient_dict.items() if k != "teeth"},
+                **{k: v for k, v in tooth.items() if k != "sides"},
+                **side,  # Side-level fields
+            }
+            rows.append(data)
+
+    return pd.DataFrame(rows)
 
 
 def create_predict_data(
@@ -414,25 +361,24 @@ def create_predict_data(
 
     elif encoding == "target":
         complete_data = base_data.copy()
-        numerical_columns = {
-            "mobility": "mobility",
-            "percussion-sensitivity": "percussion-sensitivity",
-            "sensitivity": "sensitivity",
-            "pdbaseline": "pdbaseline",
-            "recbaseline": "recbaseline",
-            "plaque": "plaque",
-            "bop": "bop",
-            "age": "age",
-            "gender": "gender",
-            "bodymassindex": "bodymassindex",
-            "cigarettenumber": "cigarettenumber",
-            "antibiotictreatment": "antibiotictreatment",
-            "rootnumber": "rootnumber",
-        }
-        for key, value in numerical_columns.items():
-            if value in patient_data.columns:
-                complete_data[key] = patient_data[value].values
-
+        numerical_columns = [
+            "mobility",
+            "percussion-sensitivity",
+            "sensitivity",
+            "pdbaseline",
+            "recbaseline",
+            "plaque",
+            "bop",
+            "age",
+            "gender",
+            "bodymassindex",
+            "cigarettenumber",
+            "antibiotictreatment",
+            "rootnumber",
+        ]
+        for column in numerical_columns:
+            if column in patient_data.columns:
+                complete_data[column] = patient_data[column].values
     else:
         raise ValueError(f"Unsupported encoding type: {encoding}")
 
