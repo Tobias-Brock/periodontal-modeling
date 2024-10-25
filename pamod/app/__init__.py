@@ -1,11 +1,12 @@
 """App module."""
 
 from pamod.app._app_helpers import (
+    all_teeth,
     app_inference,
     benchmarks_wrapper,
     brier_score_wrapper,
     collect_data,
-    create_handle_side_change_fn,
+    handle_tooth_selection,
     load_and_initialize_plotter,
     load_data,
     load_data_wrapper,
@@ -21,12 +22,13 @@ from pamod.app._app_helpers import (
     plot_pocket_group_comparison,
     run_benchmarks,
     run_jackknife_inference,
-    teeth_ui_wrapper,
     update_model_dropdown,
-    update_teeth_ui,
+    update_side_state,
+    update_tooth_state,
 )
 
 __all__ = [
+    "all_teeth",
     "app_inference",
     "benchmarks_wrapper",
     "brier_score_wrapper",
@@ -46,8 +48,8 @@ __all__ = [
     "run_benchmarks",
     "run_jackknife_inference",
     "update_model_dropdown",
-    "update_teeth_ui",
-    "create_handle_side_change_fn",
     "collect_data",
-    "teeth_ui_wrapper",
+    "handle_tooth_selection",
+    "update_tooth_state",
+    "update_side_state",
 ]

@@ -1,16 +1,17 @@
 """Gradio frontend."""
 
 from functools import partial
-from typing import Any, Dict, List, Union
+from typing import Dict, List, Union
 
 import gradio as gr
 
 from pamod.app import (
+    all_teeth,
     app_inference,
     benchmarks_wrapper,
     brier_score_wrapper,
     collect_data,
-    create_handle_side_change_fn,
+    handle_tooth_selection,
     load_and_initialize_plotter,
     load_data_wrapper,
     plot_cluster_wrapper,
@@ -22,8 +23,9 @@ from pamod.app import (
     plot_pocket_comparison,
     plot_pocket_group_comparison,
     run_jackknife_inference,
-    teeth_ui_wrapper,
     update_model_dropdown,
+    update_side_state,
+    update_tooth_state,
 )
 from pamod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
@@ -332,7 +334,6 @@ with gr.Blocks() as app:
                 ],
                 outputs=[cluster_brier_plot, cluster_heatmap_plot],
             )
-
         with gr.Tab("Inference"):
             with gr.Row():
                 age_input = gr.Number(
@@ -340,14 +341,14 @@ with gr.Blocks() as app:
                 )
                 gender_input = gr.Radio(label="Gender", choices=[0, 1], value=1)
                 bmi_input = gr.Number(label="Body Mass Index", value=35.0, minimum=0)
-                perio_history_input = gr.Number(
-                    label="Perio Family History", value=2, minimum=0, maximum=2, step=1
+                perio_history_input = gr.Radio(
+                    label="Perio Family History", choices=[0, 1, 2], value=2
                 )
-                diabetes_input = gr.Number(
-                    label="Diabetes", value=1, minimum=0, maximum=3, step=1
+                diabetes_input = gr.Radio(
+                    label="Diabetes", choices=[0, 1, 2, 3], value=1
                 )
-                smokingtype_input = gr.Number(
-                    label="Smoking Type", value=1, minimum=0, maximum=4, step=1
+                smokingtype_input = gr.Radio(
+                    label="Smoking Type", choices=[0, 1, 2, 3, 4], value=1
                 )
                 cigarettenumber_input = gr.Number(
                     label="Cigarette Number", value=0, minimum=0, step=1
@@ -355,179 +356,132 @@ with gr.Blocks() as app:
                 antibiotics_input = gr.Radio(
                     label="Antibiotic Treatment", choices=[0, 1], value=1
                 )
-                stresslvl_input = gr.Number(
-                    label="Stress Level", value=2, minimum=0, maximum=2, step=1
+                stresslvl_input = gr.Radio(
+                    label="Stress Level", choices=[0, 1, 2], value=2
                 )
 
-            jaw_dropdown = gr.Dropdown(
-                label="Select Jaw Side",
-                choices=["Upper Right", "Upper Left", "Lower Right", "Lower Left"],
-                value="Upper Right",
-            )
-
-            teeth_numbers = {
-                "Upper Right": [18, 17, 16, 15, 14, 13, 12, 11],
-                "Upper Left": [21, 22, 23, 24, 25, 26, 27, 28],
-                "Lower Right": [48, 47, 46, 45, 44, 43, 42, 41],
-                "Lower Left": [31, 32, 33, 34, 35, 36, 37, 38],
-            }
-            all_teeth = (
-                teeth_numbers["Upper Right"]
-                + teeth_numbers["Upper Left"]
-                + teeth_numbers["Lower Right"]
-                + teeth_numbers["Lower Left"]
-            )
-
-            features = [
-                ("Mobility", "mobility", "dropdown", [0, 1]),  # 0 or 1
-                ("Restoration", "restoration", "dropdown", [0, 1, 2]),  # 0 to 2
-                ("Percussion", "percussion", "dropdown", [0, 1]),  # 0 or 1
-                ("Sensitivity", "sensitivity", "dropdown", [0, 1]),  # 0 or 1
-                ("**Side Features**", "sideheader", "markdown"),
-                (
-                    "Select Side",
-                    "side_dropdown",
-                    "dropdown",
-                    ["Side 1", "Side 2", "Side 3", "Side 4", "Side 5", "Side 6"],
-                    "Side 1",
-                ),
-                ("Furcation", "furcation_input", "dropdown", [0, 1, 2]),  # 0 to 2
-                ("PD Baseline", "pdbaseline_input", "textbox"),  # Positive integer
-                ("REC Baseline", "recbaseline_input", "textbox"),  # Positive integer
-                ("Plaque", "plaque_input", "dropdown", [0, 1]),  # 0 or 1
-                ("BOP", "bop_input", "dropdown", [0, 1]),  # 0 or 1
+            tooth_features = [
+                ("Mobility", "mobility", "radio", [0, 1]),
+                ("Restoration", "restoration", "radio", [0, 1, 2]),
+                ("Percussion", "percussion", "radio", [0, 1]),
+                ("Sensitivity", "sensitivity", "radio", [0, 1]),
             ]
 
-            choices_or_limits: Union[str, list[str], list[int], None]
-            default_value: Union[str, list[str], list[int], None]
-            teeth_components: Dict[int, Dict[str, Any]] = {}
-            tooth_columns = {}
+            side_features = [
+                (
+                    "Furcation",
+                    "furcationbaseline",
+                    "radio",
+                    [0, 1, 2],
+                ),
+                ("PD Baseline", "pdbaseline", "textbox", None),
+                ("REC Baseline", "recbaseline", "textbox", None),
+                ("Plaque", "plaque", "radio", [0, 1]),
+                ("BOP", "bop", "radio", [0, 1]),
+            ]
+
+            tooth_selector = gr.Radio(
+                label="Select Tooth",
+                choices=[str(tooth) for tooth in all_teeth],
+                value=str(all_teeth[0]),
+            )
+
+            tooth_choices: Union[str, List[int], None]
             tooth_states = gr.State({})
-
-            with gr.Column() as grid_column:
-                with gr.Row():
-                    gr.Markdown("**Tooth Feature**")
-                    for tooth in all_teeth:
-                        with gr.Column(
-                            visible=(tooth in teeth_numbers["Upper Right"]),
-                            scale=0.5,
-                            min_width=120,
-                        ) as tooth_header_column:
-                            gr.Markdown(f"**Tooth {tooth}**")
-                            tooth_str = str(tooth)
-                            teeth_components[tooth] = {}
-                            tooth_columns[tooth] = [tooth_header_column]
-                            tooth_states.value[str(tooth)] = {
-                                "current_side": "Side 1",
-                                "sides": {},
-                            }
-
-                for feature in features:
-                    if len(feature) == 5:
-                        (
-                            feature_label,
-                            feature_key,
-                            input_type,
-                            choices_or_limits,
-                            default_value,
-                        ) = feature
-                    elif len(feature) == 4:
-                        feature_label, feature_key, input_type, choices_or_limits = (
-                            feature
+            tooth_components: Dict[str, gr.components.Component] = {}
+            with gr.Row():
+                for (
+                    feature_label,
+                    feature_key,
+                    input_type,
+                    tooth_choices,
+                ) in tooth_features:
+                    if input_type == "radio":
+                        input_component = gr.Radio(
+                            label=feature_label,
+                            choices=tooth_choices,
+                            value=None,
                         )
                     else:
-                        feature_label, feature_key, input_type = feature
-                        choices_or_limits = None
+                        input_component = gr.Dropdown(
+                            label=feature_label,
+                            choices=tooth_choices,
+                            value=None,
+                        )
+                    tooth_components[feature_key] = input_component
 
-                    with gr.Row():
-                        gr.Markdown(feature_label)
-                        for tooth in all_teeth:
-                            with gr.Column(
-                                visible=(tooth in teeth_numbers["Upper Right"]),
-                                scale=0.5,
-                                min_width=120,
-                            ) as tooth_column:
-                                if input_type == "number":
-                                    pass
-                                elif input_type == "textbox":
-                                    input_component = gr.Textbox(
-                                        show_label=False,
-                                        value="",
-                                        placeholder="Enter number",
-                                        max_lines=1,
-                                    )
-                                elif input_type == "markdown":
-                                    input_component = gr.Markdown("")
-                                elif input_type == "dropdown":
-                                    default_value = (
-                                        feature[4] if len(feature) > 4 else None
-                                    )
-                                    input_component = gr.Dropdown(
-                                        show_label=False,
-                                        choices=choices_or_limits,
-                                        value=default_value,
-                                    )
-                                else:
-                                    input_component = gr.Textbox(
-                                        show_label=False, value="", max_lines=1
-                                    )
+            sides_components: Dict[int, Dict[str, gr.components.Component]] = {}
 
-                                teeth_components[tooth][
-                                    str(feature_key)
-                                ] = input_component
-                                tooth_columns[tooth].append(tooth_column)
+            with gr.Row():
+                gr.Markdown("### ")
+                for side_num in range(1, 7):
+                    gr.Markdown(f"**Side {side_num}**")
 
-                all_columns = []
-                for tooth_cols in tooth_columns.values():
-                    all_columns.extend(tooth_cols)
+            side_choices: Union[List[int], None]
+            for feature_label, feature_key, input_type, side_choices in side_features:
+                with gr.Row():
+                    gr.Markdown(f"{feature_label}")
+                    for side_num in range(1, 7):
+                        side_components = sides_components.setdefault(side_num, {})
+                        if input_type == "radio":
+                            input_component = gr.Radio(
+                                label="",
+                                choices=(
+                                    side_choices if side_choices is not None else []
+                                ),
+                                value=None,
+                            )
+                        elif input_type == "textbox":
+                            input_component = gr.Textbox(
+                                label="",
+                                value="",
+                                placeholder="Enter number",
+                            )
+                        else:
+                            input_component = gr.Dropdown(
+                                label="",
+                                choices=(
+                                    side_choices if side_choices is not None else []
+                                ),
+                                value=None,
+                            )
+                        side_components[feature_key] = input_component
 
-                all_teeth_state = gr.State(all_teeth)
-                teeth_numbers_state = gr.State(teeth_numbers)
+            input_components = list(tooth_components.values())
+            for side_num in range(1, 7):
+                input_components.extend(sides_components[side_num].values())
 
-                jaw_dropdown.change(
-                    fn=lambda jaw_side, all_teeth, teeth_numbers: teeth_ui_wrapper(
-                        jaw_side, all_teeth, teeth_numbers, tooth_columns
-                    ),
-                    inputs=[
-                        jaw_dropdown,
-                        all_teeth_state,
-                        teeth_numbers_state,
-                    ],
-                    outputs=all_columns,
+            tooth_selector.change(
+                fn=partial(
+                    handle_tooth_selection,
+                    tooth_components=tooth_components,
+                    sides_components=sides_components,
+                ),
+                inputs=[tooth_selector, tooth_states],
+                outputs=input_components,
+            )
+
+            for input_name, component in tooth_components.items():
+                component.change(
+                    fn=partial(update_tooth_state, input_name=input_name),
+                    inputs=[tooth_states, tooth_selector, component],
+                    outputs=tooth_states,
                 )
 
-                for tooth in all_teeth:
-                    side_dropdown = teeth_components[tooth]["side_dropdown"]
-                    furcation_input = teeth_components[tooth]["furcation_input"]
-                    pdbaseline_input = teeth_components[tooth]["pdbaseline_input"]
-                    recbaseline_input = teeth_components[tooth]["recbaseline_input"]
-                    plaque_input = teeth_components[tooth]["plaque_input"]
-                    bop_input = teeth_components[tooth]["bop_input"]
-
-                    handle_side_change_fn = create_handle_side_change_fn(tooth)
-
-                    side_dropdown.change(
-                        fn=handle_side_change_fn,
-                        inputs=[
-                            tooth_states,
-                            side_dropdown,
-                            furcation_input,
-                            pdbaseline_input,
-                            recbaseline_input,
-                            plaque_input,
-                            bop_input,
-                        ],
-                        outputs=[
-                            tooth_states,
-                            furcation_input,
-                            pdbaseline_input,
-                            recbaseline_input,
-                            plaque_input,
-                            bop_input,
-                        ],
+            for side_num in range(1, 7):
+                side_components = sides_components[side_num]
+                for input_name, component in side_components.items():
+                    component.change(
+                        fn=partial(
+                            update_side_state, side_num=side_num, input_name=input_name
+                        ),
+                        inputs=[tooth_states, tooth_selector, component],
+                        outputs=tooth_states,
                     )
 
             submit_button = gr.Button("Submit")
+            output_message = gr.Textbox(label="Output")
+            patient_data = gr.Dataframe(visible=False)
 
             patient_inputs = [
                 age_input,
@@ -541,22 +495,9 @@ with gr.Blocks() as app:
                 stresslvl_input,
             ]
 
-            tooth_inputs: List[Any] = []
-            for tooth in all_teeth:
-                tooth_inputs.extend(teeth_components[tooth].values())
-
-            output_message = gr.Textbox(label="Output")
-
-            patient_data = gr.Dataframe(visible=False)
-            results = gr.DataFrame(visible=False)
-
-            collect_data_fn = partial(
-                collect_data, teeth_components=teeth_components, all_teeth=all_teeth
-            )
-
             submit_button.click(
-                fn=collect_data_fn,
-                inputs=patient_inputs + tooth_inputs + [tooth_states],
+                fn=collect_data,
+                inputs=patient_inputs + [tooth_states],
                 outputs=[output_message, patient_data],
             )
 
@@ -573,6 +514,8 @@ with gr.Blocks() as app:
                 choices=["one_hot", "target"],
                 value="one_hot",
             )
+
+            results = gr.DataFrame(visible=False)
 
             task_display.value = task_input.value
             task_input.change(
@@ -660,7 +603,6 @@ with gr.Blocks() as app:
             )
 
             jackknife_button = gr.Button("Run Jackknife Inference")
-            jackknife_output = gr.Dataframe(label="Jackknife Prediction Results")
             jackknife_plot = gr.Plot(label="Confidence Intervals Plot")
 
             jackknife_button.click(
@@ -676,7 +618,7 @@ with gr.Blocks() as app:
                     sample_fraction_input,
                     n_jobs_input,
                 ],
-                outputs=[jackknife_output, jackknife_plot],
+                outputs=[jackknife_plot],
             )
 
 app.launch()
