@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.base import clone
 
 from pamod.learner import Model
-from pamod.training import MetricEvaluator, Trainer
+from pamod.training import Trainer
 from pamod.tuning._basetuner import BaseTuner, MetaTuner
 
 
@@ -26,8 +26,8 @@ class HEBOTuner(BaseTuner, MetaTuner):
         n_jobs: Optional[int] = None,
         verbosity: bool = True,
         trainer: Optional[Trainer] = None,
-        metric_evaluator: Optional[MetricEvaluator] = None,
         mlp_training: bool = True,
+        threshold_tuning: bool = True,
     ) -> None:
         """Initialize HEBOTuner with classification, criterion, and tuning method.
 
@@ -44,10 +44,11 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 Defaults to True.
             trainer (Optional[Trainer]): An instance of Trainer. If None, a default
                 instance will be created.
-            metric_evaluator (Optional[MetricEvaluator]): Instance of MetricEvaluator.
                 If None, a default instance will be created.
             mlp_training (bool): Flag for MLP training with early stopping.
                 Defaults to True.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1". Defaults to True.
         """
         super().__init__(
             classification,
@@ -58,8 +59,8 @@ class HEBOTuner(BaseTuner, MetaTuner):
             n_jobs,
             verbosity,
             trainer,
-            metric_evaluator,
             mlp_training,
+            threshold_tuning,
         )
 
     def holdout(
@@ -166,13 +167,15 @@ class HEBOTuner(BaseTuner, MetaTuner):
         best_params_df = optimizer.X.iloc[best_params_idx]
         best_params = params_func(best_params_df)
         best_threshold = None
-        if self.classification == "binary":
+        if self.classification == "binary" and self.threshold_tuning:
             model_clone = clone(model).set_params(**best_params)
             if self.criterion == "f1":
                 if self.tuning == "holdout":
                     model_clone.fit(X_train_h, y_train_h)
                     probs = model_clone.predict_proba(X_val)[:, 1]
-                    _, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+                    _, best_threshold = self.trainer.evaluate(
+                        y_val, probs, self.threshold_tuning
+                    )
 
                 elif self.tuning == "cv":
                     best_threshold = self.trainer.optimize_threshold(

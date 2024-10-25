@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 from pamod.base import BaseEvaluator, BaseHydra
 from pamod.resampling import Resampler
-from pamod.training import MetricEvaluator, Trainer
+from pamod.training import Trainer
 from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
@@ -29,6 +29,7 @@ class BaseExperiment(BaseEvaluator):
         val_size: Optional[float],
         cv_seed: Optional[int],
         mlp_flag: Optional[bool],
+        threshold_tuning: bool,
         verbosity: bool,
     ) -> None:
         """Initialize the Experiment class with tuning parameters.
@@ -52,6 +53,8 @@ class BaseExperiment(BaseEvaluator):
             val_size (Optional[float]): Size of grouped train test split for holdout.
             cv_seed (int): Seed for splitting CV folds.
             mlp_flag (bool): Flag for MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1".
             verbosity (bool): Enables verbose output if set to True.
         """
         self.task = task
@@ -70,16 +73,16 @@ class BaseExperiment(BaseEvaluator):
         self.val_size = val_size if val_size is not None else self.val_set_size
         self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
         self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
+        self.threshold_tuning = threshold_tuning
         self.verbosity = verbosity
         self.resampler = Resampler(self.classification, self.encoding)
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
         self.trainer = Trainer(
             self.classification,
             self.criterion,
             tuning=self.tuning,
             hpo=self.hpo,
             mlp_training=self.mlp_flag,
-            metric_evaluator=self.metric_evaluator,
+            threshold_tuning=self.threshold_tuning,
         )
         self.tuner = self._initialize_tuner()
 
@@ -110,8 +113,8 @@ class BaseExperiment(BaseEvaluator):
                 self.n_jobs,
                 self.verbosity,
                 self.trainer,
-                self.metric_evaluator,
                 self.mlp_flag,
+                self.threshold_tuning,
             )
         elif self.hpo == "hebo":
             return HEBOTuner(
@@ -123,8 +126,8 @@ class BaseExperiment(BaseEvaluator):
                 self.n_jobs,
                 self.verbosity,
                 self.trainer,
-                self.metric_evaluator,
                 self.mlp_flag,
+                self.threshold_tuning,
             )
         else:
             raise ValueError(f"Unsupported HPO method: {self.hpo}")
@@ -152,6 +155,7 @@ class BaseBenchmark(BaseHydra):
         val_size: Optional[float],
         cv_seed: Optional[int],
         mlp_flag: Optional[bool],
+        threshold_tuning: bool,
         verbosity: bool,
         path: Path,
         name: str,
@@ -176,6 +180,8 @@ class BaseBenchmark(BaseHydra):
             val_size (Optional[float]): Size of grouped train test split for holdout.
             cv_seed (Optional[int]): Seed for splitting CV folds.
             mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1".
             verbosity (bool): Enables verbose output if True.
             path (str): Directory path for the processed data.
             name (str): File name for the processed data.
@@ -199,5 +205,6 @@ class BaseBenchmark(BaseHydra):
         self.val_size = val_size
         self.cv_seed = cv_seed
         self.mlp_flag = mlp_flag
+        self.threshold_tuning = threshold_tuning
         self.path = path
         self.name = name

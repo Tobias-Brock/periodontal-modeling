@@ -15,6 +15,8 @@ from sklearn.metrics import brier_score_loss, confusion_matrix
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 
+from pamod.training import get_probs
+
 
 def _is_one_hot_encoded(feature: str) -> bool:
     """Check if a feature is one-hot encoded.
@@ -84,13 +86,16 @@ def _aggregate_shap_one_hot(
     """Aggregate SHAP values of one-hot encoded variables.
 
     Args:
-        shap_values (np.ndarray): SHAP values with shape (n_samples, n_features).
+        shap_values (np.ndarray): SHAP values.
         feature_names (List[str]): List of features corresponding to SHAP values.
 
     Returns:
         Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
         feature names.
     """
+    if shap_values.ndim == 3:
+        shap_values = shap_values.mean(axis=2)
+
     shap_df = pd.DataFrame(shap_values, columns=feature_names)
     base_names = [_get_base_name(feature) for feature in shap_df.columns]
     feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
@@ -235,8 +240,17 @@ class Evaluator:
         """
         if not self.model:
             return "No model available."
-
-        pred = self.model.predict(self.X_test)
+        if (
+            hasattr(self.model, "best_threshold")
+            and self.model.best_threshold is not None
+        ):
+            final_probs = get_probs(self.model, "binary", self.X_test)
+            if final_probs is not None:
+                pred = (final_probs >= self.model.best_threshold).astype(int)
+            else:
+                pred = self.model.predict(self.X_test)
+        else:
+            pred = self.model.predict(self.X_test)
 
         if col is not None:
             cm = confusion_matrix(col, pred)
@@ -267,19 +281,18 @@ class Evaluator:
             cbar_kws={"label": "Percent"},
         )
 
-        for i in range(len(cm)):
-            for j in range(len(cm)):
-                if normalized_cm[i, j] > 50:
-                    plt.text(
-                        j + 0.5,
-                        i + 0.5,
-                        cm[i, j],
-                        ha="center",
-                        va="center",
-                        color="white",
-                    )
-                else:
-                    plt.text(j + 0.5, i + 0.5, cm[i, j], ha="center", va="center")
+        [
+            plt.text(
+                j + 0.5,
+                i + 0.5,
+                cm[i, j],
+                ha="center",
+                va="center",
+                color="white" if normalized_cm[i, j] > 50 else "black",
+            )
+            for i in range(len(cm))
+            for j in range(len(cm))
+        ]
 
         plt.title("Confusion Matrix", fontsize=12)
         plt.xlabel("Predicted", fontsize=12)

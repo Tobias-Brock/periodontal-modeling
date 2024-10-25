@@ -3,6 +3,8 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
+from pamod.base import BaseHydra
+
 
 def _get_side() -> dict:
     """Dict containing tooth-side combinations which should have furcation.
@@ -59,38 +61,10 @@ def _get_teeth_neighbors() -> dict:
     }
 
 
-def _plaque_values(row: pd.Series, modes_dict: dict) -> int:
-    """Calculate new values for the Plaque column.
-
-    Args:
-        row (pd.Series): A row from the DataFrame.
-        modes_dict (dict): Dict mapping (tooth, side, pdbaseline_grouped)
-        to the mode plaque value.
-
-    Returns:
-        int: Imputed plaque value for the given row.
-    """
-    if row["plaque_all_na"] == 1:
-        key = (row["tooth"], row["side"], row["pdbaseline_grouped"])
-        mode_value = modes_dict.get(key, None)
-        if mode_value is not None:
-            if isinstance(mode_value, tuple) and 2 in mode_value:
-                return 2
-            elif mode_value == 1:
-                return 1
-            elif mode_value == 2:
-                return 2
-    else:
-        if pd.isna(row["plaque"]):
-            return 1
-        else:
-            return row["plaque"]
-    return 1  # Default value if no other condition matches
-
-
-class ProcessDataHelper:
+class ProcessDataHelper(BaseHydra):
     def __init__(self):
         """Initialize Preprocessor with helper data without storing the DataFrame."""
+        super().__init__()
         self.teeth_neighbors = _get_teeth_neighbors()
         self.sides_with_fur = _get_side()
 
@@ -153,6 +127,35 @@ class ProcessDataHelper:
 
         return df
 
+    @staticmethod
+    def _plaque_values(row: pd.Series, modes_dict: dict) -> int:
+        """Calculate new values for the Plaque column.
+
+        Args:
+            row (pd.Series): A row from the DataFrame.
+            modes_dict (dict): Dict mapping (tooth, side, pdbaseline_grouped)
+            to the mode plaque value.
+
+        Returns:
+            int: Imputed plaque value for the given row.
+        """
+        if row["plaque_all_na"] == 1:
+            key = (row["tooth"], row["side"], row["pdbaseline_grouped"])
+            mode_value = modes_dict.get(key, None)
+            if mode_value is not None:
+                if isinstance(mode_value, tuple) and 2 in mode_value:
+                    return 2
+                elif mode_value == 1:
+                    return 1
+                elif mode_value == 2:
+                    return 2
+        else:
+            if pd.isna(row["plaque"]):
+                return 1
+            else:
+                return row["plaque"]
+        return 1
+
     def plaque_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
         """Imputes values for Plaque without affecting other columns.
 
@@ -177,12 +180,14 @@ class ProcessDataHelper:
         df["pdbaseline_grouped"] = np.select(
             conditions_baseline, choices_baseline, default=-1
         )
-        patients_with_all_nas = df.groupby("id_patient")["plaque"].apply(
+
+        patients_with_all_nas = df.groupby(self.group_col)["plaque"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["plaque_all_na"] = df["id_patient"].isin(
+        df["plaque_all_na"] = df[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
+
         grouped_data = df.groupby(["tooth", "side", "pdbaseline_grouped"])
 
         modes_dict = {}
@@ -191,14 +196,10 @@ class ProcessDataHelper:
             mode_value = modes.iloc[0] if not modes.empty else None
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
-        temp_data = df[
-            ["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]
-        ].copy()
-        temp_data["plaque"] = temp_data.apply(
-            lambda row: _plaque_values(row, modes_dict), axis=1
+        df["plaque"] = df.apply(
+            lambda row: self._plaque_values(row, modes_dict), axis=1
         )
 
-        df["plaque"] = temp_data["plaque"]
         df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
 
         return df
@@ -264,26 +265,14 @@ class ProcessDataHelper:
         if "furcationbaseline" not in df.columns:
             raise KeyError("'furcationbaseline' column not found in the DataFrame")
 
-        patients_with_all_nas = df.groupby("id_patient")["furcationbaseline"].apply(
+        patients_with_all_nas = df.groupby(self.group_col)["furcationbaseline"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["furcationbaseline_all_na"] = df["id_patient"].isin(
+        df["furcationbaseline_all_na"] = df[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
 
-        temp_data = df[
-            [
-                "furcationbaseline",
-                "tooth",
-                "side",
-                "pdbaseline",
-                "recbaseline",
-                "furcationbaseline_all_na",
-            ]
-        ].copy()
-
-        temp_data["furcationbaseline"] = temp_data.apply(self.fur_values, axis=1)
-        df["furcationbaseline"] = temp_data["furcationbaseline"]
+        df["furcationbaseline"] = df.apply(self.fur_values, axis=1)
         df = df.drop(["furcationbaseline_all_na"], axis=1)
 
         return df

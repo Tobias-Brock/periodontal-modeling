@@ -31,6 +31,7 @@ class Experiment(BaseExperiment):
         val_size: Optional[float] = None,
         cv_seed: Optional[int] = None,
         mlp_flag: Optional[bool] = None,
+        threshold_tuning: bool = True,
         verbosity: bool = True,
     ) -> None:
         """Initialize the Experiment class with tuning parameters.
@@ -59,6 +60,8 @@ class Experiment(BaseExperiment):
             val_size (Optional[float]): Size of grouped train test split for holdout.
             cv_seed (int): Seed for splitting CV folds.
             mlp_flag (bool): Flag for MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1". Defaults to True.
             verbosity (bool): Enables verbose output if set to True.
         """
         self.df = df
@@ -80,6 +83,7 @@ class Experiment(BaseExperiment):
             val_size=val_size,
             cv_seed=cv_seed,
             mlp_flag=mlp_flag,
+            threshold_tuning=threshold_tuning,
             verbosity=verbosity,
         )
 
@@ -162,8 +166,6 @@ class Experiment(BaseExperiment):
         best_params, best_threshold = self.tuner.cv(
             self.learner,
             outer_splits,
-            self.n_configs,
-            self.racing_folds,
         )
         final_model = (self.learner, best_params, best_threshold)
 
@@ -190,6 +192,7 @@ class Benchmarker(BaseBenchmark):
         val_size: Optional[float] = None,
         cv_seed: Optional[int] = None,
         mlp_flag: Optional[bool] = None,
+        threshold_tuning: bool = True,
         verbosity: bool = True,
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
@@ -219,6 +222,8 @@ class Benchmarker(BaseBenchmark):
             val_size (Optional[float]): Size of grouped train test split for holdout.
             cv_seed (int): Seed for splitting CV folds.
             mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1". Defaults to True.
             verbosity (bool): Enables verbose output if True.
             path (str): Directory path for the processed data.
             name (str): File name for the processed data.
@@ -241,6 +246,7 @@ class Benchmarker(BaseBenchmark):
             val_size,
             cv_seed,
             mlp_flag,
+            threshold_tuning,
             verbosity,
             path,
             name,
@@ -275,7 +281,7 @@ class Benchmarker(BaseBenchmark):
         metric_map = {
             "f1": "F1 Score",
             "brier_score": "Brier Score",
-            "macro_f1": "Macro F1 Score",
+            "macro_f1": "Macro F1",
         }
 
         for learner, tuning, hpo, criterion, encoding, sampling in itertools.product(
@@ -318,6 +324,7 @@ class Benchmarker(BaseBenchmark):
                 val_size=self.val_size,
                 cv_seed=self.cv_seed,
                 mlp_flag=self.mlp_flag,
+                threshold_tuning=self.threshold_tuning,
                 verbosity=self.verbosity,
             )
 
@@ -330,7 +337,6 @@ class Benchmarker(BaseBenchmark):
                     k: round(v, 4) if isinstance(v, float) else v
                     for k, v in metrics.items()
                 }
-
                 results.append(
                     {
                         "Task": self.task,
@@ -414,12 +420,12 @@ class Benchmarker(BaseBenchmark):
 
 
 def main():
-    task = "pdgrouprevaluation"
+    task = "pocketclosure"
     # learners = ["xgb", "rf", "lr", "mlp"]
     learners = ["xgb"]
     tuning_methods = ["holdout"]
     hpo_methods = ["hebo"]
-    criteria = ["macro_f1"]
+    criteria = ["f1"]
     encoding = ["one_hot"]
 
     benchmarker = Benchmarker(
@@ -429,11 +435,12 @@ def main():
         hpo_methods=hpo_methods,
         criteria=criteria,
         encodings=encoding,
-        sampling="upsampling",
+        sampling=[None],
         factor=2,
         n_configs=3,
         racing_folds=3,
         n_jobs=-1,
+        threshold_tuning=False,
         verbosity=True,
     )
 

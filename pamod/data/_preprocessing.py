@@ -6,41 +6,12 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from pamod.base import BaseData
+from pamod.base import BaseHydra
 from pamod.config import PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR, RAW_DATA_DIR
 from pamod.data import ProcessDataHelper
 
 
-def _create_outcome_variables(df: pd.DataFrame) -> pd.DataFrame:
-    """Adds outcome variables to the DataFrame.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-
-    Returns:
-        pd.DataFrame: The DataFrame with new outcome variables.
-    """
-    df["pocketclosure"] = df.apply(
-        lambda row: (
-            0
-            if row["pdrevaluation"] == 4
-            and row["boprevaluation"] == 2
-            or row["pdrevaluation"] > 4
-            else 1
-        ),
-        axis=1,
-    )
-    df["pdgroupbase"] = df["pdbaseline"].apply(
-        lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
-    )
-    df["pdgrouprevaluation"] = df["pdrevaluation"].apply(
-        lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
-    )
-    df["improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
-    return df
-
-
-class StaticProcessEngine(BaseData):
+class StaticProcessEngine(BaseHydra):
     """Preprocesses periodontal dataset for machine learning."""
 
     def __init__(self, behavior: bool = False) -> None:
@@ -52,7 +23,7 @@ class StaticProcessEngine(BaseData):
         """
         super().__init__()
         self.behavior = behavior
-        self.function_preprocessor = ProcessDataHelper()
+        self.helper = ProcessDataHelper()
 
     def load_data(
         self,
@@ -107,7 +78,7 @@ class StaticProcessEngine(BaseData):
         return df[actual_required_columns]
 
     @staticmethod
-    def _impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
 
         Args:
@@ -124,9 +95,12 @@ class StaticProcessEngine(BaseData):
             )
 
         df["boprevaluation"] = (
-            df["boprevaluation"].replace(["", "NA", "-", " "], np.nan).astype(float)
+            df["boprevaluation"]
+            .replace(["", "NA", "-", " "], np.nan)
+            .astype(float)
+            .fillna(1)
+            .astype(float)
         )
-        df["boprevaluation"] = df["boprevaluation"].fillna(1).astype(float)
         df["recbaseline"] = df["recbaseline"].fillna(1).astype(float)
         df["bop"] = df["bop"].fillna(1).astype(float)
         df["percussion-sensitivity"] = (
@@ -141,21 +115,20 @@ class StaticProcessEngine(BaseData):
         df["cigarettenumber"] = df["cigarettenumber"].fillna(0).astype(float)
         df["diabetes"] = df["diabetes"].fillna(1).astype(int)
 
-        df["stresslvl"] = df["stresslvl"] - 1
-        df["stresslvl"] = pd.to_numeric(df["stresslvl"], errors="coerce")
-        median_stress = df["stresslvl"].median()
-        df["stresslvl"] = df["stresslvl"].fillna(median_stress).astype(float)
-
-        conditions_stress = [
-            df["stresslvl"] <= 3,
-            (df["stresslvl"] >= 4) & (df["stresslvl"] <= 6),
-            df["stresslvl"] >= 7,
-        ]
-
-        choices_stress = [0, 1, 2]
-        df["stresslvl"] = np.select(conditions_stress, choices_stress, default=-1)
-
-        df["stresslvl"] = df["stresslvl"].astype(int)
+        df["stresslvl"] = (
+            pd.to_numeric(df["stresslvl"] - 1, errors="coerce")
+            .fillna(df["stresslvl"].median())
+            .astype(float)
+        )
+        df["stresslvl"] = np.select(
+            [
+                df["stresslvl"] <= 3,
+                (df["stresslvl"] >= 4) & (df["stresslvl"] <= 6),
+                df["stresslvl"] >= 7,
+            ],
+            [0, 1, 2],
+            default=-1,
+        ).astype(int)
 
         return df
 
@@ -176,9 +149,7 @@ class StaticProcessEngine(BaseData):
             pd.DataFrame: The dataframe with additional tooth-related features.
         """
         df["side_infected"] = df.apply(
-            lambda row: self.function_preprocessor.check_infection(
-                row["pdbaseline"], row["bop"]
-            ),
+            lambda row: self.helper.check_infection(row["pdbaseline"], row["bop"]),
             axis=1,
         )
         if patient_id:
@@ -194,10 +165,39 @@ class StaticProcessEngine(BaseData):
                 .astype(int)
             )
         if neighbors:
-            df = self.function_preprocessor.get_adjacent_infected_teeth_count(
+            df = self.helper.get_adjacent_infected_teeth_count(
                 df, "id_patient", "tooth", "tooth_infected"
             )
 
+        return df
+
+    @staticmethod
+    def create_outcome_variables(df: pd.DataFrame) -> pd.DataFrame:
+        """Adds outcome variables to the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The input DataFrame.
+
+        Returns:
+            pd.DataFrame: The DataFrame with new outcome variables.
+        """
+        df["pocketclosure"] = df.apply(
+            lambda row: (
+                0
+                if row["pdrevaluation"] == 4
+                and row["boprevaluation"] == 2
+                or row["pdrevaluation"] > 4
+                else 1
+            ),
+            axis=1,
+        )
+        df["pdgroupbase"] = df["pdbaseline"].apply(
+            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+        )
+        df["pdgrouprevaluation"] = df["pdrevaluation"].apply(
+            lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
+        )
+        df["improve"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
         return df
 
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -231,19 +231,20 @@ class StaticProcessEngine(BaseData):
         print(f"Remaining number of patients: {remaining_patients}")
         print(f"Remaining number of rows: {remaining_rows}")
 
-        df = self._impute_missing_values(df)
+        df = self.impute_missing_values(df)
         df = self.create_tooth_features(df)
-        df = _create_outcome_variables(df)
+        df = self.create_outcome_variables(df)
 
         if self.behavior:
-            self.bin_var += [col.lower() for col in self.behavior_columns["binary"]]
-        df[self.bin_var] = df[self.bin_var].replace({1: 0, 2: 1})
+            self.bin_vars += [col.lower() for col in self.behavior_columns["binary"]]
+        bin_vars = [col for col in self.bin_vars if col in df.columns]
+        df[bin_vars] = df[bin_vars].replace({1: 0, 2: 1})
 
         df.replace("", np.nan, inplace=True)
         df.replace(" ", np.nan, inplace=True)
 
-        df = self.function_preprocessor.fur_imputation(df)
-        df = self.function_preprocessor.plaque_imputation(df)
+        df = self.helper.fur_imputation(df)
+        df = self.helper.plaque_imputation(df)
 
         if df.isnull().values.any():
             missing_values = df.isnull().sum()

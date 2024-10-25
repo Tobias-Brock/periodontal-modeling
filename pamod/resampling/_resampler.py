@@ -7,10 +7,10 @@ import pandas as pd
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.preprocessing._target_encoder import TargetEncoder
 
-from pamod.base import BaseData, BaseValidator
+from pamod.base import BaseValidator
 
 
-class Resampler(BaseValidator, BaseData):
+class Resampler(BaseValidator):
     def __init__(self, classification: str, encoding: str) -> None:
         """Initializes the Resampler class.
 
@@ -21,8 +21,7 @@ class Resampler(BaseValidator, BaseData):
             classification (str): The type of classification ('binary' or 'multiclass').
             encoding (str): Tyoe if encoding ('one_hot' or 'target').
         """
-        BaseValidator.__init__(self, classification)
-        BaseData.__init__(self)
+        super().__init__(classification)
         self.encoding = encoding
 
     def apply_sampling(
@@ -116,7 +115,7 @@ class Resampler(BaseValidator, BaseData):
             if not jackknife and X_val is not None:
                 X_val_encoded = encoder.transform(X_val[cat_vars])
             else:
-                X_val_encoded = None  # If jackknife is True, skip encoding X_val
+                X_val_encoded = None
 
             if self.classification == "multiclass":
                 n_classes = len(set(y_train))
@@ -166,7 +165,7 @@ class Resampler(BaseValidator, BaseData):
             ValueError: If required columns are missing from the input DataFrame.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        self.validate_dataframe(df, [self.target, self.group_col])
+        self.validate_dataframe(df, [self.y, self.group_col])
 
         gss = GroupShuffleSplit(
             n_splits=1,
@@ -212,10 +211,10 @@ class Resampler(BaseValidator, BaseData):
         Raises:
             ValueError: If required columns are missing or sampling method is invalid.
         """
-        X_train = train_df.drop([self.target], axis=1)
-        y_train = train_df[self.target]
-        X_test = test_df.drop([self.target], axis=1)
-        y_test = test_df[self.target]
+        X_train = train_df.drop([self.y], axis=1)
+        y_train = train_df[self.y]
+        X_test = test_df.drop([self.y], axis=1)
+        y_test = test_df[self.y]
 
         if self.encoding == "target":
             X_train, X_test = self.apply_target_encoding(X_train, X_test, y_train)
@@ -261,11 +260,9 @@ class Resampler(BaseValidator, BaseData):
             ValueError: If required columns are missing or folds are inconsistent.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        np.random.default_rng(
-            random_state=seed if seed is not None else self.random_state_cv
-        )
+        np.random.default_rng(seed=seed if seed is not None else self.random_state_cv)
 
-        self.validate_dataframe(df, [self.target, self.group_col])
+        self.validate_dataframe(df, [self.y, self.group_col])
         self.validate_n_folds(self.n_folds)
         train_df, _ = self.split_train_test_df(df)
         gkf = GroupKFold(n_splits=n_folds if n_folds is not None else self.n_folds)
@@ -275,15 +272,13 @@ class Resampler(BaseValidator, BaseData):
         original_validation_data = []
 
         for train_idx, test_idx in gkf.split(train_df, groups=train_df[self.group_col]):
-            X_train_fold = train_df.iloc[train_idx].drop([self.target], axis=1)
-            y_train_fold = train_df.iloc[train_idx][self.target]
-            X_test_fold = train_df.iloc[test_idx].drop([self.target], axis=1)
-            y_test_fold = train_df.iloc[test_idx][self.target]
+            X_train_fold = train_df.iloc[train_idx].drop([self.y], axis=1)
+            y_train_fold = train_df.iloc[train_idx][self.y]
+            X_test_fold = train_df.iloc[test_idx].drop([self.y], axis=1)
+            y_test_fold = train_df.iloc[test_idx][self.y]
 
             original_validation_data.append(
-                train_df.iloc[test_idx]
-                .drop([self.target], axis=1)
-                .reset_index(drop=True)
+                train_df.iloc[test_idx].drop([self.y], axis=1).reset_index(drop=True)
             )
 
             if sampling is not None:
@@ -301,7 +296,7 @@ class Resampler(BaseValidator, BaseData):
         ):
             if not original_test_data.equals(X_test_fold.reset_index(drop=True)):
                 raise ValueError(
-                    "Validation folds' data are not consistent after applying sampling "
+                    "Validation folds' data not consistent after applying sampling "
                     "strategies."
                 )
         if self.encoding == "target":
