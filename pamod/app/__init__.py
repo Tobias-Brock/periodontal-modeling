@@ -26,8 +26,10 @@ from pamod.app._app_helpers import (
     update_side_state,
     update_tooth_state,
 )
+from pamod.app.app import app
 
 __all__ = [
+    "app",
     "all_teeth",
     "app_inference",
     "benchmarks_wrapper",

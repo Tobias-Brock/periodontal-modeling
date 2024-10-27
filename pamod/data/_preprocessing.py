@@ -1,81 +1,26 @@
-import os
-from pathlib import Path
-from typing import Union
 import warnings
 
 import numpy as np
 import pandas as pd
 
-from pamod.base import BaseHydra
-from pamod.config import PROCESSED_BASE_DIR, PROCESSED_BEHAVIOR_DIR, RAW_DATA_DIR
-from pamod.data import ProcessDataHelper
+from ._basedata import BaseProcessor
+from ._helpers import ProcessDataHelper
 
 
-class StaticProcessEngine(BaseHydra):
+class StaticProcessEngine(BaseProcessor):
     """Preprocesses periodontal dataset for machine learning."""
 
-    def __init__(self, behavior: bool = False) -> None:
+    def __init__(self, behavior: bool = False, verbosity: bool = True) -> None:
         """Initializes the StaticProcessEngine.
 
         Args:
             behavior (bool): If True, includes behavioral columns in processing.
                 Defaults to False.
+            verbosity (bool): Activates verbosity. Defaults to True.
         """
-        super().__init__()
-        self.behavior = behavior
+        super().__init__(behavior=behavior)
+        self.verbosity = verbosity
         self.helper = ProcessDataHelper()
-
-    def load_data(
-        self,
-        path: Path = RAW_DATA_DIR,
-        name: str = "Periodontitis_ML_Dataset.xlsx",
-    ) -> pd.DataFrame:
-        """Loads the dataset and validates required columns.
-
-        Args:
-            path (str, optional): Directory where dataset is located.
-                Defaults to RAW_DATA_DIR.
-            name (str, optional): Dataset file name. Defaults to
-                "Periodontitis_ML_Dataset_Renamed.xlsx".
-
-        Returns:
-            pd.DataFrame: The loaded DataFrame.
-
-        Raises:
-            ValueError: If any required columns are missing.
-        """
-        input_file = os.path.join(path, name)
-        df = pd.read_excel(input_file, header=[1])
-
-        actual_columns_lower = {col.lower(): col for col in df.columns}
-        required_columns_lower = [col.lower() for col in self.required_columns]
-
-        missing_columns = [
-            col for col in required_columns_lower if col not in actual_columns_lower
-        ]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
-
-        actual_required_columns = [
-            actual_columns_lower[col] for col in required_columns_lower
-        ]
-
-        if self.behavior:
-            behavior_columns_lower = [
-                col.lower() for col in self.behavior_columns["binary"]
-            ] + [col.lower() for col in self.behavior_columns["categorical"]]
-            missing_behavior_columns = [
-                col for col in behavior_columns_lower if col not in actual_columns_lower
-            ]
-            if missing_behavior_columns:
-                raise ValueError(
-                    f"Missing behavior columns: {', '.join(missing_behavior_columns)}"
-                )
-            actual_required_columns += [
-                actual_columns_lower[col] for col in behavior_columns_lower
-            ]
-
-        return df[actual_required_columns]
 
     @staticmethod
     def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
@@ -149,12 +94,14 @@ class StaticProcessEngine(BaseHydra):
             pd.DataFrame: The dataframe with additional tooth-related features.
         """
         df["side_infected"] = df.apply(
-            lambda row: self.helper.check_infection(row["pdbaseline"], row["bop"]),
+            lambda row: self.helper.check_infection(
+                depth=row["pdbaseline"], boprevaluation=row["bop"]
+            ),
             axis=1,
         )
         if patient_id:
             df["tooth_infected"] = (
-                df.groupby(["id_patient", "tooth"])["side_infected"]
+                df.groupby([self.group_col, "tooth"])["side_infected"]
                 .transform(lambda x: (x == 1).any())
                 .astype(int)
             )
@@ -166,7 +113,10 @@ class StaticProcessEngine(BaseHydra):
             )
         if neighbors:
             df = self.helper.get_adjacent_infected_teeth_count(
-                df, "id_patient", "tooth", "tooth_infected"
+                df=df,
+                patient_col=self.group_col,
+                tooth_col="tooth",
+                infection_col="tooth_infected",
             )
 
         return df
@@ -213,38 +163,40 @@ class StaticProcessEngine(BaseHydra):
         df.columns = [col.lower() for col in df.columns]
         initial_patients = df["id_patient"].nunique()
         initial_rows = len(df)
-        print(f"Initial number of patients: {initial_patients}")
-        print(f"Initial number of rows: {initial_rows}")
-
         under_age_or_pregnant = df[(df["age"] < 18) | (df["pregnant"] == 2)]
         removed_patients = under_age_or_pregnant["id_patient"].nunique()
         removed_rows = len(under_age_or_pregnant)
-        print(f"Number of unique patients removed: {removed_patients}")
-        print(f"Number of rows removed: {removed_rows}")
 
-        df = df[df["age"] >= 18].replace(" ", pd.NA)
-        df = df[df["pregnant"] != 2]
-        df = df.drop(columns=["pregnant"])
+        df = (
+            df[df["age"] >= 18]
+            .replace(" ", pd.NA)
+            .loc[df["pregnant"] != 2]
+            .drop(columns=["pregnant"])
+        )
 
         remaining_patients = df["id_patient"].nunique()
         remaining_rows = len(df)
-        print(f"Remaining number of patients: {remaining_patients}")
-        print(f"Remaining number of rows: {remaining_rows}")
+        if self.verbosity:
+            print(
+                f"Initial number of patients: {initial_patients}, "
+                f"Initial number of rows: {initial_rows}"
+                f"Number of unique patients removed: {removed_patients}, "
+                f"Number of rows removed: {removed_rows}"
+                f"Remaining number of patients: {remaining_patients}, "
+                f"Remaining number of rows: {remaining_rows}"
+            )
 
-        df = self.impute_missing_values(df)
-        df = self.create_tooth_features(df)
-        df = self.create_outcome_variables(df)
+        df = self.create_outcome_variables(
+            self.create_tooth_features(self.impute_missing_values(df=df))
+        )
 
         if self.behavior:
             self.bin_vars += [col.lower() for col in self.behavior_columns["binary"]]
         bin_vars = [col for col in self.bin_vars if col in df.columns]
         df[bin_vars] = df[bin_vars].replace({1: 0, 2: 1})
 
-        df.replace("", np.nan, inplace=True)
-        df.replace(" ", np.nan, inplace=True)
-
-        df = self.helper.fur_imputation(df)
-        df = self.helper.plaque_imputation(df)
+        df.replace(["", " "], np.nan, inplace=True)
+        df = self.helper.fur_imputation(self.helper.plaque_imputation(df=df))
 
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
@@ -256,46 +208,10 @@ class StaticProcessEngine(BaseHydra):
                     missing_patients = (
                         df[df[col].isna()]["id_patient"].unique().tolist()
                     )
-                    print(f"Patients with missing {col}: {missing_patients}")
+                    if self.verbosity:
+                        print(f"Patients with missing {col}: {missing_patients}")
         else:
-            print("No missing values after imputation.")
+            if self.verbosity:
+                print("No missing values after imputation.")
 
         return df
-
-    def save_processed_data(
-        self, df: pd.DataFrame, file: Union[str, None] = None
-    ) -> None:
-        """Saves the processed DataFrame to a CSV file.
-
-        Args:
-            df (pd.DataFrame): The processed DataFrame.
-            file (str, optional): The file path to save the CSV. Defaults to
-                "processed_data.csv" or "processed_data_b.csv".
-        """
-        if df.empty:
-            raise ValueError("Data must be processed before saving.")
-
-        if self.behavior:
-            file = file or "processed_data_b.csv"
-            processed_file_path = os.path.join(PROCESSED_BEHAVIOR_DIR, file)
-        else:
-            file = file or "processed_data.csv"
-            processed_file_path = os.path.join(PROCESSED_BASE_DIR, file)
-
-        directory = os.path.dirname(processed_file_path)
-        if not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-
-        df.to_csv(processed_file_path, index=False)
-        print(f"Data saved to {processed_file_path}")
-
-
-def main():
-    engine = StaticProcessEngine(behavior=False)
-    df = engine.load_data()
-    df = engine.process_data(df)
-    engine.save_processed_data(df)
-
-
-if __name__ == "__main__":
-    main()

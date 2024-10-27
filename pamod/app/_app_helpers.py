@@ -5,13 +5,13 @@ import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from pamod.base import Patient, Side, Tooth, patient_to_dataframe
-from pamod.benchmarking import Benchmarker, InputProcessor
-from pamod.data import ProcessedDataLoader, StaticProcessEngine
-from pamod.descriptives import DescriptivesPlotter
-from pamod.evaluation import Evaluator
-from pamod.inference import ModelInference
-from pamod.resampling import Resampler
+from ..base import Patient, Side, Tooth, patient_to_dataframe
+from ..benchmarking import Benchmarker, InputProcessor
+from ..data import ProcessedDataLoader, StaticProcessEngine
+from ..descriptives import DescriptivesPlotter
+from ..evaluation import ModelEvaluator
+from ..inference import ModelInference
+from ..resampling import Resampler
 
 plotter = None
 
@@ -65,8 +65,8 @@ def load_and_initialize_plotter(path: str) -> str:
     data_path = Path(path)
     engine = StaticProcessEngine(behavior=False)
     df = engine.load_data(path=data_path.parent, name=data_path.name)
-    df = engine.process_data(df)
-    plotter = DescriptivesPlotter(df)
+    df = engine.process_data(df=df)
+    plotter = DescriptivesPlotter(df=df)
     return "Data loaded successfully. You can now create plots."
 
 
@@ -102,7 +102,7 @@ def plot_pocket_comparison(column1: str, column2: str):
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_comparison(column1, column2)
+    plotter.pocket_comparison(column1=column1, column2=column2)
     return plt.gcf()
 
 
@@ -120,7 +120,9 @@ def plot_pocket_group_comparison(column_before: str, column_after: str):
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_group_comparison(column_before, column_after)
+    plotter.pocket_group_comparison(
+        column_before=column_before, column_after=column_after
+    )
     return plt.gcf()
 
 
@@ -138,7 +140,7 @@ def plot_matrix(vertical: str, horizontal: str):
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.plt_matrix(vertical, horizontal)
+    plotter.plt_matrix(vertical=vertical, horizontal=horizontal)
     return plt.gcf()
 
 
@@ -156,7 +158,7 @@ def plot_outcome_descriptive(outcome: str, title: str):
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.outcome_descriptive(outcome, title)
+    plotter.outcome_descriptive(outcome=outcome, title=title)
     return plt.gcf()
 
 
@@ -203,17 +205,17 @@ def run_benchmarks(
               Accuracy, etc.) for each learner.
             - A confusion matrix plot (if available).
     """
-    task = InputProcessor.process_task(task)
-    learners = InputProcessor.process_learners(learners)
-    tuning_methods = InputProcessor.process_tuning(tuning_methods)
-    hpo_methods = InputProcessor.process_hpo(hpo_methods)
-    criteria = InputProcessor.process_criteria(criteria)
-    encodings = InputProcessor.process_encoding(encoding)
+    task = InputProcessor.process_task(task=task)
+    learners = InputProcessor.process_learners(learners=learners)
+    tuning_methods = InputProcessor.process_tuning(tuning_methods=tuning_methods)
+    hpo_methods = InputProcessor.process_hpo(hpo_methods=hpo_methods)
+    criteria = InputProcessor.process_criteria(criteria=criteria)
+    encodings = InputProcessor.process_encoding(encodings=encoding)
 
     encodings = [e for e in encoding if e in ["One-hot", "Target"]]
     if not encodings:
         raise ValueError("No valid encodings provided.")
-    encodings = InputProcessor.process_encoding(encodings)
+    encodings = InputProcessor.process_encoding(encodings=encodings)
 
     sampling_benchmark: Optional[List[Union[str, None]]] = (
         [s if s != "None" else None for s in sampling] if sampling else None
@@ -318,18 +320,18 @@ def benchmarks_wrapper(*args: Any) -> Any:
         path,
     ) = args
     return run_benchmarks(
-        task,
-        learners,
-        tuning_methods,
-        hpo_methods,
-        criteria,
-        encodings,
-        sampling,
-        factor,
-        n_configs,
-        racing_folds,
-        n_jobs,
-        path,
+        task=task,
+        learners=learners,
+        tuning_methods=tuning_methods,
+        hpo_methods=hpo_methods,
+        criteria=criteria,
+        encoding=encodings,
+        sampling=sampling,
+        factor=factor,
+        n_configs=n_configs,
+        racing_folds=racing_folds,
+        n_jobs=n_jobs,
+        path=path,
     )
 
 
@@ -348,14 +350,16 @@ def load_data(
     """
     classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
 
-    dataloader = ProcessedDataLoader(task, encoding)
+    dataloader = ProcessedDataLoader(task=task, encoding=encoding)
     df = dataloader.load_data()
-    df_transformed = dataloader.transform_data(df)
+    df_transformed = dataloader.transform_data(df=df)
 
     resampler = Resampler(classification, encoding)
 
-    train_df, test_df = resampler.split_train_test_df(df_transformed)
-    X_train, y_train, X_test, y_test = resampler.split_x_y(train_df, test_df)
+    train_df, test_df = resampler.split_train_test_df(df=df_transformed)
+    X_train, y_train, X_test, y_test = resampler.split_x_y(
+        train_df=train_df, test_df=test_df
+    )
 
     return "Data loaded successfully", train_df, X_train, y_train, X_test, y_test
 
@@ -373,7 +377,7 @@ def load_data_wrapper(
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
-    return load_data(InputProcessor.process_task(task), encoding)
+    return load_data(InputProcessor.process_task(task=task), encoding=encoding)
 
 
 def update_model_dropdown(models: Dict[str, Any]) -> dict:
@@ -400,24 +404,24 @@ def plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
     Returns:
         plt.Figure: Confusion matrix heatmap plot.
     """
-    Evaluator(model=model, X_test=X_test, y_test=y_test).plot_confusion_matrix()
+    ModelEvaluator(model=model, X=X_test, y=y_test).plot_confusion_matrix()
     return plt.gcf()
 
 
 def plot_fi(
     model: Any,
-    importance_types: List[str],
-    X_test: pd.DataFrame,
-    y_test: pd.Series,
+    fi_types: List[str],
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
 ) -> plt.Figure:
     """Generates a feature importance plot using FeatureImportanceEngine.
 
     Args:
         model (Any): Trained model for feature importance extraction.
-        importance_types (List[str]): List of feature importance types to plot.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): True labels for the test set.
+        fi_types (List[str]): List of feature importance types to plot.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
 
     Returns:
@@ -426,16 +430,16 @@ def plot_fi(
     if not model:
         return "No model available."
 
-    Evaluator(
-        model=model, X_test=X_test, y_test=y_test, encoding=encoding
-    ).evaluate_feature_importance(importance_types)
+    ModelEvaluator(
+        model=model, X=X, y=y, encoding=encoding
+    ).evaluate_feature_importance(fi_types=fi_types)
     return plt.gcf()
 
 
 def plot_cluster(
     model: tuple[Any, Any],
-    X_test: pd.DataFrame,
-    y_test: pd.Series,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
     n_clusters: int,
 ) -> Tuple[plt.Figure, plt.Figure]:
@@ -443,8 +447,8 @@ def plot_cluster(
 
     Args:
         model (Any): Trained model for cluster analysis.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): True labels for the test set.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
         n_clusters (int): Number of clusters for Brier score analysis.
 
@@ -455,37 +459,35 @@ def plot_cluster(
     if not model:
         return "No model available."
 
-    return Evaluator(
-        model=model, X_test=X_test, y_test=y_test, encoding=encoding
+    return ModelEvaluator(
+        model=model, X=X, y=y, encoding=encoding
     ).analyze_brier_within_clusters(n_clusters=n_clusters)
 
 
 def brier_score_wrapper(
-    models: dict, selected_model: str, X_test: pd.DataFrame, y_test: pd.Series
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series
 ) -> plt.Figure:
     """Wrapper function to generate Brier score plots.
 
     Args:
         models (dict): Dictionary of trained models where the keys are model names.
         selected_model (str): Name of the selected model from the dropdown.
-        X_test (pd.DataFrame): Test dataset containing input features.
-        y_test (pd.Series): Test dataset containing true labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
 
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
-    Evaluator(
-        model=models[selected_model], X_test=X_test, y_test=y_test
-    ).brier_score_groups()
+    ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups()
     return plt.gcf()
 
 
 def plot_fi_wrapper(
     models: dict,
     selected_model: str,
-    importance_types: List[str],
-    X_test: Any,
-    y_test: Any,
+    fi_types: List[str],
+    X: Any,
+    y: Any,
     encoding: str,
 ) -> Any:
     """Wrapper function to call plot_fi.
@@ -493,28 +495,28 @@ def plot_fi_wrapper(
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        importance_types (List[str]): List of importance types.
-        X_test (Any): Test features.
-        y_test (Any): Test labels.
+        fi_types (List[str]): List of importance types.
+        X (Any): Test features.
+        y (Any): Test labels.
         encoding (str): The encoding method used.
 
     Returns:
         Any: The result from the plot_fi function.
     """
     return plot_fi(
-        models[selected_model],
-        importance_types,
-        X_test,
-        y_test,
-        encoding,
+        model=models[selected_model],
+        fi_types=fi_types,
+        X=X,
+        y=y,
+        encoding=encoding,
     )
 
 
 def plot_cluster_wrapper(
     models: dict,
     selected_model: str,
-    X_test: Any,
-    y_test: Any,
+    X: Any,
+    y: Any,
     encoding: str,
     n_clusters: int,
 ) -> Tuple[Any, Any]:
@@ -523,8 +525,8 @@ def plot_cluster_wrapper(
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        X_test (Any): Test features.
-        y_test (Any): Test labels.
+        X (Any): Test features.
+        y (Any): Test labels.
         encoding (str): The encoding method used.
         n_clusters (int): Number of clusters.
 
@@ -532,10 +534,10 @@ def plot_cluster_wrapper(
         Tuple[Any, Any]: The Brier score plot and heatmap plot.
     """
     return plot_cluster(
-        models[selected_model],
-        X_test,
-        y_test,
-        encoding,
+        model=models[selected_model],
+        X=X,
+        y=y,
+        encoding=encoding,
         n_clusters=n_clusters,
     )
 
@@ -741,9 +743,8 @@ def collect_data(
             )
             patient.teeth.append(tooth_obj)
 
-    patient_df = patient_to_dataframe(patient)
-    print("Collected Patient Data:")
-    print(patient_df)
+    patient_df = patient_to_dataframe(patient=patient)
+    print("Collected Patient Data:\n", patient_df)
     return "Patient data collected successfully!", patient_df
 
 
@@ -771,16 +772,22 @@ def app_inference(
         pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
     """
     model = models[selected_model]
-    task_processed = InputProcessor.process_task(task)
+    task_processed = InputProcessor.process_task(task=task)
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
     inference_engine = ModelInference(classification, model)
     predict_data, patient_data = inference_engine.prepare_inference(
-        task, patient_data, encoding, X_train, y_train
+        task=task,
+        patient_data=patient_data,
+        encoding=encoding,
+        X_train=X_train,
+        y_train=y_train,
     )
 
-    return inference_engine.patient_inference(predict_data, patient_data)
+    return inference_engine.patient_inference(
+        predict_data=predict_data, patient_data=patient_data
+    )
 
 
 def run_jackknife_inference(
@@ -811,7 +818,7 @@ def run_jackknife_inference(
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
     """
-    task_processed = InputProcessor.process_task(task)
+    task_processed = InputProcessor.process_task(task=task)
     classification = (
         "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
     )
@@ -819,13 +826,13 @@ def run_jackknife_inference(
 
     inference_engine = ModelInference(classification=classification, model=model)
     _, ci_plot = inference_engine.jackknife_inference(
-        model,
-        train_df,
-        patient_data,
-        encoding,
-        inference_results,
-        sample_fraction,
-        n_jobs,
+        model=model,
+        train_df=train_df,
+        patient_data=patient_data,
+        encoding=encoding,
+        inference_results=inference_results,
+        sample_fraction=sample_fraction,
+        n_jobs=n_jobs,
     )
 
     return ci_plot

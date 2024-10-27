@@ -77,6 +77,9 @@ class BaseHydra:
         self.behavior_columns = cfg.data.behavior_columns
         self.task_cols = cfg.data.task_cols
         self.no_train_cols = cfg.data.no_train_cols
+        self.infect_vars = cfg.data.infect_cols
+        self.cat_map = cfg.data.cat_map
+        self.target_cols = cfg.data.target_cols
         self.all_cat_vars = self.cat_vars + cfg.data.behavior_columns["categorical"]
         self.required_columns = (
             self.patient_columns + self.tooth_columns + self.side_columns
@@ -274,125 +277,8 @@ def patient_to_dataframe(patient: Patient) -> pd.DataFrame:
             data = {
                 **{k: v for k, v in patient_dict.items() if k != "teeth"},
                 **{k: v for k, v in tooth.items() if k != "sides"},
-                **side,  # Side-level fields
+                **side,
             }
             rows.append(data)
 
     return pd.DataFrame(rows)
-
-
-def create_predict_data(
-    raw_data: pd.DataFrame, patient_data: pd.DataFrame, encoding: str, model
-) -> pd.DataFrame:
-    """Creates prediction data for model inference.
-
-    Args:
-        raw_data (pd.DataFrame): The raw, preprocessed data.
-        patient_data (pd.DataFrame): Original patient data before preprocessing.
-        encoding (str): Type of encoding used ('one_hot' or 'target').
-        model: The trained model to retrieve feature names from.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing the prepared data for model prediction.
-    """
-    base_data = raw_data.copy()
-
-    if encoding == "one_hot":
-        drop_columns = [
-            "tooth",
-            "side",
-            "restoration",
-            "periofamilyhistory",
-            "diabetes",
-            "toothtype",
-            "furcationbaseline",
-            "smokingtype",
-            "stresslvl",
-            "infected_neighbors",
-            "side_infected",
-            "tooth_infected",
-        ]
-        base_data = base_data.drop(columns=drop_columns, errors="ignore")
-        encoded_data = pd.DataFrame(index=base_data.index)
-
-        for i in range(1, 7):
-            encoded_data[f"side_{i}"] = 0
-
-        for tooth_num in range(11, 49):
-            if tooth_num % 10 == 0 or tooth_num % 10 == 9:
-                continue
-            encoded_data[f"tooth_{tooth_num}"] = 0
-
-        categorical_features = [
-            ("restoration", 3),
-            ("periofamilyhistory", 3),
-            ("diabetes", 4),
-            ("furcationbaseline", 3),
-            ("smokingtype", 5),
-            ("stresslvl", 3),
-            ("toothtype", 3),
-        ]
-
-        for feature, max_val in categorical_features:
-            for i in range(0, max_val + 1):
-                encoded_data[f"{feature}_{i}"] = 0
-
-        for idx, row in patient_data.iterrows():
-            encoded_data.at[idx, f"tooth_{row['tooth']}"] = 1
-            encoded_data.at[idx, f"side_{row['side']}"] = 1
-
-            encoded_data.at[idx, f"toothtype_{row['toothtype']}"] = 1
-            encoded_data.at[idx, f"furcationbaseline_{row['furcationbaseline']}"] = 1
-            encoded_data.at[idx, f"smokingtype_{row['smokingtype']}"] = 1
-            encoded_data.at[idx, f"restoration_{row['restoration']}"] = 1
-            encoded_data.at[idx, f"periofamilyhistory_{row['periofamilyhistory']}"] = 1
-            encoded_data.at[idx, f"diabetes_{row['diabetes']}"] = 1
-            encoded_data.at[idx, f"stresslvl_{row['stresslvl']}"] = 1
-
-        complete_data = pd.concat(
-            [base_data.reset_index(drop=True), encoded_data.reset_index(drop=True)],
-            axis=1,
-        )
-
-        complete_data = complete_data.loc[:, ~complete_data.columns.duplicated()]
-        duplicates = complete_data.columns[complete_data.columns.duplicated()].unique()
-        if len(duplicates) > 0:
-            print("Duplicate columns found:", duplicates)
-
-    elif encoding == "target":
-        complete_data = base_data.copy()
-        numerical_columns = [
-            "mobility",
-            "percussion-sensitivity",
-            "sensitivity",
-            "pdbaseline",
-            "recbaseline",
-            "plaque",
-            "bop",
-            "age",
-            "gender",
-            "bodymassindex",
-            "cigarettenumber",
-            "antibiotictreatment",
-            "rootnumber",
-        ]
-        for column in numerical_columns:
-            if column in patient_data.columns:
-                complete_data[column] = patient_data[column].values
-    else:
-        raise ValueError(f"Unsupported encoding type: {encoding}")
-
-    if hasattr(model, "get_booster"):
-        model_features = model.get_booster().feature_names
-    elif hasattr(model, "feature_names_in_"):
-        model_features = model.feature_names_in_
-    else:
-        raise ValueError("Model type not supported for feature extraction")
-
-    for feature in model_features:
-        if feature not in complete_data.columns:
-            complete_data[feature] = 0
-
-    predict_data = complete_data[model_features]
-
-    return predict_data

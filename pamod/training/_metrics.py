@@ -31,11 +31,11 @@ def get_probs(model, classification: str, X: pd.DataFrame) -> np.ndarray:
         return model.predict_proba(X)
 
 
-def brier_loss_multi(y_val: np.ndarray, probs: np.ndarray) -> float:
+def brier_loss_multi(y: np.ndarray, probs: np.ndarray) -> float:
     """Calculates the multiclass Brier score.
 
     Args:
-        y_val (np.ndarray): True labels for the validation data.
+        y (np.ndarray): True labels for the validation data.
         probs (np.ndarray): Probability predictions for each class.
             For binary classification, this is the probability for the positive class.
             For multiclass, it is a 2D array with probabilities.
@@ -43,16 +43,16 @@ def brier_loss_multi(y_val: np.ndarray, probs: np.ndarray) -> float:
     Returns:
         float: The calculated multiclass Brier score.
     """
-    y_bin = label_binarize(y_val, classes=np.unique(y_val))
+    y_bin = label_binarize(y, classes=np.unique(y))
     g = y_bin.shape[1]
-    return np.mean([brier_score_loss(y_bin[:, i], probs[:, i]) for i in range(g)]) * (
-        g / 2
-    )
+    return np.mean(
+        [brier_score_loss(y_true=y_bin[:, i], y_prob=probs[:, i]) for i in range(g)]
+    ) * (g / 2)
 
 
 def final_metrics(
     classification: str,
-    y_test: np.ndarray,
+    y: np.ndarray,
     preds: np.ndarray,
     probs: Union[np.ndarray, None],
     threshold: Union[float, None] = None,
@@ -61,7 +61,7 @@ def final_metrics(
 
     Args:
         classification (str): The type of classification.
-        y_test (np.ndarray): Ground truth (actual) labels.
+        y (np.ndarray): Ground truth (actual) labels.
         preds (np.ndarray): Predicted labels from the model.
         probs (Union[np.ndarray, None]): Predicted probabilities from model.
             Only used for binary classification and if available.
@@ -72,17 +72,17 @@ def final_metrics(
         Dict[str, Any]: Dictionary of evaluation metrics.
     """
     if classification == "binary":
-        f1: float = f1_score(y_test, preds, pos_label=0)
-        precision: float = precision_score(y_test, preds, pos_label=0)
-        recall: float = recall_score(y_test, preds, pos_label=0)
-        accuracy: float = accuracy_score(y_test, preds)
+        f1: float = f1_score(y_true=y, y_pred=preds, pos_label=0)
+        precision: float = precision_score(y_true=y, y_pred=preds, pos_label=0)
+        recall: float = recall_score(y_true=y, y_pred=preds, pos_label=0)
+        accuracy: float = accuracy_score(y_true=y, y_pred=preds)
         brier_score_value: Union[float, None] = (
-            brier_score_loss(y_test, probs) if probs is not None else None
+            brier_score_loss(y_true=y, y_prob=probs) if probs is not None else None
         )
         roc_auc_value: Union[float, None] = (
-            roc_auc_score(y_test, probs) if probs is not None else None
+            roc_auc_score(y, probs) if probs is not None else None
         )
-        conf_matrix: np.ndarray = confusion_matrix(y_test, preds)
+        conf_matrix: np.ndarray = confusion_matrix(y, preds)
 
         return {
             "F1 Score": f1,
@@ -96,12 +96,12 @@ def final_metrics(
         }
 
     elif classification == "multiclass":
-        brier_score: float = brier_loss_multi(y_test, probs)
+        brier_score: float = brier_loss_multi(y=y, probs=probs)
 
         return {
-            "Macro F1": f1_score(y_test, preds, average="macro"),
-            "Accuracy": accuracy_score(y_test, preds),
-            "Class F1 Scores": f1_score(y_test, preds, average=None),
+            "Macro F1": f1_score(y_true=y, y_pred=preds, average="macro"),
+            "Accuracy": accuracy_score(y_true=y, y_pred=preds),
+            "Class F1 Scores": f1_score(y_true=y, y_pred=preds, average=None),
             "Multiclass Brier Score": brier_score,
         }
 

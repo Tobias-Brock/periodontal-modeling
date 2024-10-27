@@ -5,9 +5,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from pamod.benchmarking import BaseBenchmark, BaseExperiment
-from pamod.config import PROCESSED_BASE_DIR
-from pamod.data import ProcessedDataLoader
+from ..config import PROCESSED_BASE_DIR
+from ..data import ProcessedDataLoader
+from ._basebenchmark import BaseBenchmark, BaseExperiment
 
 
 class Experiment(BaseExperiment):
@@ -64,8 +64,8 @@ class Experiment(BaseExperiment):
                 if the criterion is "f1". Defaults to True.
             verbosity (bool): Enables verbose output if set to True.
         """
-        self.df = df
         super().__init__(
+            df=df,
             task=task,
             learner=learner,
             criterion=criterion,
@@ -94,39 +94,15 @@ class Experiment(BaseExperiment):
             dict: A dictionary containing the trained model and its evaluation metrics.
         """
         train_df, _ = self.resampler.split_train_test_df(
-            self.df, self.test_seed, self.test_size
+            df=self.df, seed=self.test_seed, test_size=self.test_size
         )
 
         if self.tuning == "holdout":
-            return self._evaluate_holdout(train_df)
+            return self._evaluate_holdout(train_df=train_df)
         elif self.tuning == "cv":
             return self._evaluate_cv()
         else:
             raise ValueError(f"Unsupported tuning method: {self.tuning}")
-
-    def _train_final_model(
-        self, final_model_tuple: Tuple[str, Dict, Optional[float]]
-    ) -> dict:
-        """Helper method to train the final model with best parameters.
-
-        Args:
-            final_model_tuple (Tuple[str, Dict, Optional[float]]): A tuple containing
-                the learner name, best hyperparameters, and an optional best threshold.
-
-        Returns:
-            dict: A dictionary containing the trained model and its evaluation metrics.
-        """
-        return self.trainer.train_final_model(
-            self.df,
-            self.resampler,
-            final_model_tuple,
-            self.sampling,
-            self.factor,
-            self.n_jobs,
-            self.test_seed,
-            self.test_size,
-            self.verbosity,
-        )
 
     def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
         """Perform holdout validation and return the final model metrics.
@@ -138,17 +114,20 @@ class Experiment(BaseExperiment):
             dict: A dictionary of evaluation metrics for the final model.
         """
         train_df_h, test_df_h = self.resampler.split_train_test_df(
-            train_df, self.test_seed, self.val_size
+            df=train_df, seed=self.test_seed, test_size=self.val_size
         )
         X_train_h, y_train_h, X_val, y_val = self.resampler.split_x_y(
-            train_df_h, test_df_h, self.sampling, self.factor
+            train_df=train_df_h,
+            test_df=test_df_h,
+            sampling=self.sampling,
+            factor=self.factor,
         )
         best_params, best_threshold = self.tuner.holdout(
-            self.learner,
-            X_train_h,
-            y_train_h,
-            X_val,
-            y_val,
+            learner=self.learner,
+            X_train=X_train_h,
+            y_train=y_train_h,
+            X_val=X_val,
+            y_val=y_val,
         )
         final_model = (self.learner, best_params, best_threshold)
 
@@ -161,15 +140,19 @@ class Experiment(BaseExperiment):
             dict: A dictionary of evaluation metrics for the final model.
         """
         outer_splits, _ = self.resampler.cv_folds(
-            self.df, self.sampling, self.factor, self.cv_seed, self.cv_folds
+            df=self.df,
+            sampling=self.sampling,
+            factor=self.factor,
+            seed=self.cv_seed,
+            n_folds=self.cv_folds,
         )
         best_params, best_threshold = self.tuner.cv(
-            self.learner,
-            outer_splits,
+            learner=self.learner,
+            outer_splits=outer_splits,
         )
         final_model = (self.learner, best_params, best_threshold)
 
-        return self._train_final_model(final_model)
+        return self._train_final_model(final_model_tuple=final_model)
 
 
 class Benchmarker(BaseBenchmark):
@@ -229,27 +212,27 @@ class Benchmarker(BaseBenchmark):
             name (str): File name for the processed data.
         """
         super().__init__(
-            task,
-            learners,
-            tuning_methods,
-            hpo_methods,
-            criteria,
-            encodings,
-            sampling,
-            factor,
-            n_configs,
-            n_jobs,
-            cv_folds,
-            racing_folds,
-            test_seed,
-            test_size,
-            val_size,
-            cv_seed,
-            mlp_flag,
-            threshold_tuning,
-            verbosity,
-            path,
-            name,
+            task=task,
+            learners=learners,
+            tuning_methods=tuning_methods,
+            hpo_methods=hpo_methods,
+            criteria=criteria,
+            encodings=encodings,
+            sampling=sampling,
+            factor=factor,
+            n_configs=n_configs,
+            n_jobs=n_jobs,
+            cv_folds=cv_folds,
+            racing_folds=racing_folds,
+            test_seed=test_seed,
+            test_size=test_size,
+            val_size=val_size,
+            cv_seed=cv_seed,
+            mlp_flag=mlp_flag,
+            threshold_tuning=threshold_tuning,
+            verbosity=verbosity,
+            path=path,
+            name=name,
         )
         self.data_cache = self._load_data_for_tasks()
 
@@ -264,15 +247,26 @@ class Benchmarker(BaseBenchmark):
             cache_key = encoding
 
             if cache_key not in data_cache:
-                dataloader = ProcessedDataLoader(self.task, encoding)
-                df = dataloader.load_data(self.path, self.name)
+                dataloader = ProcessedDataLoader(task=self.task, encoding=encoding)
+                df = dataloader.load_data(path=self.path, name=self.name)
                 transformed_df = dataloader.transform_data(df)
                 data_cache[cache_key] = transformed_df
 
         return data_cache
 
     def run_all_benchmarks(self) -> Tuple[pd.DataFrame, dict]:
-        """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
+        """Benchmark all combinations of inputs.
+
+        Returns:
+            Tuple[pd.DataFrame, dict]:
+                - A DataFrame summarizing the benchmark results with metrics for each
+                configuration.
+                - A dictionary mapping model keys to trained models for the top
+                configurations per criterion.
+
+        Raises:
+            KeyError: If an unknown criterion is encountered in `metric_map`.
+        """
         results = []
         learners_dict = {}
         top_models_per_criterion: Dict[
@@ -409,43 +403,9 @@ class Benchmarker(BaseBenchmark):
                 learners_dict[learners_dict_key] = model
 
         df_results = pd.DataFrame(results)
-        pd.set_option("display.max_columns", None)
-        pd.set_option("display.width", 1000)
+        pd.set_option("display.max_columns", None, "display.width", 1000)
 
         if self.verbosity:
-            print("\nBenchmark Results Summary:")
-            print(df_results)
+            print(f"\nBenchmark Results Summary:\n{df_results}")
 
         return df_results, learners_dict
-
-
-def main():
-    task = "pocketclosure"
-    # learners = ["xgb", "rf", "lr", "mlp"]
-    learners = ["xgb"]
-    tuning_methods = ["holdout"]
-    hpo_methods = ["hebo"]
-    criteria = ["f1"]
-    encoding = ["one_hot"]
-
-    benchmarker = Benchmarker(
-        task=task,
-        learners=learners,
-        tuning_methods=tuning_methods,
-        hpo_methods=hpo_methods,
-        criteria=criteria,
-        encodings=encoding,
-        sampling=[None],
-        factor=2,
-        n_configs=3,
-        racing_folds=3,
-        n_jobs=-1,
-        threshold_tuning=False,
-        verbosity=True,
-    )
-
-    benchmarker.run_all_benchmarks()
-
-
-if __name__ == "__main__":
-    main()

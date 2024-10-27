@@ -5,8 +5,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
 
-from pamod.base import BaseValidator
-from pamod.learner._parameters import (
+from ..base import BaseValidator
+from ._parameters import (
     get_lr_params_hebo_oh,
     get_mlp_params_hebo,
     get_rf_params_hebo,
@@ -35,7 +35,7 @@ class Model(BaseValidator):
             hpo (str, optional): The hyperparameter optimization method to use
                 (default None).
         """
-        super().__init__(classification, hpo)
+        super().__init__(classification=classification, hpo=hpo)
         self.learner = learner
 
     def _get_model_instance(self):

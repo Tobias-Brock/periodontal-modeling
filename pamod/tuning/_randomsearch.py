@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 from sklearn.base import clone
 
-from pamod.learner import Model
-from pamod.training import Trainer
-from pamod.tuning._basetuner import BaseTuner, MetaTuner
+from ..learner import Model
+from ..training import Trainer
+from ._basetuner import BaseTuner
 
 
-class RandomSearchTuner(BaseTuner, MetaTuner):
+class RandomSearchTuner(BaseTuner):
     def __init__(
         self,
         classification: str,
@@ -47,23 +47,23 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                 if the criterion is "f1". Defaults to True.
         """
         super().__init__(
-            classification,
-            criterion,
-            tuning,
-            hpo,
-            n_configs,
-            n_jobs,
-            verbosity,
-            trainer,
-            mlp_training,
-            threshold_tuning,
+            classification=classification,
+            criterion=criterion,
+            tuning=tuning,
+            hpo=hpo,
+            n_configs=n_configs,
+            n_jobs=n_jobs,
+            verbosity=verbosity,
+            trainer=trainer,
+            mlp_training=mlp_training,
+            threshold_tuning=threshold_tuning,
         )
 
     def holdout(
         self,
         learner: str,
-        X_train_h: pd.DataFrame,
-        y_train_h: pd.Series,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
     ) -> Tuple[Dict[str, Union[float, int]], Union[float, None]]:
@@ -71,8 +71,8 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
 
         Args:
             learner (str): The machine learning model used for evaluation.
-            X_train_h (pd.DataFrame): Training features for the holdout set.
-            y_train_h (pd.Series): Training labels for the holdout set.
+            X_train (pd.DataFrame): Training features for the holdout set.
+            y_train (pd.Series): Training labels for the holdout set.
             X_val (pd.DataFrame): Validation features for the holdout set.
             y_val (pd.Series): Validation labels for the holdout set.
 
@@ -88,25 +88,34 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             best_params,
             param_grid,
             model,
-        ) = self._initialize_search(learner)
+        ) = self._initialize_search(learner=learner)
 
         for i in range(self.n_configs):
-            params = self._sample_params(param_grid, i)
+            params = self._sample_params(param_grid=param_grid, iteration=i)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=self.n_jobs)
 
             score, model_clone, threshold = self.trainer.train(
-                model_clone, X_train_h, y_train_h, X_val, y_val
+                model_clone, X_train, y_train, X_val, y_val
             )
 
             best_score, best_params, best_threshold = self._update_best(
-                score, params, threshold, best_score, best_params, best_threshold
+                current_score=score,
+                params=params,
+                threshold=threshold,
+                best_score=best_score,
+                best_params=best_params,
+                best_threshold=best_threshold,
             )
 
             if self.verbosity:
                 self._print_iteration_info(
-                    i, model_clone, params, score, best_threshold
+                    iteration=i,
+                    model=model_clone,
+                    params_dict=params,
+                    score=score,
+                    threshold=best_threshold,
                 )
 
         return best_params, best_threshold
@@ -115,7 +124,6 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         self,
         learner: str,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
-        n_configs: int,
         racing_folds: Union[int, None],
     ) -> Tuple[dict, Union[float, None]]:
         """Perform cross-validation with optional racing and hyperparameter tuning.
@@ -132,23 +140,35 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
                 Best hyperparameters, and optimal threshold (if applicable).
         """
-        best_score, _, best_params, param_grid, model = self._initialize_search(learner)
+        best_score, _, best_params, param_grid, model = self._initialize_search(
+            learner=learner
+        )
 
-        for i in range(n_configs):
+        for i in range(self.n_configs):
             params = self._sample_params(param_grid)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=self.n_jobs)
             scores = self._evaluate_folds(
-                model_clone, best_score, outer_splits, racing_folds
+                model=model_clone,
+                best_score=best_score,
+                outer_splits=outer_splits,
+                racing_folds=racing_folds,
             )
             avg_score = np.mean(scores)
             best_score, best_params, _ = self._update_best(
-                avg_score, params, None, best_score, best_params, None
+                current_score=avg_score,
+                params=params,
+                threshold=None,
+                best_score=best_score,
+                best_params=best_params,
+                best_threshold=None,
             )
 
             if self.verbosity:
-                self._print_iteration_info(i, model_clone, params, avg_score)
+                self._print_iteration_info(
+                    iteration=i, model=model_clone, params_dict=params, score=avg_score
+                )
 
         if (
             self.classification == "binary"
@@ -156,7 +176,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
             and self.threshold_tuning
         ):
             optimal_threshold = self.trainer.optimize_threshold(
-                model_clone, outer_splits, self.n_jobs
+                model=model_clone, outer_splits=outer_splits, n_jobs=self.n_jobs
             )
         else:
             optimal_threshold = None
@@ -165,7 +185,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
 
     def _evaluate_folds(
         self,
-        model_clone,
+        model,
         best_score: float,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         racing_folds: Union[int, None],
@@ -173,7 +193,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         """Evaluate the model across folds using cross-validation or racing strategy.
 
         Args:
-            model_clone (sklearn estimator): The cloned model to evaluate.
+            model (sklearn estimator): The cloned model to evaluate.
             best_score (float): The best score recorded so far.
             outer_splits (list of tuples): List of training/validation folds.
             racing_folds (int or None): Number of folds to use for the racing strategy.
@@ -185,14 +205,14 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         num_folds = len(outer_splits)
         if racing_folds is None or racing_folds >= num_folds:
             scores = Parallel(n_jobs=self.n_jobs)(
-                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
+                delayed(self.trainer.evaluate_cv)(deepcopy(model), fold)
                 for fold in outer_splits
             )
         else:
             selected_indices = random.sample(range(num_folds), racing_folds)
             selected_folds = [outer_splits[i] for i in selected_indices]
             initial_scores = Parallel(n_jobs=self.n_jobs)(
-                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
+                delayed(self.trainer.evaluate_cv)(deepcopy(model), fold)
                 for fold in selected_folds
             )
             avg_initial_score = np.mean(initial_scores)
@@ -206,7 +226,7 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
                     if i not in selected_indices
                 ]
                 continued_scores = Parallel(n_jobs=self.n_jobs)(
-                    delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
+                    delayed(self.trainer.evaluate_cv)(deepcopy(model), fold)
                     for fold in remaining_folds
                 )
                 scores = initial_scores + continued_scores
@@ -237,7 +257,9 @@ class RandomSearchTuner(BaseTuner, MetaTuner):
         )
         best_threshold = None
         best_params: Dict[str, Union[float, int]] = {}
-        model, param_grid = Model.get(learner, self.classification, self.hpo)
+        model, param_grid = Model.get(
+            learner=learner, classification=self.classification, hpo=self.hpo
+        )
 
         return best_score, best_threshold, best_params, param_grid, model
 

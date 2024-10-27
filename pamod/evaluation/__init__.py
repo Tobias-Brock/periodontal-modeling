@@ -1,7 +1,9 @@
 """Module for evaluation methods."""
 
-from pamod.evaluation._eval import Evaluator
+from pamod.evaluation._baseeval import BaseModelEvaluator
+from pamod.evaluation._eval import ModelEvaluator
 
 __all__ = [
-    "Evaluator",
+    "BaseModelEvaluator",
+    "ModelEvaluator",
 ]
