@@ -1,20 +1,16 @@
 import os
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import joblib
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
-from pamod.base import BaseHydra, Patient, patient_to_dataframe
-from pamod.benchmarking import BaseBenchmark, Baseline, Benchmarker
-from pamod.config import MODELS_DIR, PROCESSED_BASE_DIR, REPORTS_DIR
-from pamod.data import ProcessedDataLoader
-from pamod.evaluation import Evaluator
-from pamod.inference import ModelInference
-from pamod.resampling import Resampler
-from pamod.training import Trainer
+from ..base import Patient, patient_to_dataframe
+from ..benchmarking import BaseBenchmark, Baseline, Benchmarker
+from ..config import MODELS_DIR, PROCESSED_BASE_DIR, REPORTS_DIR
+from ..wrapper import BaseEvaluatorWrapper
 
 
 def load_benchmark(
@@ -141,27 +137,27 @@ class BenchmarkWrapper(BaseBenchmark):
             name (str): File name for the processed data.
         """
         super().__init__(
-            task,
-            learners,
-            tuning_methods,
-            hpo_methods,
-            criteria,
-            encodings,
-            sampling,
-            factor,
-            n_configs,
-            n_jobs,
-            cv_folds,
-            racing_folds,
-            test_seed,
-            test_size,
-            val_size,
-            cv_seed,
-            mlp_flag,
-            threshold_tuning,
-            verbosity,
-            path,
-            name,
+            task=task,
+            learners=learners,
+            tuning_methods=tuning_methods,
+            hpo_methods=hpo_methods,
+            criteria=criteria,
+            encodings=encodings,
+            sampling=sampling,
+            factor=factor,
+            n_configs=n_configs,
+            n_jobs=n_jobs,
+            cv_folds=cv_folds,
+            racing_folds=racing_folds,
+            test_seed=test_seed,
+            test_size=test_size,
+            val_size=val_size,
+            cv_seed=cv_seed,
+            mlp_flag=mlp_flag,
+            threshold_tuning=threshold_tuning,
+            verbosity=verbosity,
+            path=path,
+            name=name,
         )
         self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
 
@@ -266,7 +262,7 @@ class BenchmarkWrapper(BaseBenchmark):
             print(f"Saved model {model_name} to {model_path}")
 
 
-class EvaluatorWrapper(BaseHydra):
+class EvaluatorWrapper(BaseEvaluatorWrapper):
     """Wrapper class for model evaluation and inference, including jackknife resampling.
 
     Args:
@@ -276,25 +272,6 @@ class EvaluatorWrapper(BaseHydra):
             Defaults to True.
         verbosity (bool, optional): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
-
-    Attributes:
-        classification (str): The classification type ('binary' or 'multiclass').
-        learners_dict (dict): Dictionary containing trained models.
-        criterion (str): Criterion used for model selection.
-        aggregate (bool): Whether to aggregate one-hot encoding.
-        verbosity (bool): Enables verbose logging if True.
-        model (object): The selected best model.
-        encoding (str): The encoding type ('one_hot' or 'target').
-        train_df (pd.DataFrame): The training data.
-        _test_df (pd.DataFrame): The testing data (unused).
-        X_train (pd.DataFrame): The features of the training set.
-        y_train (pd.Series): The target variable for the training set.
-        X_test (pd.DataFrame): The features of the test set.
-        y_test (pd.Series): The target variable for the test set.
-        base_target (np.ndarray): Baseline target values for evaluation.
-        evaluator (Evaluator): Evaluator object for evaluating the model's performance.
-        inference_engine (ModelInference): Inference engine for making predictions
-            and performing jackknife resampling.
     """
 
     def __init__(
@@ -305,143 +282,12 @@ class EvaluatorWrapper(BaseHydra):
         verbosity: bool = False,
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup."""
-        super().__init__()
-        self.learners_dict = learners_dict
-        self.criterion = criterion
-        self.aggregate = aggregate
-        self.verbosity = verbosity
-        (
-            self.model,
-            self.encoding,
-            self.learner,
-            self.task,
-            self.factor,
-            self.sampling,
-        ) = self._get_best()
-        self.classification = (
-            "multiclass" if self.task == "pdgrouprevaluation" else "binary"
+        super().__init__(
+            learners_dict=learners_dict,
+            criterion=criterion,
+            aggregate=aggregate,
+            verbosity=verbosity,
         )
-        self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
-        self.resampler = Resampler(
-            classification=self.classification, encoding=self.encoding
-        )
-        (
-            self.df,
-            self.train_df,
-            self._test_df,
-            self.X_train,
-            self.y_train,
-            self.X_test,
-            self.y_test,
-            self.base_target,
-        ) = self._prepare_data_for_evaluation()
-        self.evaluator = Evaluator(
-            model=self.model,
-            X_test=self.X_test,
-            y_test=self.y_test,
-            encoding=self.encoding,
-            aggregate=self.aggregate,
-        )
-        self.inference_engine = ModelInference(
-            self.classification, self.model, self.verbosity
-        )
-        self.trainer = Trainer(self.classification, self.criterion, None, None)
-
-    def _get_best(self) -> Tuple[Any, str, str, str, Optional[float], Optional[str]]:
-        """Retrieves best model entities.
-
-        Returns:
-            Tuple: A tuple containing the best model, encoding ('one_hot' or 'target'),
-                learner, task, factor, and sampling type (if applicable).
-
-        Raises:
-            ValueError: If model with rank1 is not found, or any component cannot be
-                determined.
-        """
-        best_model_key = next(
-            (
-                key
-                for key in self.learners_dict
-                if f"_{self.criterion}_" in key and "rank1" in key
-            ),
-            None,
-        )
-
-        if not best_model_key:
-            raise ValueError(
-                f"No model with rank1 found for criterion '{self.criterion}' in dict."
-            )
-
-        best_model = self.learners_dict[best_model_key]
-
-        if "one_hot" in best_model_key:
-            encoding = "one_hot"
-        elif "target" in best_model_key:
-            encoding = "target"
-        else:
-            raise ValueError("Unable to determine encoding from the model key.")
-
-        if "upsampling" in best_model_key:
-            sampling = "upsampling"
-        elif "downsampling" in best_model_key:
-            sampling = "downsampling"
-        elif "smote" in best_model_key:
-            sampling = "smote"
-        else:
-            sampling = None
-
-        key_parts = best_model_key.split("_")
-        task = key_parts[0]
-        learner = key_parts[1]
-
-        for part in key_parts:
-            if part.startswith("factor"):
-                factor_value = part.replace("factor", "")
-                if factor_value.isdigit():
-                    factor = float(factor_value)
-                else:
-                    factor = None
-
-        return best_model, encoding, learner, task, factor, sampling
-
-    def _prepare_data_for_evaluation(
-        self,
-        seed: Optional[int] = None,
-    ) -> Tuple[
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        Optional[np.ndarray],
-    ]:
-        """Prepares data for evaluation.
-
-        Args:
-            seed (Optional[int]): Seed for train test split. Defaults to None.
-
-        Returns:
-            Tuple: df, train_df, test_df, X_train, y_train, X_test, y_test,
-                and optionally base_target.
-        """
-        df = self.dataloader.load_data()
-
-        if self.task in ["pocketclosure", "pdgrouprevaluation"]:
-            base_target = self._generate_base_target(df)
-
-        df = self.dataloader.transform_data(df)
-        seed = seed if seed is not None else self.random_state_split
-        train_df, test_df = self.resampler.split_train_test_df(df, seed)
-
-        if self.task in ["pocketclosure", "pdgrouprevaluation"]:
-            test_patient_ids = test_df[self.group_col]
-            base_target = base_target[df[self.group_col].isin(test_patient_ids)].values
-
-        X_train, y_train, X_test, y_test = self.resampler.split_x_y(train_df, test_df)
-
-        return df, train_df, test_df, X_train, y_train, X_test, y_test, base_target
 
     def wrapped_evaluation(
         self,
@@ -450,12 +296,8 @@ class EvaluatorWrapper(BaseHydra):
         brier_groups: bool = True,
         cluster: bool = True,
         n_cluster: int = 3,
-    ) -> Evaluator:
-        """Runs evaluation on best-ranked model from learners_dict based on criterion.
-
-        Returns:
-            Evaluator: The evaluation object for the selected model.
-        """
+    ) -> None:
+        """Runs evaluation on best-ranked model based on criterion."""
         if cm:
             self.evaluator.plot_confusion_matrix()
         if cm_base:
@@ -468,40 +310,13 @@ class EvaluatorWrapper(BaseHydra):
         if cluster:
             self.evaluator.analyze_brier_within_clusters(n_clusters=n_cluster)
 
-        return self.evaluator
-
-    def evaluate_feature_importance(self, importance_types: List[str]):
+    def evaluate_feature_importance(self, fi_types: List[str]):
         """Evaluates feature importance using the provided evaluator.
 
         Args:
-            importance_types (List[str]): List of feature importance types.
+            fi_types (List[str]): List of feature importance types.
         """
-        self.evaluator.evaluate_feature_importance(importance_types=importance_types)
-
-    def _generate_base_target(self, df: pd.DataFrame) -> pd.Series:
-        """Generates the target column before treatment based on the task.
-
-        Args:
-            df (pd.DataFrame): The input dataframe.
-
-        Returns:
-            pd.Series: The target before column for evaluation.
-        """
-        if self.task == "pocketclosure":
-            return df.apply(
-                lambda row: (
-                    0
-                    if row["pdbaseline"] == 4
-                    and row["bop"] == 2
-                    or row["pdbaseline"] > 4
-                    else 1
-                ),
-                axis=1,
-            )
-        elif self.task == "pdgrouprevaluation":
-            return df["pdgroupbase"]
-        else:
-            raise ValueError(f"Task '{self.task}' is not recognized.")
+        self.evaluator.evaluate_feature_importance(fi_types=fi_types)
 
     def average_over_splits(
         self, num_splits: int = 5, n_jobs: int = -1
@@ -552,36 +367,6 @@ class EvaluatorWrapper(BaseHydra):
         df_results = pd.DataFrame([results])
         return df_results
 
-    def _train_and_get_metrics(self, seed: int, learner: str, n_jobs: int = -1) -> dict:
-        """Helper function to run `train_final_model` with a specific seed.
-
-        Args:
-            seed (int): Seed value for train-test split.
-            learner (str): Type of learner, used for MLP-specific training logic.
-            n_jobs (int): Number of parallel jobs. Defaults to -1 (use all processors).
-
-        Returns:
-            dict: Metrics from `train_final_model`.
-        """
-        best_params = (
-            self.model.get_params() if hasattr(self.model, "get_params") else {}
-        )
-        best_threshold = getattr(self.model, "best_threshold", None)
-        model_tuple = (learner, best_params, best_threshold)
-
-        result = self.trainer.train_final_model(
-            df=self.df,
-            resampler=self.resampler,
-            model=model_tuple,
-            sampling=self.sampling,
-            factor=self.factor,
-            n_jobs=n_jobs,
-            seed=seed,
-            test_size=self.test_set_size,
-            verbosity=self.verbosity,
-        )
-        return result["metrics"]
-
     def wrapped_patient_inference(
         self,
         patient: Patient,
@@ -596,12 +381,18 @@ class EvaluatorWrapper(BaseHydra):
             pd.DataFrame: DataFrame with predictions and probabilities for each side
             of the patient's teeth.
         """
-        patient_data = patient_to_dataframe(patient)
+        patient_data = patient_to_dataframe(patient=patient)
         predict_data, patient_data = self.inference_engine.prepare_inference(
-            self.task, patient_data, self.encoding, self.X_train, self.y_train
+            task=self.task,
+            patient_data=patient_data,
+            encoding=self.encoding,
+            X_train=self.X_train,
+            y_train=self.y_train,
         )
 
-        return self.inference_engine.patient_inference(predict_data, patient_data)
+        return self.inference_engine.patient_inference(
+            predict_data=predict_data, patient_data=patient_data
+        )
 
     def wrapped_jackknife(
         self,
@@ -625,17 +416,21 @@ class EvaluatorWrapper(BaseHydra):
         Returns:
             pd.DataFrame: The results of jackknife inference.
         """
-        patient_data = patient_to_dataframe(patient)
+        patient_data = patient_to_dataframe(patient=patient)
         patient_data, _ = self.inference_engine.prepare_inference(
-            self.task, patient_data, self.encoding, self.X_train, self.y_train
+            task=self.task,
+            patient_data=patient_data,
+            encoding=self.encoding,
+            X_train=self.X_train,
+            y_train=self.y_train,
         )
         return self.inference_engine.jackknife_inference(
-            self.model,
-            self.train_df,
-            patient_data,
-            self.encoding,
-            results,
-            sample_fraction,
-            n_jobs,
-            max_plots,
+            model=self.model,
+            train_df=self.train_df,
+            patient_data=patient_data,
+            encoding=self.encoding,
+            inference_results=results,
+            sample_fraction=sample_fraction,
+            n_jobs=n_jobs,
+            max_plots=max_plots,
         )

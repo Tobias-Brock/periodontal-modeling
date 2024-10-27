@@ -64,6 +64,36 @@ scale_vars:
   - "recbaseline"
   - "cigarettenumber"
 
+infect_cols:
+  - "side_infected"
+  - "tooth_infected"
+  - "infected_neighbors"
+
+cat_map:
+  side: 6
+  restoration: 3
+  periofamilyhistory: 3
+  diabetes: 4
+  furcationbaseline: 3
+  smokingtype: 5
+  stresslvl: 3
+  toothtype: 3
+
+target_cols:
+  - "mobility"
+  - "percussion-sensitivity"
+  - "sensitivity"
+  - "pdbaseline"
+  - "recbaseline"
+  - "plaque"
+  - "bop"
+  - "age"
+  - "gender"
+  - "bodymassindex"
+  - "cigarettenumber"
+  - "antibiotictreatment"
+  - "rootnumber"
+
 behavior_columns:
   binary: ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"]
   categorical: ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"]

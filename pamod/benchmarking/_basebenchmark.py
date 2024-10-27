@@ -1,5 +1,8 @@
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
+
+import pandas as pd
 
 from pamod.base import BaseEvaluator, BaseHydra
 from pamod.resampling import Resampler
@@ -7,11 +10,12 @@ from pamod.training import Trainer
 from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
-class BaseExperiment(BaseEvaluator):
+class BaseExperiment(BaseEvaluator, ABC):
     """Base class to handle common attributes for benchmarking-related classes."""
 
     def __init__(
         self,
+        df: pd.DataFrame,
         task: str,
         learner: str,
         criterion: str,
@@ -59,7 +63,10 @@ class BaseExperiment(BaseEvaluator):
         """
         self.task = task
         classification = self._determine_classification()
-        super().__init__(classification, criterion, tuning, hpo)
+        super().__init__(
+            classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
+        )
+        self.df = df
         self.learner = learner
         self.encoding = encoding
         self.sampling = sampling
@@ -105,32 +112,72 @@ class BaseExperiment(BaseEvaluator):
         """Initialize the appropriate tuner based on the hpo method."""
         if self.hpo == "rs":
             return RandomSearchTuner(
-                self.classification,
-                self.criterion,
-                self.tuning,
-                self.hpo,
-                self.n_configs,
-                self.n_jobs,
-                self.verbosity,
-                self.trainer,
-                self.mlp_flag,
-                self.threshold_tuning,
+                classification=self.classification,
+                criterion=self.criterion,
+                tuning=self.tuning,
+                hpo=self.hpo,
+                n_configs=self.n_configs,
+                n_jobs=self.n_jobs,
+                verbosity=self.verbosity,
+                trainer=self.trainer,
+                mlp_training=self.mlp_flag,
+                threshold_tuning=self.threshold_tuning,
             )
         elif self.hpo == "hebo":
             return HEBOTuner(
-                self.classification,
-                self.criterion,
-                self.tuning,
-                self.hpo,
-                self.n_configs,
-                self.n_jobs,
-                self.verbosity,
-                self.trainer,
-                self.mlp_flag,
-                self.threshold_tuning,
+                classification=self.classification,
+                criterion=self.criterion,
+                tuning=self.tuning,
+                hpo=self.hpo,
+                n_configs=self.n_configs,
+                n_jobs=self.n_jobs,
+                verbosity=self.verbosity,
+                trainer=self.trainer,
+                mlp_training=self.mlp_flag,
+                threshold_tuning=self.threshold_tuning,
             )
         else:
             raise ValueError(f"Unsupported HPO method: {self.hpo}")
+
+    def _train_final_model(
+        self, final_model_tuple: Tuple[str, Dict, Optional[float]]
+    ) -> dict:
+        """Helper method to train the final model with best parameters.
+
+        Args:
+            final_model_tuple (Tuple[str, Dict, Optional[float]]): A tuple containing
+                the learner name, best hyperparameters, and an optional best threshold.
+
+        Returns:
+            dict: A dictionary containing the trained model and its evaluation metrics.
+        """
+        return self.trainer.train_final_model(
+            df=self.df,
+            resampler=self.resampler,
+            model=final_model_tuple,
+            sampling=self.sampling,
+            factor=self.factor,
+            n_jobs=self.n_jobs,
+            seed=self.test_seed,
+            test_size=self.test_size,
+            verbosity=self.verbosity,
+        )
+
+    @abstractmethod
+    def perform_evaluation(self) -> dict:
+        """Perform model evaluation and return final metrics."""
+
+    @abstractmethod
+    def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
+        """Perform holdout validation and return the final model metrics.
+
+        Args:
+            train_df (pd.DataFrame): train df for holdout tuning.
+        """
+
+    @abstractmethod
+    def _evaluate_cv(self) -> dict:
+        """Perform cross-validation and return the final model metrics."""
 
 
 class BaseBenchmark(BaseHydra):

@@ -4,10 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables from .env file if it exists
 load_dotenv()
 
-# Paths
 PROJ_ROOT = Path(__file__).resolve().parents[1]
 
 DATA_DIR = PROJ_ROOT / "data"
@@ -16,6 +14,7 @@ INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 PROCESSED_BEHAVIOR_DIR = PROCESSED_DATA_DIR / "behavior"
 PROCESSED_BASE_DIR = PROCESSED_DATA_DIR / "base"
+TRAINING_DATA_DIR = PROCESSED_BASE_DIR / "training"
 
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
 

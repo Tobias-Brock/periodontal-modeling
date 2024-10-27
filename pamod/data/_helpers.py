@@ -3,7 +3,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from pamod.base import BaseHydra
+from ..base import BaseHydra
 
 
 def _get_side() -> dict:
@@ -68,7 +68,8 @@ class ProcessDataHelper(BaseHydra):
         self.teeth_neighbors = _get_teeth_neighbors()
         self.sides_with_fur = _get_side()
 
-    def check_infection(self, depth: int, boprevaluation: int) -> int:
+    @staticmethod
+    def check_infection(depth: int, boprevaluation: int) -> int:
         """Check if a given tooth side is infected.
 
         Args:
@@ -84,7 +85,7 @@ class ProcessDataHelper(BaseHydra):
             return 1
         return 0
 
-    def tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
+    def _tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
         """Returns adjacent teeth for a given tooth.
 
         Args:
@@ -120,7 +121,7 @@ class ProcessDataHelper(BaseHydra):
             ].apply(
                 lambda tooth, infected_teeth=infected_teeth: sum(
                     1
-                    for neighbor in self.tooth_neighbor(tooth)
+                    for neighbor in self._tooth_neighbor(nr=tooth)
                     if neighbor in infected_teeth
                 )
             )
@@ -197,14 +198,14 @@ class ProcessDataHelper(BaseHydra):
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
         df["plaque"] = df.apply(
-            lambda row: self._plaque_values(row, modes_dict), axis=1
+            lambda row: self._plaque_values(row=row, modes_dict=modes_dict), axis=1
         )
 
         df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
 
         return df
 
-    def fur_side(self, nr: int) -> Union[np.ndarray, str]:
+    def _fur_side(self, nr: int) -> Union[np.ndarray, str]:
         """Returns the sides for the input tooth that should have furcations.
 
         Args:
@@ -219,7 +220,7 @@ class ProcessDataHelper(BaseHydra):
                 return np.array(value)
         return "Tooth without Furkation"
 
-    def fur_values(self, row: pd.Series) -> int:
+    def _fur_values(self, row: pd.Series) -> int:
         """Calculate values for the FurcationBaseline column.
 
         Args:
@@ -236,7 +237,7 @@ class ProcessDataHelper(BaseHydra):
 
         if row["furcationbaseline_all_na"] == 1:
             if row["tooth"] in tooth_fur:
-                if row["side"] in self.fur_side(row["tooth"]):
+                if row["side"] in self._fur_side(nr=row["tooth"]):
                     if (row["pdbaseline"] + row["recbaseline"]) < 4:
                         return 0
                     elif 3 < (row["pdbaseline"] + row["recbaseline"]) < 6:
@@ -272,7 +273,7 @@ class ProcessDataHelper(BaseHydra):
             patients_with_all_nas[patients_with_all_nas].index
         )
 
-        df["furcationbaseline"] = df.apply(self.fur_values, axis=1)
+        df["furcationbaseline"] = df.apply(self._fur_values, axis=1)
         df = df.drop(["furcationbaseline_all_na"], axis=1)
 
         return df

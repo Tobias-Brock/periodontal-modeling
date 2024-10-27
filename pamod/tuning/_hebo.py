@@ -8,12 +8,12 @@ import numpy as np
 import pandas as pd
 from sklearn.base import clone
 
-from pamod.learner import Model
-from pamod.training import Trainer
-from pamod.tuning._basetuner import BaseTuner, MetaTuner
+from ..learner import Model
+from ..training import Trainer
+from ._basetuner import BaseTuner
 
 
-class HEBOTuner(BaseTuner, MetaTuner):
+class HEBOTuner(BaseTuner):
     """Hyperparameter tuning class using HEBO (Bayesian Optimization)."""
 
     def __init__(
@@ -51,23 +51,23 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 if the criterion is "f1". Defaults to True.
         """
         super().__init__(
-            classification,
-            criterion,
-            tuning,
-            hpo,
-            n_configs,
-            n_jobs,
-            verbosity,
-            trainer,
-            mlp_training,
-            threshold_tuning,
+            classification=classification,
+            criterion=criterion,
+            tuning=tuning,
+            hpo=hpo,
+            n_configs=n_configs,
+            n_jobs=n_jobs,
+            verbosity=verbosity,
+            trainer=trainer,
+            mlp_training=mlp_training,
+            threshold_tuning=threshold_tuning,
         )
 
     def holdout(
         self,
         learner: str,
-        X_train_h: pd.DataFrame,
-        y_train_h: pd.Series,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
@@ -75,8 +75,8 @@ class HEBOTuner(BaseTuner, MetaTuner):
 
         Args:
             learner (str): The machine learning model to evaluate.
-            X_train_h (pd.DataFrame): The training features for the holdout set.
-            y_train_h (pd.Series): The training labels for the holdout set.
+            X_train (pd.DataFrame): The training features for the holdout set.
+            y_train (pd.Series): The training labels for the holdout set.
             X_val (pd.DataFrame): The validation features for the holdout set.
             y_val (pd.Series): The validation labels for the holdout set.
 
@@ -85,18 +85,19 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 The best hyperparameters and the best threshold.
         """
         return self._run_optimization(
-            learner,
-            X_train_h,
-            y_train_h,
-            X_val,
-            y_val,
-            None,
+            learner=learner,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            outer_splits=None,
         )
 
     def cv(
         self,
         learner: str,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
+        racing_folds: Optional[int] = None,
     ) -> Tuple[Dict[str, Union[float, int]], Optional[float]]:
         """Perform Bayesian Optimization using HEBO with cross-validation.
 
@@ -104,18 +105,27 @@ class HEBOTuner(BaseTuner, MetaTuner):
             learner (str): The machine learning model to evaluate.
             outer_splits (List[Tuple[pd.DataFrame, pd.DataFrame]]):
                 List of cross-validation folds.
+            racing_folds (Optional[int]): Number of racing folds; if None, regular
+                cross-validation is performed.
 
         Returns:
             Tuple[Dict[str, Union[float, int]], Optional[float]]:
                 The best hyperparameters and the best threshold.
         """
-        return self._run_optimization(learner, None, None, None, None, outer_splits)
+        return self._run_optimization(
+            learner=learner,
+            X_train=None,
+            y_train=None,
+            X_val=None,
+            y_val=None,
+            outer_splits=outer_splits,
+        )
 
     def _run_optimization(
         self,
         learner: str,
-        X_train_h: Optional[pd.DataFrame],
-        y_train_h: Optional[pd.Series],
+        X_train: Optional[pd.DataFrame],
+        y_train: Optional[pd.Series],
         X_val: Optional[pd.DataFrame],
         y_val: Optional[pd.Series],
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
@@ -124,9 +134,9 @@ class HEBOTuner(BaseTuner, MetaTuner):
 
         Args:
             learner (str): The machine learning model to evaluate.
-            X_train_h (Optional[pd.DataFrame]): Training features for the holdout set
+            X_train (Optional[pd.DataFrame]): Training features for the holdout set
                 (None if using CV).
-            y_train_h (Optional[pd.Series]): Training labels for the holdout set
+            y_train (Optional[pd.Series]): Training labels for the holdout set
                 (None if using CV).
             X_val (Optional[pd.DataFrame]): Validation features for the holdout set
                 (None if using CV).
@@ -140,7 +150,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
                 The best hyperparameters and the best threshold.
         """
         model, search_space, params_func = Model.get(
-            learner, self.classification, self.hpo
+            learner=learner, classification=self.classification, hpo=self.hpo
         )
         space = DesignSpace().parse(search_space)
         optimizer = HEBO(space)
@@ -150,18 +160,20 @@ class HEBOTuner(BaseTuner, MetaTuner):
             params_dict = params_func(params_suggestion)
 
             score = self._objective(
-                model,
-                params_dict,
-                X_train_h,
-                y_train_h,
-                X_val,
-                y_val,
-                outer_splits,
+                model=model,
+                params_dict=params_dict,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                outer_splits=outer_splits,
             )
             optimizer.observe(pd.DataFrame([params_suggestion]), np.array([score]))
 
             if self.verbosity:
-                self._print_iteration_info(i, model, params_dict, score)
+                self._print_iteration_info(
+                    iteration=i, model=model, params_dict=params_dict, score=score
+                )
 
         best_params_idx = optimizer.y.argmin()
         best_params_df = optimizer.X.iloc[best_params_idx]
@@ -171,7 +183,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
             model_clone = clone(model).set_params(**best_params)
             if self.criterion == "f1":
                 if self.tuning == "holdout":
-                    model_clone.fit(X_train_h, y_train_h)
+                    model_clone.fit(X_train, y_train)
                     probs = model_clone.predict_proba(X_val)[:, 1]
                     _, best_threshold = self.trainer.evaluate(
                         y_val, probs, self.threshold_tuning
@@ -179,7 +191,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
 
                 elif self.tuning == "cv":
                     best_threshold = self.trainer.optimize_threshold(
-                        model_clone, outer_splits, self.n_jobs
+                        model=model_clone, outer_splits=outer_splits, n_jobs=self.n_jobs
                     )
 
         return best_params, best_threshold
@@ -188,8 +200,8 @@ class HEBOTuner(BaseTuner, MetaTuner):
         self,
         model,
         params_dict: Dict[str, Union[float, int]],
-        X_train_h: Optional[pd.DataFrame],
-        y_train_h: Optional[pd.Series],
+        X_train: Optional[pd.DataFrame],
+        y_train: Optional[pd.Series],
         X_val: Optional[pd.DataFrame],
         y_val: Optional[pd.Series],
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
@@ -200,9 +212,9 @@ class HEBOTuner(BaseTuner, MetaTuner):
             model: The machine learning model to evaluate.
             params_dict (Dict[str, Union[float, int]]): The suggested hyperparameters
                 as a dictionary.
-            X_train_h (Optional[pd.DataFrame]): Training features for the holdout set
+            X_train (Optional[pd.DataFrame]): Training features for the holdout set
                 (None for CV).
-            y_train_h (Optional[pd.Series]): Training labels for the holdout set
+            y_train (Optional[pd.Series]): Training labels for the holdout set
                 (None for CV).
             X_val (Optional[pd.DataFrame]): Validation features for the holdout set
                 (None for CV).
@@ -221,19 +233,19 @@ class HEBOTuner(BaseTuner, MetaTuner):
             model_clone.set_params(n_jobs=self.n_jobs if self.n_jobs is not None else 1)
 
         score = self.evaluate_objective(
-            model_clone,
-            X_train_h,
-            y_train_h,
-            X_val,
-            y_val,
-            outer_splits,
+            model=model_clone,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            outer_splits=outer_splits,
         )
 
         return -score if self.criterion in ["f1", "macro_f1"] else score
 
     def evaluate_objective(
         self,
-        model_clone,
+        model,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -245,7 +257,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         The tuning strategy can be either 'holdout' or 'cv' (cross-validation).
 
         Args:
-            model_clone: The cloned machine learning model to be
+            model: The cloned machine learning model to be
                 evaluated.
             X_train (pd.DataFrame): Training features for the holdout set.
             y_train (pd.Series): Training labels for the holdout set.
@@ -261,7 +273,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
         """
         if self.tuning == "holdout":
             score, _, _ = self.trainer.train(
-                model_clone, X_train, y_train, X_val, y_val
+                model=model, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
             )
             return score
 
@@ -271,7 +283,7 @@ class HEBOTuner(BaseTuner, MetaTuner):
                     "outer_splits cannot be None when using cross-validation."
                 )
             scores = Parallel(n_jobs=self.n_jobs)(
-                delayed(self.trainer.evaluate_cv)(deepcopy(model_clone), fold)
+                delayed(self.trainer.evaluate_cv)(deepcopy(model), fold)
                 for fold in outer_splits
             )
             return np.mean(scores)

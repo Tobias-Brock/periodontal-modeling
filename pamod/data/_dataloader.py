@@ -1,14 +1,10 @@
-import os
-from pathlib import Path
-
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from pamod.base import BaseHydra
-from pamod.config import PROCESSED_BASE_DIR
+from ..data import BaseDataLoader
 
 
-class ProcessedDataLoader(BaseHydra):
+class ProcessedDataLoader(BaseDataLoader):
     def __init__(
         self, task: str, encoding: str, encode: bool = True, scale: bool = True
     ) -> None:
@@ -23,27 +19,7 @@ class ProcessedDataLoader(BaseHydra):
             scale (bool): If True, performs scaling on numeric columns.
                 Defaults to True.
         """
-        super().__init__()
-        self.scale = scale
-        self.task = task
-        self.encode = encode
-        self.encoding = encoding
-
-    @staticmethod
-    def load_data(
-        path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
-    ) -> pd.DataFrame:
-        """Loads the processed data from the specified path.
-
-        Args:
-            path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
-
-        Returns:
-            pd.DataFrame: Loaded DataFrame.
-        """
-        input_file = os.path.join(path, name)
-        return pd.read_csv(input_file)
+        super().__init__(task=task, encoding=encoding, encode=encode, scale=scale)
 
     def encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
@@ -57,7 +33,7 @@ class ProcessedDataLoader(BaseHydra):
         Raises:
             ValueError: If an invalid encoding type is specified.
         """
-        if self.encoding is None:
+        if not self.encode:
             return df
 
         cat_vars = [col for col in self.all_cat_vars if col in df.columns]
@@ -79,36 +55,8 @@ class ProcessedDataLoader(BaseHydra):
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
-
+        self._check_encoded_columns(df=df_final)
         return df_final
-
-    def _check_encoded_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Verifies that categorical columns were correctly one-hot encoded.
-
-        Args:
-            df (pd.DataFrame): The DataFrame to check.
-
-        Raises:
-            ValueError: If columns are not correctly encoded.
-        """
-        if self.encoding == "one_hot":
-            cat_vars = [col for col in self.all_cat_vars if col in df.columns]
-
-            for col in cat_vars:
-                if col in df.columns:
-                    raise ValueError(
-                        f"Column '{col}' was not correctly one-hot encoded."
-                    )
-                matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
-                if not matching_columns:
-                    raise ValueError(f"No one-hot encoded columns for '{col}'.")
-        elif self.encoding == "target":
-            if "toothside" not in df.columns:
-                raise ValueError("Target encoding for 'toothside' failed.")
-        elif self.encoding is None:
-            print("No encoding was applied.")
-        else:
-            raise ValueError(f"Invalid encoding '{self.encoding}'.")
 
     def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Scales numeric columns in the DataFrame.
@@ -124,24 +72,8 @@ class ProcessedDataLoader(BaseHydra):
         scaler = StandardScaler()
         scaled_values = scaler.fit_transform(df[scale_vars])
         df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
-
+        self._check_scaled_columns(df=df)
         return df
-
-    def _check_scaled_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Verifies that scaled columns are within expected ranges.
-
-        Args:
-            df (pd.DataFrame): The DataFrame to check.
-
-        Raises:
-            ValueError: If any columns are not correctly scaled.
-        """
-        if self.scale:
-            for col in self.scale_vars:
-                scaled_min = df[col].min()
-                scaled_max = df[col].max()
-                if scaled_min < -5 or scaled_max > 15:
-                    raise ValueError(f"Column {col} is not correctly scaled.")
 
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Select task column, rename to 'y', and delete remaining tasks.
@@ -153,12 +85,9 @@ class ProcessedDataLoader(BaseHydra):
             pd.DataFrame: DataFrame with the selected task 'y'.
         """
         if self.encode:
-            df = self.encode_categorical_columns(df)
-            self._check_encoded_columns(df)
-
+            df = self.encode_categorical_columns(df=df)
         if self.scale:
-            df = self.scale_numeric_columns(df)
-            self._check_scaled_columns(df)
+            df = self.scale_numeric_columns(df=df)
 
         if self.task not in df.columns:
             raise ValueError(f"task column '{self.task}' not found in the DataFrame.")
@@ -172,8 +101,9 @@ class ProcessedDataLoader(BaseHydra):
             if "pdgroupbase" in df.columns:
                 df = df.query("pdgroupbase in [1, 2]")
 
-        df = df.drop(columns=cols_to_drop, errors="ignore")
-        df = df.rename(columns={self.task: "y"})
+        df = df.drop(columns=cols_to_drop, errors="ignore").rename(
+            columns={self.task: "y"}
+        )
 
         if "y" not in df.columns:
             raise ValueError(f"task column '{self.task}' was not renamed to 'y'.")

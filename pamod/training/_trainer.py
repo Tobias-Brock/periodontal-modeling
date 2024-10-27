@@ -1,21 +1,17 @@
-from typing import List, Optional, Tuple, Union
-import warnings
+from typing import Optional, Tuple, Union
 
-from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn import clone
-from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import brier_score_loss, f1_score
 from sklearn.neural_network import MLPClassifier
 
-from pamod.base import BaseEvaluator
-from pamod.learner import Model
-from pamod.resampling import Resampler
-from pamod.training import brier_loss_multi, final_metrics, get_probs
+from ..learner import Model
+from ..resampling import Resampler
+from ._basetrainer import BaseTrainer
+from ._metrics import final_metrics, get_probs
 
 
-class Trainer(BaseEvaluator):
+class Trainer(BaseTrainer):
     def __init__(
         self,
         classification: str,
@@ -38,84 +34,14 @@ class Trainer(BaseEvaluator):
             threshold_tuning (bool): Perform threshold tuning for binary classification
                 if the criterion is "f1". Defaults to True.
         """
-        super().__init__(classification, criterion, tuning, hpo)
-        self.mlp_training = mlp_training
-        self.threshold_tuning = threshold_tuning
-
-    def evaluate(
-        self,
-        y_val: np.ndarray,
-        probs: np.ndarray,
-        threshold: bool = True,
-    ) -> Tuple[float, Optional[float]]:
-        """Evaluates model performance based on the classification criterion.
-
-        For binary or multiclass classification.
-
-        Args:
-            y_val (np.ndarray): True labels for the validation data.
-            probs (np.ndarray): Probability predictions for each class.
-                For binary classification, the probability for the positive class.
-                For multiclass, a 2D array with probabilities.
-            threshold (bool): Flag for threshold tuning when tuning with F1.
-
-        Returns:
-            Tuple[float, Optional[float]]: Score and optimal threshold (if for binary).
-                For multiclass, only the score is returned.
-        """
-        if self.classification == "binary":
-            return self._evaluate_binary(y_val, probs, threshold)
-        else:
-            return self._evaluate_multiclass(y_val, probs)
-
-    def _evaluate_binary(
-        self,
-        y_val: np.ndarray,
-        probs: np.ndarray,
-        threshold: bool = True,
-    ) -> Tuple[float, Optional[float]]:
-        """Evaluates binary classification metrics based on probabilities.
-
-        Args:
-            y_val (np.ndarray): True labels for the validation data.
-            probs (np.ndarray): Probability predictions for the positive class.
-            threshold (bool): Flag for threshold tuning when tuning with F1.
-
-        Returns:
-            Tuple[float, Optional[float]]: Score and optimal threshold (if applicable).
-        """
-        if self.criterion == "f1":
-            if threshold:
-                scores, thresholds = [], np.linspace(0, 1, 101)
-                for threshold in thresholds:
-                    preds = (probs >= threshold).astype(int)
-                    scores.append(f1_score(y_val, preds, pos_label=0))
-                best_idx = np.argmax(scores)
-                return scores[best_idx], thresholds[best_idx]
-            else:
-                preds = (probs >= 0.5).astype(int)
-                return f1_score(y_val, preds, pos_label=0), 0.5
-        else:
-            return brier_score_loss(y_val, probs), None
-
-    def _evaluate_multiclass(
-        self, y_val: np.ndarray, probs: np.ndarray
-    ) -> Tuple[float, Optional[float]]:
-        """Evaluates multiclass classification metrics based on probabilities.
-
-        Args:
-            y_val (np.ndarray): True labels for the validation data.
-            probs (np.ndarray): Probability predictions for each class (2D array).
-
-        Returns:
-            float: The calculated score.
-        """
-        preds = np.argmax(probs, axis=1)
-
-        if self.criterion == "macro_f1":
-            return f1_score(y_val, preds, average="macro"), None
-        else:
-            return brier_loss_multi(y_val, probs), None
+        super().__init__(
+            classification=classification,
+            criterion=criterion,
+            tuning=tuning,
+            hpo=hpo,
+            mlp_training=mlp_training,
+            threshold_tuning=threshold_tuning,
+        )
 
     def train(
         self,
@@ -139,20 +65,25 @@ class Trainer(BaseEvaluator):
         """
         if isinstance(model, MLPClassifier) and self.mlp_training:
             score, model, best_threshold = self.train_mlp(
-                model, X_train, y_train, X_val, y_val, self.mlp_training
+                mlp_model=model,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                final=self.mlp_training,
             )
         else:
             model.fit(X_train, y_train)
-            probs = get_probs(model, self.classification, X_val)
+            probs = get_probs(model=model, classification=self.classification, X=X_val)
             best_threshold = None
 
             if self.classification == "binary" and (
                 self.tuning == "cv" or self.hpo == "hebo"
             ):
-                score, _ = self.evaluate(y_val, probs, False)
+                score, _ = self.evaluate(y=y_val, probs=probs, threshold=False)
             else:
                 score, best_threshold = self.evaluate(
-                    y_val, probs, self.threshold_tuning
+                    y=y_val, probs=probs, threshold=self.threshold_tuning
                 )
 
         return score, model, best_threshold
@@ -191,13 +122,15 @@ class Trainer(BaseEvaluator):
         for _ in range(mlp_model.max_iter):
             mlp_model.partial_fit(X_train, y_train, classes=np.unique(y_train))
 
-            probs = get_probs(mlp_model, self.classification, X_val)
+            probs = get_probs(
+                model=mlp_model, classification=self.classification, X=X_val
+            )
             if self.classification == "binary":
                 if final or (self.tuning == "cv" or self.hpo == "hebo"):
-                    score, _ = self.evaluate(y_val, probs, False)
+                    score, _ = self.evaluate(y=y_val, probs=probs, threshold=False)
             else:
                 score, best_threshold = self.evaluate(
-                    y_val, probs, self.threshold_tuning
+                    y=y_val, probs=probs, threshold=self.threshold_tuning
                 )
 
             if self.criterion in ["f1", "macro_f1"]:
@@ -215,108 +148,6 @@ class Trainer(BaseEvaluator):
                 break
 
         return best_val_score, mlp_model, best_threshold
-
-    def evaluate_cv(
-        self, model, fold: Tuple, return_probs: bool = False
-    ) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
-        """Evaluates a model on a specific training-validation fold.
-
-        Based on a chosen performance criterion.
-
-        Args:
-            model (sklearn estimator): The machine learning model used for
-                evaluation.
-            fold (tuple): A tuple containing two tuples:
-                - The first tuple contains the training data (features and labels).
-                - The second tuple contains the validation data (features and labels).
-                Specifically, it is structured as ((X_train, y_train), (X_val, y_val)),
-                where X_train and X_val are the feature matrices, and y_train and y_val
-                are the target vectors.
-            return_probs (bool): Return predicted probabilities with score if True.
-
-        Returns:
-            Union[float, Tuple[float, np.ndarray, np.ndarray]]: The calculated score of
-                the model on the validation data, and optionally the true labels and
-                predicted probabilities.
-        """
-        (X_train, y_train), (X_val, y_val) = fold
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            warnings.filterwarnings("ignore", category=ConvergenceWarning)
-
-            score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
-
-            if return_probs:
-                if hasattr(model, "predict_proba"):
-                    probs = model.predict_proba(X_val)[:, 1]
-                    return score, y_val, probs
-                else:
-                    raise AttributeError(
-                        f"The model {type(model)} does not support predict_proba."
-                    )
-
-        return score
-
-    def find_optimal_threshold(
-        self, true_labels: np.ndarray, probs: np.ndarray
-    ) -> Union[float, None]:
-        """Find the optimal threshold based on the criterion.
-
-        Converts probabilities into binary decisions.
-
-        Args:
-            true_labels (np.ndarray): The true labels for validation or test data.
-            probs (np.ndarray): Predicted probabilities for the positive class.
-
-        Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
-                'brier_score'.
-        """
-        if self.criterion == "brier_score":
-            return None
-
-        elif self.criterion == "f1":
-            thresholds = np.linspace(0, 1, 101)
-            scores = [
-                f1_score(true_labels, probs >= th, pos_label=0) for th in thresholds
-            ]
-            best_threshold = thresholds[np.argmax(scores)]
-            print(f"Best threshold: {best_threshold}, Best F1 score: {np.max(scores)}")
-            return best_threshold
-        raise ValueError(f"Invalid criterion: {self.criterion}")
-
-    def optimize_threshold(
-        self,
-        model,
-        outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
-        n_jobs: int,
-    ) -> Union[float, None]:
-        """Optimize the decision threshold using cross-validation.
-
-        Aggregates probability predictions across cross-validation folds.
-
-        Args:
-            model (sklearn estimator): The trained machine learning model.
-            best_params (dict): The best hyperparameters obtained from optimization.
-            outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
-            n_jobs (int): Number of parallel jobs to use for cross-validation.
-
-        Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
-                'brier_score'.
-        """
-        if outer_splits is None:
-            return None
-
-        results = Parallel(n_jobs=n_jobs)(
-            delayed(self.evaluate_cv)(model, fold, return_probs=True)
-            for fold in outer_splits
-        )
-
-        all_true_labels = np.concatenate([y for _, y, _ in results])
-        all_probs = np.concatenate([probs for _, _, probs in results])
-
-        return self.find_optimal_threshold(all_true_labels, all_probs)
 
     def train_final_model(
         self,
@@ -355,25 +186,34 @@ class Trainer(BaseEvaluator):
         if "n_jobs" in final_model.get_params():
             final_model.set_params(n_jobs=n_jobs)
 
-        train_df, test_df = resampler.split_train_test_df(df, seed, test_size)
+        train_df, test_df = resampler.split_train_test_df(
+            df=df, seed=seed, test_size=test_size
+        )
 
         X_train, y_train, X_test, y_test = resampler.split_x_y(
-            train_df, test_df, sampling, factor
+            train_df=train_df, test_df=test_df, sampling=sampling, factor=factor
         )
         if learner == "mlp" and self.mlp_training:
             train_df_h, test_df_h = resampler.split_train_test_df(
-                train_df, seed, test_size
+                df=train_df, seed=seed, test_size=test_size
             )
 
             X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
-                train_df_h, test_df_h, sampling, factor
+                train_df=train_df_h, test_df=test_df_h, sampling=sampling, factor=factor
             )
             _, final_model, _ = self.train_mlp(
-                final_model, X_train_h, y_train_h, X_val, y_val, self.mlp_training
+                mlp_model=final_model,
+                X_train=X_train_h,
+                y_train=y_train_h,
+                X_val=X_val,
+                y_val=y_val,
+                final=self.mlp_training,
             )
         else:
             final_model.fit(X_train, y_train)
-        final_probs = get_probs(final_model, self.classification, X_test)
+        final_probs = get_probs(
+            model=final_model, classification=self.classification, X=X_test
+        )
 
         if (
             self.criterion == "f1"
@@ -386,7 +226,11 @@ class Trainer(BaseEvaluator):
             final_predictions = final_model.predict(X_test)
 
         metrics = final_metrics(
-            self.classification, y_test, final_predictions, final_probs, best_threshold
+            classification=self.classification,
+            y=y_test,
+            preds=final_predictions,
+            probs=final_probs,
+            threshold=best_threshold,
         )
         if verbosity:
             unpacked_metrics = {
@@ -402,10 +246,7 @@ class Trainer(BaseEvaluator):
             }
 
             df_results = pd.DataFrame([results])
-            pd.set_option("display.max_columns", None)
-            pd.set_option("display.width", 1000)
-
-            print("\nFinal Model Metrics Summary:")
-            print(df_results)
+            pd.set_option("display.max_columns", None, "display.width", 1000)
+            print("\nFinal Model Metrics Summary:\n", df_results)
 
         return {"model": final_model, "metrics": metrics}

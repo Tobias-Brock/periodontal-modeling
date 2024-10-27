@@ -5,10 +5,10 @@ from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from pamod.base import BaseHydra
-from pamod.data import ProcessedDataLoader
-from pamod.resampling import Resampler
-from pamod.training import final_metrics, get_probs
+from ..base import BaseHydra
+from ..data import ProcessedDataLoader
+from ..resampling import Resampler
+from ..training import final_metrics, get_probs
 
 
 class Baseline(BaseHydra):
@@ -53,8 +53,10 @@ class Baseline(BaseHydra):
                 benchmarking. If not provided, default models are initialized.
         """
         self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
-        self.resampler = Resampler(self.classification, encoding)
-        self.dataloader = ProcessedDataLoader(task, encoding)
+        self.resampler = Resampler(
+            classification=self.classification, encoding=encoding
+        )
+        self.dataloader = ProcessedDataLoader(task=task, encoding=encoding)
         self.dummy_strategy = dummy_strategy
         self.lr_solver = lr_solver
         self.random_state = random_state
@@ -91,9 +93,11 @@ class Baseline(BaseHydra):
             baseline model, with model names as row indices.
         """
         df = self.dataloader.load_data()
-        df = self.dataloader.transform_data(df)
-        train_df, test_df = self.resampler.split_train_test_df(df)
-        X_train, y_train, X_test, y_test = self.resampler.split_x_y(train_df, test_df)
+        df = self.dataloader.transform_data(df=df)
+        train_df, test_df = self.resampler.split_train_test_df(df=df)
+        X_train, y_train, X_test, y_test = self.resampler.split_x_y(
+            train_df=train_df, test_df=test_df
+        )
 
         results = []
         model_names = []
@@ -103,11 +107,16 @@ class Baseline(BaseHydra):
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
             probs = (
-                get_probs(model, self.classification, X_test)
+                get_probs(model=model, classification=self.classification, X=X_test)
                 if hasattr(model, "predict_proba")
                 else None
             )
-            metrics = final_metrics(self.classification, y_test, preds, probs)
+            metrics = final_metrics(
+                classification=self.classification,
+                y=y_test,
+                preds=preds,
+                probs=probs,
+            )
             metrics["Model"] = model_name
             results.append(metrics)
             model_names.append(model_name)
@@ -119,8 +128,6 @@ class Baseline(BaseHydra):
             results_df["Model"], categories=baseline_order, ordered=True
         )
         results_df = results_df.sort_values("Model").reset_index(drop=True)
-
-        pd.set_option("display.max_columns", None)
-        pd.set_option("display.width", 1000)
+        pd.set_option("display.max_columns", None, "display.width", 1000)
 
         return results_df

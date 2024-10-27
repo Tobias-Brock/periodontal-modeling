@@ -1,27 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 
-from pamod.base import BaseEvaluator
-from pamod.training import Trainer
-
-
-class MetaTuner(ABC):
-    """Abstract base class enforcing implementation of tuning strategies."""
-
-    @abstractmethod
-    def cv(self, *args, **kwargs):
-        """Perform cross-validation based tuning."""
-        pass
-
-    @abstractmethod
-    def holdout(self, *args, **kwargs):
-        """Perform holdout based tuning."""
-        pass
+from ..base import BaseEvaluator
+from ..training import Trainer
 
 
-class BaseTuner(BaseEvaluator):
+class BaseTuner(BaseEvaluator, ABC):
     """Base class for different hyperparameter tuning strategies."""
 
     def __init__(
@@ -52,7 +39,9 @@ class BaseTuner(BaseEvaluator):
             threshold_tuning (bool): Perform threshold tuning for binary classification
                 if the criterion is "f1".
         """
-        super().__init__(classification, criterion, tuning, hpo)
+        super().__init__(
+            classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
+        )
         self.n_configs = n_configs
         self.n_jobs = n_jobs if n_jobs is not None else 1
         self.verbosity = verbosity
@@ -62,12 +51,12 @@ class BaseTuner(BaseEvaluator):
             trainer
             if trainer
             else Trainer(
-                self.classification,
-                self.criterion,
-                self.tuning,
-                self.hpo,
-                self.mlp_training,
-                self.threshold_tuning,
+                classification=self.classification,
+                criterion=self.criterion,
+                tuning=self.tuning,
+                hpo=self.hpo,
+                mlp_training=self.mlp_training,
+                threshold_tuning=self.threshold_tuning,
             )
         )
 
@@ -118,3 +107,39 @@ class BaseTuner(BaseEvaluator):
                 f"{self.hpo} CV iteration {iteration + 1} {model_name}: "
                 f"'{params_str}', {self.criterion}={score_value}"
             )
+
+    @abstractmethod
+    def cv(
+        self,
+        learner: str,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
+        racing_folds: Optional[int],
+    ):
+        """Perform cross-validation with optional tuning.
+
+        Args:
+            learner (str): The model to evaluate.
+            outer_splits (List[Tuple[pd.DataFrame, pd.DataFrame]]): Train/validation
+                splits.
+            racing_folds (Optional[int]): Number of racing folds; if None regular
+                cross-validation is performed.
+        """
+
+    @abstractmethod
+    def holdout(
+        self,
+        learner: str,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ):
+        """Perform random search on the holdout set for binary and multiclass .
+
+        Args:
+            learner (str): The machine learning model used for evaluation.
+            X_train (pd.DataFrame): Training features for the holdout set.
+            y_train (pd.Series): Training labels for the holdout set.
+            X_val (pd.DataFrame): Validation features for the holdout set.
+            y_val (pd.Series): Validation labels for the holdout set.
+        """
