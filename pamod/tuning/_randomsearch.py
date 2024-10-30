@@ -1,6 +1,6 @@
 from copy import deepcopy
 import random
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from joblib import Parallel, delayed
 import numpy as np
@@ -13,6 +13,94 @@ from ._basetuner import BaseTuner
 
 
 class RandomSearchTuner(BaseTuner):
+    """Random Search hyperparameter tuning class.
+
+    This class performs hyperparameter tuning using random search, supporting
+    both holdout and cross-validation (CV) tuning methods.
+
+    Inherits:
+        - BaseTuner: Provides base functionality for hyperparameter tuning
+          with validation methods, shared parameters, and evaluation functions.
+
+    Args:
+        classification (str): The type of classification ('binary' or 'multiclass').
+        criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
+        tuning (str): The type of tuning ('holdout' or 'cv').
+        hpo (str): The hyperparameter optimization method, default is 'rs'.
+        n_configs (int): Number of configurations to evaluate. Defaults to 10.
+        n_jobs (Optional[int]): Number of parallel jobs for model training.
+            Defaults to None.
+        verbose (bool): Whether to print detailed logs during optimization.
+            Defaults to True.
+        trainer (Optional[Trainer]): Trainer instance for model training.
+        mlp_training (bool): Enables MLP-specific training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification
+            when the criterion is "f1".
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): Performance criterion for optimization
+            ('f1', 'brier_score' or 'macro_f1').
+        tuning (str): Tuning approach ('holdout' or 'cv').
+        hpo (str): Hyperparameter optimization method (default is 'rs').
+        n_configs (int): Number of configurations to evaluate.
+        n_jobs (int): Number of parallel jobs for training.
+        verbose (bool): Flag to enable detailed logs during optimization.
+        mlp_training (bool): Enables MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning if criterion is 'f1'.
+        trainer (Trainer): Trainer instance for model evaluation.
+
+    Methods:
+        holdout: Optimizes hyperparameters using random search for holdout
+          validation.
+        cv: Optimizes hyperparameters using random search with cross-validation.
+        _initialize_search: Initializes model and parameter grid for random search.
+        _update_best: Updates best parameters and scores if the current score
+          surpasses previous results.
+        _sample_params: Samples hyperparameters from a parameter grid for
+          evaluation.
+        _evaluate_folds: Computes model performance across CV folds or in a
+          racing scenario.
+
+    Example:
+        ```
+        tuner = RandomSearchTuner(
+            classification="binary",
+            criterion="f1",
+            tuning="cv",
+            hpo="rs",
+            n_configs=15,
+            n_jobs=4,
+            verbose=True,
+            trainer=Trainer(
+                classification="binary",
+                criterion="f1",
+                tuning="cv",
+                hpo="rs",
+                mlp_training=True,
+                threshold_tuning=True,
+            ),
+            mlp_training=True,
+            threshold_tuning=True,
+        )
+
+        # Running holdout-based tuning
+        best_params, best_threshold = tuner.holdout(
+            learner="rf",
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val
+        )
+
+        # Running cross-validation tuning
+        best_params, best_threshold = tuner.cv(
+            learner="rf",
+            outer_splits=cross_val_splits
+        )
+        ```
+    """
+
     def __init__(
         self,
         classification: str,
@@ -21,31 +109,12 @@ class RandomSearchTuner(BaseTuner):
         hpo: str = "rs",
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
-        verbosity: bool = True,
+        verbose: bool = True,
         trainer: Optional[Trainer] = None,
         mlp_training: bool = True,
         threshold_tuning: bool = True,
     ) -> None:
-        """Initialize RandomSearchTuner with classification, criterion, tuning, and HPO.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            criterion (str): Evaluation criterion (e.g., 'f1', 'brier_score').
-            tuning (str): Type of tuning ('holdout' or 'cv').
-            hpo (str, optional): Hyperparameter optimization method (default is 'rs').
-            n_configs (int): The number of configurations to evaluate during HPO.
-                Defaults to 10.
-            n_jobs (Optional[int]): The number of parallel jobs for model training.
-                Defaults to None.
-            verbosity (bool): Whether to print detailed logs during hebo optimization.
-                Defaults to True.
-            trainer (Optional[Trainer]): An instance of Trainer. If None, a default
-                instance will be created.
-            mlp_training (bool): Flag for MLP training with early stopping.
-                Defaults to True.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1". Defaults to True.
-        """
+        """Initialize RandomSearchTuner."""
         super().__init__(
             classification=classification,
             criterion=criterion,
@@ -53,7 +122,7 @@ class RandomSearchTuner(BaseTuner):
             hpo=hpo,
             n_configs=n_configs,
             n_jobs=n_jobs,
-            verbosity=verbosity,
+            verbose=verbose,
             trainer=trainer,
             mlp_training=mlp_training,
             threshold_tuning=threshold_tuning,
@@ -109,7 +178,7 @@ class RandomSearchTuner(BaseTuner):
                 best_threshold=best_threshold,
             )
 
-            if self.verbosity:
+            if self.verbose:
                 self._print_iteration_info(
                     iteration=i,
                     model=model_clone,
@@ -134,7 +203,7 @@ class RandomSearchTuner(BaseTuner):
             n_configs (int): Number of hyperparameter configurations to test.
             racing_folds (int or None): Number of folds for racing; None uses all folds.
             n_jobs (int): Number of parallel jobs to run.
-            verbosity (bool): If True, enable verbose output.
+            verbose (bool): If True, enable verbose output.
 
         Returns:
             Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
@@ -165,7 +234,7 @@ class RandomSearchTuner(BaseTuner):
                 best_threshold=None,
             )
 
-            if self.verbosity:
+            if self.verbose:
                 self._print_iteration_info(
                     iteration=i, model=model_clone, params_dict=params, score=avg_score
                 )
@@ -185,7 +254,7 @@ class RandomSearchTuner(BaseTuner):
 
     def _evaluate_folds(
         self,
-        model,
+        model: Any,
         best_score: float,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         racing_folds: Union[int, None],
@@ -193,7 +262,7 @@ class RandomSearchTuner(BaseTuner):
         """Evaluate the model across folds using cross-validation or racing strategy.
 
         Args:
-            model (sklearn estimator): The cloned model to evaluate.
+            model (Any): The cloned model to evaluate.
             best_score (float): The best score recorded so far.
             outer_splits (list of tuples): List of training/validation folds.
             racing_folds (int or None): Number of folds to use for the racing strategy.

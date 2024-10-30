@@ -4,12 +4,55 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ..base import BaseEvaluator
+from ..base import BaseValidator
 from ..training import Trainer
 
 
-class BaseTuner(BaseEvaluator, ABC):
-    """Base class for different hyperparameter tuning strategies."""
+class BaseTuner(BaseValidator, ABC):
+    """Base class for implementing hyperparameter tuning strategies.
+
+    This class provides a framework for various hyperparameter optimization
+    (HPO) strategies, supporting cross-validation (CV) and holdout tuning
+    with options for binary and multiclass classification. Subclasses are
+    expected to implement specific tuning methods, including holdout and CV
+    procedures, while inheriting shared parameters, evaluation, and iteration
+    logging functions.
+
+    Inherits:
+        - BaseValidator: Validates instance-level variables.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        classification (str): The type of classification ('binary' or 'multiclass').
+        criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
+        tuning (str): The tuning type ('holdout' or 'cv').
+        hpo (str): The hyperparameter optimization method (e.g., 'random_search').
+        n_configs (int): Number of configurations to evaluate during HPO.
+        n_jobs (Optional[int]): Number of parallel jobs for model training.
+        verbose (bool): Enables detailed logs during tuning if True.
+        trainer (Optional[Trainer]): Trainer instance for evaluation.
+        mlp_training (bool): Enables MLP training with early stopping.
+        threshold_tuning (bool): Performs threshold tuning for binary
+            classification if criterion is 'f1'.
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): The performance criterion for optimization
+            (e.g., 'f1', 'brier_score').
+        tuning (str): Indicates the tuning approach ('holdout' or 'cv').
+        hpo (str): Hyperparameter optimization method (e.g., 'random_search').
+        n_configs (int): Number of configurations for HPO.
+        n_jobs (int): Number of parallel jobs for evaluation.
+        verbose (bool): Enables logs during tuning if True.
+        mlp_training (bool): Flag to enable MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        trainer (Trainer): Trainer instance to handle model training and evaluation.
+
+    Abstract Methods:
+        - cv: Defines cross-validation strategy with or without tuning.
+        - holdout: Implements holdout tuning on a validation set for selected
+          hyperparameter configurations.
+    """
 
     def __init__(
         self,
@@ -19,32 +62,18 @@ class BaseTuner(BaseEvaluator, ABC):
         hpo: str,
         n_configs: int,
         n_jobs: Optional[int],
-        verbosity: bool,
+        verbose: bool,
         trainer: Optional[Trainer],
         mlp_training: bool,
         threshold_tuning: bool,
     ) -> None:
-        """Initializes the base tuner class with common parameters.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
-            tuning (str): The type of tuning ('holdout' or 'cv').
-            hpo (str): The hyperparameter optimization method.
-            n_configs (int): The number of configurations to evaluate during HPO.
-            n_jobs (Optional[int]): The number of parallel jobs for model training.
-            verbosity (bool): Whether to print detailed logs during optimization.
-            trainer (Optional[Trainer]): Instance of Trainer class.
-            mlp_training (bool): Flag for MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1".
-        """
+        """Initializes the base tuner class with common parameters."""
         super().__init__(
             classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
         self.n_configs = n_configs
         self.n_jobs = n_jobs if n_jobs is not None else 1
-        self.verbosity = verbosity
+        self.verbose = verbose
         self.mlp_training = mlp_training
         self.threshold_tuning = threshold_tuning
         self.trainer = (

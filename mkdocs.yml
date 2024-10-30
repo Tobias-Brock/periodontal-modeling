@@ -20,29 +20,51 @@ markdown_extensions:
 nav:
   - pamod: index.md
   - pamod.app: "reference/app.md"
+  - pamod.base:
+      - BaseConfig: "reference/base/baseconfig.md"
+      - BaseValidator: "reference/base/basevalidator.md"
+      - patient_to_df: "reference/base/patient_to_df.md"
+      - Patient: "reference/base/patient.md"
+      - Side: "reference/base/side.md"
+      - Tooth: "reference/base/tooth.md"
   - pamod.benchmarking:
+      - BaseExperiment: "reference/benchmarking/baseexperiment.md"
       - Experiment: "reference/benchmarking/experiment.md"
-      - Becnhmarker: "reference/benchmarking/benchmarker.md"
+      - BaseBecnhmark: "reference/benchmarking/basebenchmark.md"
+      - Benchmarker: "reference/benchmarking/benchmarker.md"
       - InputProcessor: "reference/benchmarking/processor.md"
   - pamod.data:
+      - BaseLoader: "reference/data/baseloader.md"
+      - BaseProcessor: "reference/data/baseprocessor.md"
       - StaticProcessEngine: "reference/data/staticengine.md"
       - ProcessDataHelper: "reference/data/datahelper.md"
+      - BaseDataLoader: "reference/data/basedataloader.md"
       - ProcessedDataLoader: "reference/data/dataloader.md"
   - pamod.descriptives:
       - DescriptivesPlotter: "reference/descriptives/descriptives.md"
+  - pamod.evaluation:
+      - BaseModelEvaluator: "reference/evaluation/basemodelevaluator.md"
+      - ModelEvaluator: "reference/evaluation/modelevaluator.md"
+  - pamod.inference:
+      - BaseModelInference: "reference/inference/basemodelinference.md"
+      - ModelInference: "reference/inference/modelinference.md"
   - pamod.learner:
       - Model: "reference/learner/model.md"
   - pamod.resampling:
+      - BaseResampler: "reference/resampling/baseresampler.md"
       - Resampler: "reference/resampling/resampler.md"
   - pamod.training:
       - brier_loss_multi: "reference/training/brier_multi.md"
       - get_probs: "reference/training/probs.md"
       - final_metrics: "reference/training/final_metrics.md"
-      - MetricEvaluator: "reference/training/metrics.md"
-      - MLPTrainer: "reference/training/mlptrainer.md"
+      - BaseTrainer: "reference/training/basetrainer.md"
       - Trainer: "reference/training/trainer.md"
   - pamod.tuning:
       - BaseTuner: "reference/tuning/basetuner.md"
-      - MetaTuner: "reference/tuning/metatuner.md"
       - HeboTuner: "reference/tuning/hebotuner.md"
       - RandomSearchTuner: "reference/tuning/rstuner.md"
+  - pamod.wrapper:
+      - BaseEvaluatorWrapper: "reference/wrapper/baseevaluatorwrapper.md"
+      - BenchmarkWrapper: "reference/wrapper/benchmarkwrapper.md"
+      - EvaluatorWrapper: "reference/wrapper/evaluatorwrapper.md"
+      - load_learners: "reference/wrapper/loadlearners.md"

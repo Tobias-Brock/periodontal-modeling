@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 import warnings
 
 from joblib import Parallel, delayed
@@ -7,13 +7,67 @@ import numpy as np
 import pandas as pd
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.metrics import brier_score_loss, f1_score
+from sklearn.neural_network import MLPClassifier
 
-from ..base import BaseEvaluator
+from ..base import BaseValidator
 from ..resampling import Resampler
 from ._metrics import brier_loss_multi
 
 
-class BaseTrainer(BaseEvaluator, ABC):
+class BaseTrainer(BaseValidator, ABC):
+    """Abstract base class for training machine learning models.
+
+    This class provides foundational methods for training and evaluating
+    machine learning models, including MLP models with early stopping,
+    and optimizing decision thresholds. It supports binary and multiclass
+    classification and allows for various evaluation metrics, threshold
+    tuning, and cross-validation procedures.
+
+    Inherits:
+        - BaseValidator: Validates instance level variables.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        classification (str): Specifies the type of classification ('binary'
+            or 'multiclass').
+        criterion (str): Defines the performance criterion to optimize (e.g.,
+            'f1' or 'brier_score').
+        tuning (Optional[str]): Specifies the tuning method ('holdout' or
+            'cv') or None.
+        hpo (Optional[str]): Specifies the hyperparameter optimization method.
+        mlp_training (bool): Flag to indicate if a separate MLP training
+            procedure with early stopping is to be used.
+        threshold_tuning (bool): Determines if threshold tuning is performed
+            for binary classification when the criterion is "f1".
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): Performance criterion to optimize
+            ('f1', 'brier_score' or 'macro_f1').
+        tuning (Optional[str]): Tuning method ('holdout' or 'cv') or None.
+        hpo (Optional[str]): Hyperparameter optimization method if specified.
+        mlp_training (bool): Indicates if MLP training with early stopping is applied.
+        threshold_tuning (bool): Specifies if threshold tuning is performed for
+            binary classification when the criterion is 'f1'.
+
+    Methods:
+        evaluate: Determines model performance based on the specified
+          classification criterion.
+        optimize_threshold: Utilizes cross-validation to optimize the
+          decision threshold by aggregating probability predictions.
+        evaluate_cv: Evaluates a model on a training-validation fold
+          based on the specified criterion, supporting cross-validation.
+
+    Abstract Methods:
+        - `train`: Trains the model with standard or custom logic depending
+          on the specified learner type.
+        - `train_mlp`: Trains an MLP model with early stopping and additional
+          evaluation logic if required.
+        - `train_final_model`: Trains the final model on the entire dataset,
+          applying resampling, parallel processing, and specified sampling
+          methods.
+    """
+
     def __init__(
         self,
         classification: str,
@@ -118,14 +172,14 @@ class BaseTrainer(BaseEvaluator, ABC):
             return brier_loss_multi(y=y, probs=probs), None
 
     def evaluate_cv(
-        self, model, fold: Tuple, return_probs: bool = False
+        self, model: Any, fold: Tuple, return_probs: bool = False
     ) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
         """Evaluates a model on a specific training-validation fold.
 
         Based on a chosen performance criterion.
 
         Args:
-            model (sklearn estimator): The machine learning model used for
+            model (Any): The machine learning model used for
                 evaluation.
             fold (tuple): A tuple containing two tuples:
                 - The first tuple contains the training data (features and labels).
@@ -145,7 +199,9 @@ class BaseTrainer(BaseEvaluator, ABC):
             warnings.filterwarnings("ignore", category=UserWarning)
             warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-            score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
+            score, _, _ = self.train(
+                model=model, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
+            )
 
             if return_probs:
                 if hasattr(model, "predict_proba"):
@@ -158,7 +214,7 @@ class BaseTrainer(BaseEvaluator, ABC):
 
         return score
 
-    def find_optimal_threshold(
+    def _find_optimal_threshold(
         self, true_labels: np.ndarray, probs: np.ndarray
     ) -> Union[float, None]:
         """Find the optimal threshold based on the criterion.
@@ -189,7 +245,7 @@ class BaseTrainer(BaseEvaluator, ABC):
 
     def optimize_threshold(
         self,
-        model,
+        model: Any,
         outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
         n_jobs: int,
     ) -> Union[float, None]:
@@ -198,7 +254,7 @@ class BaseTrainer(BaseEvaluator, ABC):
         Aggregates probability predictions across cross-validation folds.
 
         Args:
-            model (sklearn estimator): The trained machine learning model.
+            model (Any): The trained machine learning model.
             best_params (dict): The best hyperparameters obtained from optimization.
             outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
             n_jobs (int): Number of parallel jobs to use for cross-validation.
@@ -218,12 +274,14 @@ class BaseTrainer(BaseEvaluator, ABC):
         all_true_labels = np.concatenate([y for _, y, _ in results])
         all_probs = np.concatenate([probs for _, _, probs in results])
 
-        return self.find_optimal_threshold(true_labels=all_true_labels, probs=all_probs)
+        return self._find_optimal_threshold(
+            true_labels=all_true_labels, probs=all_probs
+        )
 
     @abstractmethod
     def train(
         self,
-        model,
+        model: Any,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -232,7 +290,7 @@ class BaseTrainer(BaseEvaluator, ABC):
         """Trains either an MLP model with custom logic or a standard model.
 
         Args:
-            model (sklearn estimator): The machine learning model to be trained.
+            model (Any): The machine learning model to be trained.
             X_train (pd.DataFrame): Training features.
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
@@ -242,7 +300,7 @@ class BaseTrainer(BaseEvaluator, ABC):
     @abstractmethod
     def train_mlp(
         self,
-        mlp_model,
+        mlp_model: MLPClassifier,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -273,7 +331,7 @@ class BaseTrainer(BaseEvaluator, ABC):
         n_jobs: Optional[int],
         seed: int,
         test_size: float,
-        verbosity: bool,
+        verbose: bool,
     ):
         """Trains the final model.
 
@@ -286,5 +344,5 @@ class BaseTrainer(BaseEvaluator, ABC):
             n_jobs (int): The number of parallel jobs to run for evaluation.
             seed (int): Seed for splitting.
             test_size (float): Size of train test split.
-            verbosity (bool): Verbosity during model evaluation process if set to True.
+            verbose (bool): verbose during model evaluation process if set to True.
         """

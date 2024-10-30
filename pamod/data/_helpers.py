@@ -3,7 +3,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from ..base import BaseHydra
+from ..base import BaseConfig
 
 
 def _get_side() -> dict:
@@ -61,7 +61,42 @@ def _get_teeth_neighbors() -> dict:
     }
 
 
-class ProcessDataHelper(BaseHydra):
+class ProcessDataHelper(BaseConfig):
+    """Helper class for processing periodontal data with utility methods.
+
+    This class provides methods for evaluating tooth infection status,
+    calculating adjacent infected teeth, and imputing values for 'plaque' and
+    'furcationbaseline' columns based on predefined rules and conditions.
+
+    Inherits:
+        BaseConfig: Provides configuration settings for data processing.
+
+    Attributes:
+        teeth_neighbors (dict): Dictionary mapping each tooth to its adjacent
+            neighbors.
+        sides_with_fur (dict): Dictionary specifying teeth with furcations and
+            their respective sides.
+
+    Methods:
+        check_infection: Evaluates infection status based on pocket depth and
+            BOP values.
+        get_adjacent_infected_teeth_count: Adds a column to indicate the count
+            of adjacent infected teeth for each tooth.
+        plaque_imputation: Imputes values in the 'plaque' column.
+        fur_imputation: Imputes values in the 'furcationbaseline' column.
+
+    Example:
+        ```
+        helper = ProcessDataHelper()
+        df = helper.plaque_imputation(df)
+        df = helper.fur_imputation(df)
+        infected_count_df = helper.get_adjacent_infected_teeth_count(
+            df, patient_col="id_patient", tooth_col="tooth",
+            infection_col="infection"
+        )
+        ```
+    """
+
     def __init__(self):
         """Initialize Preprocessor with helper data without storing the DataFrame."""
         super().__init__()

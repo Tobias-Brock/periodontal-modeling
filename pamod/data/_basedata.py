@@ -4,13 +4,41 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..base import BaseHydra
+from ..base import BaseConfig
 from ..config import PROCESSED_BASE_DIR, RAW_DATA_DIR, TRAINING_DATA_DIR
 
 
-class BaseLoader(BaseHydra, ABC):
+class BaseLoader(BaseConfig, ABC):
+    """Abstract base class for loading and saving processed data.
+
+    This class provides a structure for loading and saving datasets and defines
+    abstract methods that need to be implemented by subclasses. It includes methods
+    for specifying data paths and filenames for loading and saving operations.
+
+    Inherits:
+        - BaseConfig: Provides configuration settings for data processing.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        None
+
+    Attributes:
+        None
+
+    Abstract Methods:
+        - `load_data`: Load processed data from the specified path and file.
+        - `save_data`: Save processed data to the specified path and file.
+
+    Example:
+        ```
+        loader = SomeConcreteLoader()
+        data = loader.load_data(path=Path("/data"), name="processed_data.csv")
+        loader.save_data(df=data, path=Path("/data"), name="saved_data.csv")
+        ```
+    """
+
     def __init__(self) -> None:
-        """Defines abstract method load_data."""
+        """Initializes the BaseLoader, defining the `load_data` abstract method."""
         super().__init__()
 
     @abstractmethod
@@ -42,15 +70,38 @@ class BaseLoader(BaseHydra, ABC):
 
 
 class BaseProcessor(BaseLoader, ABC):
-    """Abstract base class defining methods for data processing."""
+    """Abstract base class defining essential data processing methods.
+
+    This class provides core processing capabilities such as loading and saving
+    data, along with abstract methods that must be implemented by any subclass.
+    These methods include data imputation, feature creation, and outcome variable
+    generation for specialized data processing.
+
+    Inherits:
+        - BaseLoader: Provides loading and saving capabilities for processed data.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        behavior (bool): If True, includes behavior columns in the data processing.
+            Defaults to False.
+
+    Attributes:
+        behavior (bool): Flag indicating whether to include behavior columns
+            during data processing.
+
+    Methods:
+        load_data: Load processed data from the specified path and file.
+        save_data: Save processed data to the specified path and file.
+
+    Abstract Methods:
+        - `impute_missing_values`: Impute missing values in the DataFrame.
+        - `create_tooth_features`: Generate features related to tooth data.
+        - `create_outcome_variables`: Create outcome variables for analysis.
+        - `process_data`: Clean, impute, and scale the data.
+    """
 
     def __init__(self, behavior: bool = False) -> None:
-        """Initializes the BaseProcessor with behavior flag.
-
-        Args:
-            behavior (bool): Indicates whether to include behavior columns.
-                Defaults to False.
-        """
+        """Initializes the BaseProcessor with behavior flag."""
         super().__init__()
         self.behavior = behavior
 
@@ -157,6 +208,39 @@ class BaseProcessor(BaseLoader, ABC):
 
 
 class BaseDataLoader(BaseLoader, ABC):
+    """Abstract base class for loading, encoding, and scaling processed data.
+
+    This class provides methods for loading and saving processed data, verifying
+    encoded and scaled columns, and defines abstract methods for encoding and scaling
+    that must be implemented by subclasses.
+
+    Inherits:
+        - BaseLoader: Provides loading and saving capabilities for processed data.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        task (str): Specifies the task column name.
+        encoding (str): Defines the encoding method for categorical columns.
+            Options include 'one_hot', 'target', or None.
+        encode (bool): If True, applies encoding to categorical columns.
+        scale (bool): If True, applies scaling to numeric columns.
+
+    Attributes:
+        task (str): Task column name used in transformations.
+        encoding (str): Encoding method specified for categorical columns.
+        encode (bool): Flag to apply encoding to categorical columns.
+        scale (bool): Flag to apply scaling to numeric columns.
+
+    Methods:
+        load_data: Load processed data from the specified path and file.
+        save_data: Save processed data to the specified path and file.
+
+    Abstract Methods:
+        - `encode_categorical_columns`: Encodes categorical columns in the DataFrame.
+        - `scale_numeric_columns`: Scales numeric columns in the DataFrame.
+        - `transform_data`: Processes and transforms the data.
+    """
+
     def __init__(self, task: str, encoding: str, encode: bool, scale: bool) -> None:
         """Initializes the ProcessedDataLoader with the specified task column.
 

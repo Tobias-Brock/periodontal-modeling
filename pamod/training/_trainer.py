@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,99 @@ from ._metrics import final_metrics, get_probs
 
 
 class Trainer(BaseTrainer):
+    """Trainer class for supervised machine learning model training.
+
+    Extends functionality to support MLP training with early stopping,
+    threshold optimization, and performance evaluation based on specified
+    criteria. The Trainer class is compatible with both binary and multiclass
+    classification, with options for cross-validation and hyperparameter
+    tuning.
+
+    Inherits:
+        - BaseTrainer: Base class that implements evaluation methods.
+
+    Args:
+        classification (str): Specifies the type of classification ('binary'
+            or 'multiclass').
+        criterion (str): Defines the performance criterion to optimize (e.g.,
+            'f1' or 'brier_score').
+        tuning (Optional[str]): Specifies the tuning method ('holdout' or
+            'cv') or None.
+        hpo (Optional[str]): Specifies the hyperparameter optimization method.
+        mlp_training (bool): Flag to indicate if a separate MLP training
+            procedure with early stopping is to be used.
+        threshold_tuning (bool): Determines if threshold tuning is performed
+            for binary classification when the criterion is "f1".
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): Performance criterion to optimize
+            ('f1', 'brier_score' or 'macro_f1').
+        tuning (Optional[str]): Tuning method ('holdout' or 'cv') or None.
+        hpo (Optional[str]): Hyperparameter optimization method if specified.
+        mlp_training (bool): Indicates if MLP training with early stopping is applied.
+        threshold_tuning (bool): Specifies if threshold tuning is performed for
+            binary classification when the criterion is 'f1'.
+
+    Methods:
+        train: Trains a machine learning model, handling custom logic for
+          MLP and standard models.
+        train_mlp: Trains an MLPClassifier with early stopping, adapting
+          based on classification type and criterion.
+        train_final_model: Trains the final model on resampled data,
+          returning model and metrics.
+
+    Inherited Methods:
+        - `evaluate`: Determines model performance based on the criterion.
+        - `optimize_threshold`: Aggregates predictions across CV folds to
+          optimize the decision threshold.
+        - `evaluate_cv`: Evaluates a model's performance on a CV fold.
+
+    Example:
+        ```
+        trainer = Trainer(
+            classification="binary", criterion="f1", tuning="cv", hpo="grid"
+        )
+        final_model_info = trainer.train_final_model(
+            df=training_data,
+            resampler=Resampler("binary", "target"),
+            model=(learner_type, best_params, optimal_threshold),
+            sampling="smote",
+            factor=1.5,
+            n_jobs=4,
+            seed=42,
+            test_size=0.2,
+            verbose=True,
+        )
+        print(final_model_info["metrics"])
+        ```
+
+    Example for `train`:
+        ```
+        score, trained_model, threshold = trainer.train(
+            model=logistic_regression_model,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+        )
+        print(f"Score: {score}, Optimal Threshold: {threshold}")
+        ```
+
+    Example for `train_mlp`:
+        ```
+        score, trained_mlp, threshold = trainer.train_mlp(
+            mlp_model=mlp_classifier,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            final=True
+        )
+        print(f"MLP Validation Score: {score}, Optimal Threshold: {threshold}")
+        ```
+    """
+
     def __init__(
         self,
         classification: str,
@@ -45,7 +138,7 @@ class Trainer(BaseTrainer):
 
     def train(
         self,
-        model,
+        model: Any,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -54,7 +147,7 @@ class Trainer(BaseTrainer):
         """Trains either an MLP model with custom logic or a standard model.
 
         Args:
-            model (sklearn estimator): The machine learning model to be trained.
+            model (Any): The machine learning model to be trained.
             X_train (pd.DataFrame): Training features.
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
@@ -90,7 +183,7 @@ class Trainer(BaseTrainer):
 
     def train_mlp(
         self,
-        mlp_model,
+        mlp_model: MLPClassifier,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -159,7 +252,7 @@ class Trainer(BaseTrainer):
         n_jobs: Optional[int],
         seed: int,
         test_size: float,
-        verbosity: bool = True,
+        verbose: bool = True,
     ):
         """Trains the final model.
 
@@ -172,7 +265,7 @@ class Trainer(BaseTrainer):
             n_jobs (int): The number of parallel jobs to run for evaluation.
             seed (int): Seed for splitting.
             test_size (float): Size of train test split.
-            verbosity (bool): Verbosity during model evaluation process if set to True.
+            verbose (bool): verbose during model evaluation process if set to True.
 
         Returns:
             dict: A dictionary containing the trained model and metrics.
@@ -232,7 +325,7 @@ class Trainer(BaseTrainer):
             probs=final_probs,
             threshold=best_threshold,
         )
-        if verbosity:
+        if verbose:
             unpacked_metrics = {
                 k: round(v, 4) if isinstance(v, float) else v
                 for k, v in metrics.items()

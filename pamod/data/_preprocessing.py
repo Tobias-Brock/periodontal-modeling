@@ -8,18 +8,58 @@ from ._helpers import ProcessDataHelper
 
 
 class StaticProcessEngine(BaseProcessor):
-    """Preprocesses periodontal dataset for machine learning."""
+    """Concrete implementation for preprocessing a periodontal dataset for ML.
 
-    def __init__(self, behavior: bool = False, verbosity: bool = True) -> None:
+    This class extends `BaseProcessor` and provides specific implementations
+    for imputing missing values, creating tooth-related features, and generating
+    outcome variables tailored for periodontal data analysis.
+
+    Inherits:
+        - BaseProcessor: Provides core data processing methods and abstract method
+            definitions for required preprocessing steps.
+
+    Args:
+        behavior (bool): If True, includes behavioral columns in processing.
+            Defaults to False.
+        verbose (bool): Enables verbose logging of data processing steps if True.
+            Defaults to True.
+
+    Attributes:
+        behavior (bool): Indicates whether to include behavior columns in processing.
+        verbose (bool): Flag to enable or disable verbose logging.
+
+    Methods:
+        impute_missing_values: Impute missing values specifically for periodontal
+          data.
+        create_tooth_features: Generate tooth-related features, leveraging
+          domain knowledge of periodontal data.
+        create_outcome_variables: Create variables representing clinical outcomes.
+        process_data: Execute a full processing pipeline including cleaning,
+          imputing, scaling, and feature creation.
+
+    Inherited Methods:
+        - `load_data`: Load processed data from the specified path and file.
+        - `save_data`: Save processed data to the specified path and file.
+
+    Example:
+        ```
+        engine = StaticProcessEngine(behavior=True, verbose=True)
+        df = engine.load_data()
+        df = engine.process_data(df)
+        engine.save_data(df)
+        ```
+    """
+
+    def __init__(self, behavior: bool = False, verbose: bool = True) -> None:
         """Initializes the StaticProcessEngine.
 
         Args:
             behavior (bool): If True, includes behavioral columns in processing.
                 Defaults to False.
-            verbosity (bool): Activates verbosity. Defaults to True.
+            verbose (bool): Activates verbose. Defaults to True.
         """
         super().__init__(behavior=behavior)
-        self.verbosity = verbosity
+        self.verbose = verbose
         self.helper = ProcessDataHelper()
 
     @staticmethod
@@ -176,7 +216,7 @@ class StaticProcessEngine(BaseProcessor):
 
         remaining_patients = df["id_patient"].nunique()
         remaining_rows = len(df)
-        if self.verbosity:
+        if self.verbose:
             print(
                 f"Initial number of patients: {initial_patients}, "
                 f"Initial number of rows: {initial_rows}"
@@ -208,10 +248,10 @@ class StaticProcessEngine(BaseProcessor):
                     missing_patients = (
                         df[df[col].isna()]["id_patient"].unique().tolist()
                     )
-                    if self.verbosity:
+                    if self.verbose:
                         print(f"Patients with missing {col}: {missing_patients}")
         else:
-            if self.verbosity:
+            if self.verbose:
                 print("No missing values after imputation.")
 
         return df

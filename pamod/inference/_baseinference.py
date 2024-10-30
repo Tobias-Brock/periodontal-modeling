@@ -1,30 +1,77 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 import warnings
 
 import pandas as pd
 from sklearn import clone
 from sklearn.exceptions import ConvergenceWarning
 
-from ..base import BaseHydra
+from ..base import BaseConfig
 from ..data import ProcessedDataLoader, StaticProcessEngine
 from ..resampling import Resampler
 from ..training import get_probs
 
 
-class BaseModelInference(BaseHydra, ABC):
-    def __init__(self, classification: str, model, verbosity: bool):
+class BaseModelInference(BaseConfig, ABC):
+    """Abstract base class for performing model inference and jackknife resampling.
+
+    This class defines methods for generating predictions, preparing data for
+    inference, and implementing jackknife resampling with confidence intervals.
+    It is designed to handle binary and multiclass classification tasks and
+    allows encoding configurations for model compatibility.
+
+    Inherits:
+        - BaseConfig: Provides configuration settings for data processing.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        classification (str): Specifies the type of classification task
+            ('binary' or 'multiclass').
+        model: A trained model that includes a `predict_proba` method for
+            generating class probabilities.
+        verbose (bool): Enables detailed logging if set to True.
+
+    Attributes:
+        classification (str): Defines the type of classification task for the model.
+        model: The trained model used for predictions and inference.
+        verbose (bool): Controls the level of detail in log output during inference.
+
+    Methods:
+        predict: Run predictions on a batch of input data, returning
+          predicted classes and probabilities.
+        create_predict_data: Prepare and encode data for inference
+          based on raw data and patient data, supporting one-hot or target
+          encoding formats.
+        prepare_inference: Prepares data for inference, performing any
+          necessary preprocessing and scaling.
+        patient_inference: Runs predictions on specific patient data,
+          returning results with predicted classes and probabilities.
+        process_patient: Processes a patient’s data for jackknife resampling,
+          retraining the model while excluding the patient from training.
+
+    Abstract Methods:
+        - `jackknife_resampling`: Performs jackknife resampling by retraining
+          the model on various patient subsets.
+        - `jackknife_confidence_intervals`: Computes confidence intervals
+          based on jackknife resampling results.
+        - `plot_jackknife_intervals`: Visualizes jackknife confidence intervals
+          for predictions.
+        - `jackknife_inference`: Executes full jackknife inference, including
+          interval computation and optional plotting.
+    """
+
+    def __init__(self, classification: str, model: Any, verbose: bool):
         """Initialize the ModelInference class with a trained model.
 
         Args:
             classification (str): Classification type ('binary' or 'multiclass').
-            model: Trained classification model with a `predict_proba` method.
-            verbosity (bool): Activates verbosity if set to True.
+            model (Any): Trained classification model with a `predict_proba` method.
+            verbose (bool): Activates verbose if set to True.
         """
         super().__init__()
         self.classification = classification
         self.model = model
-        self.verbosity = verbosity
+        self.verbose = verbose
 
     def predict(self, input_data: pd.DataFrame) -> pd.DataFrame:
         """Run prediction on a batch of input data.
@@ -149,7 +196,7 @@ class BaseModelInference(BaseHydra, ABC):
             raise ValueError(
                 "Patient data empty. Please submit data before running inference."
             )
-        if self.verbosity:
+        if self.verbose:
             print("Patient Data Received for Inference:\n", patient_data)
 
         engine = StaticProcessEngine()
@@ -317,7 +364,7 @@ class BaseModelInference(BaseHydra, ABC):
     @abstractmethod
     def jackknife_inference(
         self,
-        model,
+        model: Any,
         train_df: pd.DataFrame,
         patient_data: pd.DataFrame,
         encoding: str,
@@ -330,7 +377,7 @@ class BaseModelInference(BaseHydra, ABC):
         """Run jackknife inference and generate confidence intervals and plots.
 
         Args:
-            model: Dictionary of trained models.
+            model (Any): Trained model instance.
             train_df (pd.DataFrame): Training DataFrame.
             patient_data (pd.DataFrame): Patient data to predict on.
             encoding (str): Encoding type.

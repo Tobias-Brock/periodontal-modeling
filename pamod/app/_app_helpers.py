@@ -5,7 +5,7 @@ import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from ..base import Patient, Side, Tooth, patient_to_dataframe
+from ..base import Patient, Side, Tooth, patient_to_df
 from ..benchmarking import Benchmarker, InputProcessor
 from ..data import ProcessedDataLoader, StaticProcessEngine
 from ..descriptives import DescriptivesPlotter
@@ -743,7 +743,7 @@ def collect_data(
             )
             patient.teeth.append(tooth_obj)
 
-    patient_df = patient_to_dataframe(patient=patient)
+    patient_df = patient_to_df(patient=patient)
     print("Collected Patient Data:\n", patient_df)
     return "Patient data collected successfully!", patient_df
 

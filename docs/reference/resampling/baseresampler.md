@@ -1,0 +1,1 @@
+::: pamod.resampling.BaseResampler

@@ -44,6 +44,46 @@ def _get_base_name(feature: str) -> str:
 
 
 class BaseModelEvaluator(ABC):
+    """Abstract base class for evaluating machine learning model performance.
+
+    This class provides methods for calculating model performance metrics,
+    plotting confusion matrices, and evaluating feature importance, with options
+    for handling one-hot encoded features and aggregating SHAP values.
+
+    Inherits:
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        X (pd.DataFrame): Test dataset features.
+        y (pd.Series): Test dataset labels.
+        model (Union[sklearn estimators, None]): A trained sklearn model instance.
+        models (Union[List[sklearn estimators], None]): List of trained models.
+        encoding (Optional[str]): Encoding type for plot titles (e.g., 'one_hot'
+            or 'target').
+        aggregate (bool): If True, aggregates importance values of one-hot encoded
+            features.
+
+    Attributes:
+        X (pd.DataFrame): Stores the test dataset features for evaluation.
+        y (pd.Series): Stores the test dataset labels for evaluation.
+        model (Union[sklearn estimators, None]): The primary model for evaluation.
+        models (List[sklearn estimators]): List of trained models for multi-model
+            evaluation.
+        encoding (Optional[str]): The encoding type used, impacting plot titles
+            and feature grouping.
+        aggregate (bool): Determines if importance values of one-hot encoded
+            features are aggregated for interpretability.
+
+    Methods:
+        brier_score_groups: Calculates Brier score within specified groups.
+        plot_confusion_matrix: Generates a styled confusion matrix heatmap
+            for the test data and model predictions.
+        evaluate_feature_importance: Abstract method for evaluating feature
+            importance across models.
+        analyze_brier_within_clusters: Abstract method for analyzing Brier
+            score distribution within clusters.
+    """
+
     def __init__(
         self,
         X: pd.DataFrame,

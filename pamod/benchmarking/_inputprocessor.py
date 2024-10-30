@@ -1,5 +1,45 @@
 class InputProcessor:
-    """Process inputs to internal code-compatible formats."""
+    """Convert input values to internal code-compatible formats.
+
+    This class provides mappings and processing methods to convert user-friendly
+    input values for tasks, learners, tuning methods, HPO methods, criteria, and
+    encodings to formats compatible with internal code. These mappings ensure
+    consistency in naming and support the required input standards.
+
+    Attributes:
+        task_map (dict): Maps task names to their internal codes.
+        learner_map (dict): Maps learner names to their respective codes.
+        tuning_map (dict): Maps tuning method names to internal values.
+        hpo_map (dict): Maps hyperparameter optimization methods to their codes.
+        criteria_map (dict): Maps evaluation criteria names to their codes.
+        encodings_map (dict): Maps encoding types to internal format codes.
+
+    Methods:
+        - `process_task`: Convert a single task name to its internal code.
+        - `process_learners`: Convert a list of learner names to internal codes.
+        - `process_tuning`: Convert a list of tuning methods to internal codes.
+        - `process_hpo`: Convert a list of HPO methods to internal codes.
+        - `process_criteria`: Convert a list of criteria to internal codes.
+        - `process_encoding`: Convert a list of encodings to internal codes.
+
+    Example:
+        ```
+        # Example input processing for an experiment setup
+        task = InputProcessor.process_task("Pocket closure")
+        learners = InputProcessor.process_learners(["XGBoost", "Random Forest"])
+        tuning_methods = InputProcessor.process_tuning(["Holdout", "Cross-Validation"])
+        hpo_methods = InputProcessor.process_hpo(["HEBO"])
+        criteria = InputProcessor.process_criteria(["F1 Score", "Brier Score"])
+        encodings = InputProcessor.process_encoding(["One-hot"])
+
+        print(task)          # Output: "pocketclosure"
+        print(learners)      # Output: ["xgb", "rf"]
+        print(tuning_methods) # Output: ["holdout", "cv"]
+        print(hpo_methods)    # Output: ["hebo"]
+        print(criteria)       # Output: ["f1", "brier_score"]
+        print(encodings)      # Output: ["one_hot"]
+        ```
+    """
 
     task_map = {
         "Pocket closure": "pocketclosure",
