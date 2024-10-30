@@ -33,11 +33,11 @@ class Resampler(BaseResampler):
 
     Methods:
         split_train_test_df: Splits the dataset into train and test sets based
-          on group constraints, ensuring reproducibility.
+            on group constraints, ensuring reproducibility.
         split_x_y: Separates features and target labels in both train and test sets,
-          applying optional sampling and encoding.
+            applying optional sampling and encoding.
         cv_folds: Performs group-based cross-validation, applying resampling
-          strategies to balance training data where specified.
+            strategies to balance training data where specified.
 
     Inherited Methods:
         - `apply_sampling`: Applies specified sampling strategy to balance
@@ -184,7 +184,7 @@ class Resampler(BaseResampler):
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
             seed (Optional[int], optional): Random seed for reproducibility. Defaults
-            to None.
+                to None.
             n_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
 
@@ -242,7 +242,7 @@ class Resampler(BaseResampler):
             outer_splits_t = []
 
             for (X_t, y_t), (X_val, y_val) in outer_splits:
-                X_t, y_t, X_val = self.apply_target_encoding(X=X_t, X_val=X_val, y=y_t)
+                X_t, X_val = self.apply_target_encoding(X=X_t, X_val=X_val, y=y_t)
                 if sampling == "smote":
                     X_t, y_t = self.apply_sampling(
                         X=X_t, y=y_t, sampling=sampling, sampling_factor=factor

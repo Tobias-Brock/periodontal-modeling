@@ -12,7 +12,7 @@ class ProcessedDataLoader(BaseDataLoader):
     types such as 'one_hot' and 'target', with optional scaling of numeric columns.
 
     Inherits:
-        - BaseDataLoader: Provides core data loading, encoding, and scaling methods.
+        BaseDataLoader: Provides core data loading, encoding, and scaling methods.
 
     Args:
         task (str): The task column name, used to guide specific transformations.
@@ -30,21 +30,22 @@ class ProcessedDataLoader(BaseDataLoader):
         scale (bool): Flag to enable scaling of numeric columns.
 
     Methods:
-        encode_categorical_columns: Encodes categorical columns based on the
-          specified encoding method.
-        scale_numeric_columns: Scales numeric columns to normalize data.
-        transform_data: Executes the complete data processing pipeline, including
-          encoding and scaling.
+        encode_categorical_columns: Encodes categorical columns based on
+            the specified encoding method.
+        scale_numeric_columns: Scales numeric columns to normalize
+            data.
+        transform_data: Executes the complete data processing pipeline,
+            including encoding and scaling.
 
     Inherited Methods:
-        - `load_data`: Load processed data from the specified path and file.
-        - `save_data`: Save processed data to the specified path and file.
+        load_data: Load processed data from the specified path and file.
+        save_data: Save processed data to the specified path and file.
 
     Example:
         ```
         loader = ProcessedDataLoader(
-            task="outcome", encoding="one_hot", encode=True, scale=True
-            )
+            task="pocketclosure", encoding="one_hot", encode=True, scale=True
+        )
         data = loader.load_data()
         data = loader.transform_data(data)
         loader.save_data(data)

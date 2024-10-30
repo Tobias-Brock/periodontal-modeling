@@ -516,8 +516,17 @@ class Benchmarker(BaseBenchmark):
                         ] = current_model_data
 
             except Exception as e:
-                print(f"Error running benchmark for {self.task}, {learner}: {e}\n")
-                traceback.print_exc()
+                if (
+                    "Matrix not positive definite after repeatedly adding jitter"
+                    in str(e)
+                ):
+                    print(
+                        f"Suppressed NotPSDError for {self.task}, {learner} due to"
+                        f"convergence issue \n"
+                    )
+                else:
+                    print(f"Error running benchmark for {self.task}, {learner}: {e}\n")
+                    traceback.print_exc()
 
         for criterion, models in top_models_per_criterion.items():
             sorted_models = sorted(

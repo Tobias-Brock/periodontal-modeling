@@ -29,13 +29,14 @@ class StaticProcessEngine(BaseProcessor):
         verbose (bool): Flag to enable or disable verbose logging.
 
     Methods:
-        impute_missing_values: Impute missing values specifically for periodontal
-          data.
+        impute_missing_values: Impute missing values specifically for
+            periodontal data.
         create_tooth_features: Generate tooth-related features, leveraging
-          domain knowledge of periodontal data.
-        create_outcome_variables: Create variables representing clinical outcomes.
+            domain knowledge of periodontal data.
+        create_outcome_variables: Create variables representing clinical
+            outcomes.
         process_data: Execute a full processing pipeline including cleaning,
-          imputing, scaling, and feature creation.
+            imputing, scaling, and feature creation.
 
     Inherited Methods:
         - `load_data`: Load processed data from the specified path and file.

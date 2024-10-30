@@ -77,9 +77,9 @@ app:
 ## Build Docker image
 .PHONY: docker-build
 docker-build:
-	docker build -f docker/app.dockerfile -t myapp-image .
+	docker build -f docker/app.dockerfile -t pamod-image .
 
 ## Run Docker container
 .PHONY: docker-run
 docker-run:
-	docker run -p 8000:8000 myapp-image
+	docker run -p 7880:7880 pamod-image

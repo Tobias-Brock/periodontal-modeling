@@ -57,7 +57,7 @@ class HEBOTuner(BaseTuner):
         holdout: Optimizes hyperparameters using HEBO for holdout validation.
         cv: Optimizes hyperparameters using HEBO with cross-validation.
         evaluate_objective: Computes the objective function score for model
-          evaluation based on holdout or cross-validation.
+            evaluation based on holdout or cross-validation.
 
     Example:
         ```
@@ -67,7 +67,7 @@ class HEBOTuner(BaseTuner):
             tuning="holdout",
             hpo="hebo",
             n_configs=10,
-            n_jobs=4,
+            n_jobs=-1,
             verbose=True,
             trainer=Trainer(
                 classification="binary",

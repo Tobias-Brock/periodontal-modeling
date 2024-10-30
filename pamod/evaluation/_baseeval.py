@@ -127,11 +127,10 @@ class BaseModelEvaluator(ABC):
         self.encoding = encoding
         self.aggregate = aggregate
 
-    def brier_score_groups(self, group_by: str = "y"):
+    def brier_score_groups(self, group_by: str = "y") -> None:
         """Calculates Brier score within groups.
 
         Args:
-            model (object): Model with `predict_proba` method.
             group_by (str): Grouping variable. Defaults to "y".
 
         Returns:
@@ -147,7 +146,7 @@ class BaseModelEvaluator(ABC):
 
         if len(probas[0]) == 1:
             brier_scores = [
-                brier_score_loss(y_true=[true_label], y_prob=[pred_proba[0]])
+                brier_score_loss(y_true=[true_label], y_proba=[pred_proba[0]])
                 for true_label, pred_proba in zip(self.y, probas, strict=False)
             ]
         else:

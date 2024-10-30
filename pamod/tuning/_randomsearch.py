@@ -51,16 +51,10 @@ class RandomSearchTuner(BaseTuner):
         trainer (Trainer): Trainer instance for model evaluation.
 
     Methods:
-        holdout: Optimizes hyperparameters using random search for holdout
-          validation.
-        cv: Optimizes hyperparameters using random search with cross-validation.
-        _initialize_search: Initializes model and parameter grid for random search.
-        _update_best: Updates best parameters and scores if the current score
-          surpasses previous results.
-        _sample_params: Samples hyperparameters from a parameter grid for
-          evaluation.
-        _evaluate_folds: Computes model performance across CV folds or in a
-          racing scenario.
+        holdout: Optimizes hyperparameters using random search for
+            holdout validation.
+        cv: Optimizes hyperparameters using random search with
+            cross-validation.
 
     Example:
         ```
@@ -200,10 +194,7 @@ class RandomSearchTuner(BaseTuner):
         Args:
             learner: The machine learning model to evaluate.
             outer_splits: List of training and validation splits.
-            n_configs (int): Number of hyperparameter configurations to test.
             racing_folds (int or None): Number of folds for racing; None uses all folds.
-            n_jobs (int): Number of parallel jobs to run.
-            verbose (bool): If True, enable verbose output.
 
         Returns:
             Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
