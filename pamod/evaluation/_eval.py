@@ -53,12 +53,10 @@ class ModelEvaluator(BaseModelEvaluator):
             features are aggregated for interpretability.
 
     Methods:
-        evaluate_feature_importance: Calculates feature importance scores
-          using specified methods (`shap`, `permutation`, or `standard`), with
-          options for plotting and aggregating one-hot encoded features.
-        analyze_brier_within_clusters: Computes Brier scores within clusters
-          formed by a specified clustering algorithm and provides visualizations
-          of score distributions across clusters.
+        evaluate_feature_importance: Calculates feature importance scores using
+            specified methods (`shap`, `permutation`, or `standard`).
+        analyze_brier_within_clusters: Computes Brier scores within clusters formed by a
+            specified clustering algorithm and provides visualizations.
 
     Inherited Methods:
         - `brier_score_groups`: Calculates Brier score within specified groups
@@ -289,7 +287,7 @@ class ModelEvaluator(BaseModelEvaluator):
 
         probas = self.model.predict_proba(self.X)[:, 1]
         brier_scores = [
-            brier_score_loss(y_true=[true], y_prob=[proba])
+            brier_score_loss(y_true=[true], y_proba=[proba])
             for true, proba in zip(self.y, probas, strict=False)
         ]
 

@@ -350,15 +350,15 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         trainer (Trainer): Trainer for model evaluation and optimization.
 
     Methods:
-        wrapped_evaluation: Runs comprehensive evaluation with optional plots for
-          metrics such as confusion matrix and Brier scores.
-        evaluate_feature_importance: Computes feature importance using specified
-          methods (e.g., SHAP, permutation importance).
-        average_over_splits: Aggregates metrics across multiple data splits for
-          robust evaluation.
+        wrapped_evaluation: Runs comprehensive evaluation with optional
+            plots for metrics such as confusion matrix and Brier scores.
+        evaluate_feature_importance: Computes feature importance using
+            specified methods (e.g., SHAP, permutation importance).
+        average_over_splits: Aggregates metrics across multiple data
+            splits for robust evaluation.
         wrapped_patient_inference: Conducts inference on individual patient data.
         wrapped_jackknife: Executes jackknife resampling on patient data to
-          estimate confidence intervals.
+            estimate confidence intervals.
 
     Examples:
         ```
@@ -428,7 +428,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         if cluster:
             self.evaluator.analyze_brier_within_clusters(n_clusters=n_cluster)
 
-    def evaluate_feature_importance(self, fi_types: List[str]):
+    def evaluate_feature_importance(self, fi_types: List[str]) -> None:
         """Evaluates feature importance using the provided evaluator.
 
         Args:
@@ -488,7 +488,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
     def wrapped_patient_inference(
         self,
         patient: Patient,
-    ):
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Runs inference on the patient's data using the best-ranked model.
 
         Args:

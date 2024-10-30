@@ -19,12 +19,6 @@ class BaseLoader(BaseConfig, ABC):
         - BaseConfig: Provides configuration settings for data processing.
         - ABC: Specifies abstract methods for subclasses to implement.
 
-    Args:
-        None
-
-    Attributes:
-        None
-
     Abstract Methods:
         - `load_data`: Load processed data from the specified path and file.
         - `save_data`: Save processed data to the specified path and file.

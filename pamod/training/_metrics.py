@@ -14,11 +14,11 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 
 
-def get_probs(model, classification: str, X: pd.DataFrame) -> np.ndarray:
+def get_probs(model: Any, classification: str, X: pd.DataFrame) -> np.ndarray:
     """Gets the predicted probabilities from the model.
 
     Args:
-        model: The trained model.
+        model (Any): The trained model.
         classification (str): The type of classification.
         X (pd.DataFrame): Predict features.
 
@@ -46,7 +46,7 @@ def brier_loss_multi(y: np.ndarray, probs: np.ndarray) -> float:
     y_bin = label_binarize(y, classes=np.unique(y))
     g = y_bin.shape[1]
     return np.mean(
-        [brier_score_loss(y_true=y_bin[:, i], y_prob=probs[:, i]) for i in range(g)]
+        [brier_score_loss(y_true=y_bin[:, i], y_proba=probs[:, i]) for i in range(g)]
     ) * (g / 2)
 
 
@@ -77,7 +77,7 @@ def final_metrics(
         recall: float = recall_score(y_true=y, y_pred=preds, pos_label=0)
         accuracy: float = accuracy_score(y_true=y, y_pred=preds)
         brier_score_value: Union[float, None] = (
-            brier_score_loss(y_true=y, y_prob=probs) if probs is not None else None
+            brier_score_loss(y_true=y, y_proba=probs) if probs is not None else None
         )
         roc_auc_value: Union[float, None] = (
             roc_auc_score(y, probs) if probs is not None else None

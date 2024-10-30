@@ -52,11 +52,11 @@ class BaseTrainer(BaseValidator, ABC):
 
     Methods:
         evaluate: Determines model performance based on the specified
-          classification criterion.
+            classification criterion.
         optimize_threshold: Utilizes cross-validation to optimize the
-          decision threshold by aggregating probability predictions.
+            decision threshold by aggregating probability predictions.
         evaluate_cv: Evaluates a model on a training-validation fold
-          based on the specified criterion, supporting cross-validation.
+            based on the specified criterion, supporting cross-validation.
 
     Abstract Methods:
         - `train`: Trains the model with standard or custom logic depending
@@ -150,7 +150,7 @@ class BaseTrainer(BaseValidator, ABC):
                 preds = (probs >= 0.5).astype(int)
                 return f1_score(y_true=y, y_pred=preds, pos_label=0), 0.5
         else:
-            return brier_score_loss(y_true=y, y_prob=probs), None
+            return brier_score_loss(y_true=y, y_proba=probs), None
 
     def _evaluate_multiclass(
         self, y: np.ndarray, probs: np.ndarray
@@ -255,7 +255,6 @@ class BaseTrainer(BaseValidator, ABC):
 
         Args:
             model (Any): The trained machine learning model.
-            best_params (dict): The best hyperparameters obtained from optimization.
             outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
             n_jobs (int): Number of parallel jobs to use for cross-validation.
 

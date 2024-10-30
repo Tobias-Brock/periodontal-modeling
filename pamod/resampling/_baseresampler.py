@@ -37,15 +37,15 @@ class BaseResampler(BaseConfig, ABC):
 
     Methods:
         apply_sampling: Applies resampling techniques like SMOTE, upsampling,
-          or downsampling to balance the dataset.
+            or downsampling to balance the dataset.
         apply_target_encoding: Encodes categorical features based on the
-          target variable for improved model performance.
+            target variable for improved model performance.
         validate_dataframe: Ensures the input DataFrame contains required
-          columns and correct data types.
+            columns and correct data types.
         validate_n_folds: Verifies that the cross-validation fold count is a
-          positive integer.
+            positive integer.
         validate_sampling_strategy: Checks if the specified sampling strategy
-          is valid.
+            is valid.
 
     Abstract Methods:
         - split_train_test_df: Splits the dataset into training and testing sets
@@ -298,7 +298,7 @@ class BaseResampler(BaseConfig, ABC):
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
             seed (Optional[int], optional): Random seed for reproducibility. Defaults
-            to None.
+                to None.
             n_folds (Optional[int], optional): Number of folds for cross-validation.
                 Defaults to None, in which case the class's `n_folds` will be used.
         """

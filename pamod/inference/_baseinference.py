@@ -38,16 +38,15 @@ class BaseModelInference(BaseConfig, ABC):
 
     Methods:
         predict: Run predictions on a batch of input data, returning
-          predicted classes and probabilities.
-        create_predict_data: Prepare and encode data for inference
-          based on raw data and patient data, supporting one-hot or target
-          encoding formats.
+            predicted classes and probabilities.
+        create_predict_data: Prepare and encode data for inference based on raw data
+            and patient data, supporting one-hot or target encoding formats.
         prepare_inference: Prepares data for inference, performing any
-          necessary preprocessing and scaling.
+            necessary preprocessing and scaling.
         patient_inference: Runs predictions on specific patient data,
-          returning results with predicted classes and probabilities.
+            returning results with predicted classes and probabilities.
         process_patient: Processes a patient’s data for jackknife resampling,
-          retraining the model while excluding the patient from training.
+            retraining the model while excluding the patient from training.
 
     Abstract Methods:
         - `jackknife_resampling`: Performs jackknife resampling by retraining

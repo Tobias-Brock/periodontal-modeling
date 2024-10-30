@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -53,9 +53,9 @@ class Model(BaseConfig):
 
     Methods:
         get: Class method returning a model and hyperparameter search space
-          or parameter grid.
+            or parameter grid.
         get_model: Class method that returns only the instantiated model
-          without HPO options.
+            without HPO options.
 
     Example:
         ```
@@ -123,8 +123,10 @@ class Model(BaseConfig):
             raise ValueError(f"Unsupported learner type: {self.learner}")
 
     @classmethod
-    def get(cls, learner: str, classification: str, hpo: Optional[str] = None):
-        """Return the machine learning model and parameter grid or hebo search space.
+    def get(
+        cls, learner: str, classification: str, hpo: Optional[str] = None
+    ) -> Union[Tuple, Tuple]:
+        """Return the machine learning model and parameter grid or HEBO search space.
 
         Args:
             learner (str): The machine learning algorithm to use.
@@ -132,8 +134,10 @@ class Model(BaseConfig):
             hpo (str): The hyperparameter optimization method ('hebo' or 'rs').
 
         Returns:
-            tuple: If hpo is 'rs', return model and parameter grid. If hpo is 'hebo',
-                return the model, hebo search space, and transformation function.
+            Union[Tuple, Tuple]: If hpo is 'rs', returns a tuple of
+                (model, parameter grid).
+                If hpo is 'hebo', returns a tuple of (model, HEBO search space,
+                transformation function).
         """
         instance = cls(learner, classification)
         model = instance._get_model_instance()
@@ -150,8 +154,6 @@ class Model(BaseConfig):
                 return model, xgb_search_space_hebo, get_xgb_params_hebo
             elif learner == "lr":
                 return model, lr_search_space_hebo_oh, get_lr_params_hebo_oh
-            else:
-                raise ValueError(f"Unsupported learner type: {learner}")
         elif hpo == "rs":
             if learner == "rf":
                 return model, rf_param_grid
@@ -161,11 +163,16 @@ class Model(BaseConfig):
                 return model, xgb_param_grid
             elif learner == "lr":
                 return model, lr_param_grid_oh
-            else:
-                raise ValueError(f"Unsupported learner type: {learner}")
+
+        raise ValueError(f"Unsupported hpo type '{hpo}' or learner type '{learner}'")
 
     @classmethod
-    def get_model(cls, learner: str, classification: str):
+    def get_model(cls, learner: str, classification: str) -> Union[
+        RandomForestClassifier,
+        LogisticRegression,
+        MLPClassifier,
+        xgb.XGBClassifier,
+    ]:
         """Return only the machine learning model based on learner and classification.
 
         Args:
@@ -173,7 +180,7 @@ class Model(BaseConfig):
             classification (str): Type of classification ('binary' or 'multiclass').
 
         Returns:
-            model instance.
+            model instance (Union[sklearn estiamtor]).
         """
         instance = cls(learner, classification)
         return instance._get_model_instance()

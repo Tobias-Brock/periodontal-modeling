@@ -51,7 +51,7 @@ all_teeth = [
 ]
 
 
-def load_and_initialize_plotter(path: str) -> str:
+def _load_and_initialize_plotter(path: str) -> str:
     """Loads the data and initializes the DescriptivesPlotter.
 
     Args:
@@ -70,72 +70,72 @@ def load_and_initialize_plotter(path: str) -> str:
     return "Data loaded successfully. You can now create plots."
 
 
-def plot_histogram_2d(column_before: str, column_after: str):
+def _plot_histogram_2d(col_before: str, col_after: str) -> Union[plt.Figure, str]:
     """Plots a 2D histogram.
 
     Args:
-        column_before (str): Name of column representing values before therapy.
-        column_after (str): Name of column representing values after therapy.
+        col_before (str): Name of the column representing values before therapy.
+        col_after (str): Name of the column representing values after therapy.
 
     Returns:
-        plt.Figure: The 2D histogram plot if successful, or a message prompting
-        the user to load the data first.
+        Union[plt.Figure, str]: The 2D histogram plot if successful, or a message
+        prompting the user to load the data first.
     """
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.histogram_2d(column_before, column_after)
+    plotter.histogram_2d(col_before=col_before, col_after=col_after)
     return plt.gcf()
 
 
-def plot_pocket_comparison(column1: str, column2: str):
+def _plot_pocket_comparison(col1: str, col2: str) -> Union[plt.Figure, str]:
     """Plots a pocket depth comparison before and after therapy.
 
     Args:
-        column1 (str): Name of column representing pocket depth before therapy.
-        column2 (str): Name of column representing pocket depth after therapy.
+        col1 (str): Name of column representing pocket depth before therapy.
+        col2 (str): Name of column representing pocket depth after therapy.
 
     Returns:
-        plt.Figure: The pocket comparison plot if successful, or a message prompting
-        the user to load the data first.
+        Union[plt.Figure, str]: The pocket comparison plot if successful, or
+        a message prompting the user to load the data first.
     """
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_comparison(column1=column1, column2=column2)
+    plotter.pocket_comparison(col1=col1, col2=col2)
     return plt.gcf()
 
 
-def plot_pocket_group_comparison(column_before: str, column_after: str):
+def _plot_pocket_group_comparison(
+    col_before: str, col_after: str
+) -> Union[plt.Figure, str]:
     """Plots a pocket group comparison before and after therapy.
 
     Args:
-        column_before (str): Name of column representing pocket group before therapy.
-        column_after (str): Name of column representing pocket group after therapy.
+        col_before (str): Name of column representing pocket group before therapy.
+        col_after (str): Name of column representing pocket group after therapy.
 
     Returns:
-        plt.Figure: Pocket group comparison plot if successful, or message prompting
-        the user to load the data first.
+        Union[plt.Figure, str]: Pocket group comparison plot if successful,
+        or message prompting the user to load the data first.
     """
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_group_comparison(
-        column_before=column_before, column_after=column_after
-    )
+    plotter.pocket_group_comparison(col_before=col_before, col_after=col_after)
     return plt.gcf()
 
 
-def plot_matrix(vertical: str, horizontal: str):
+def _plot_matrix(vertical: str, horizontal: str) -> Union[plt.Figure, str]:
     """Plots confusion matrix or heatmap based on given vertical and horizontal columns.
 
     Args:
-        vertical (str): The name of column used for the vertical axis.
-        horizontal (str): The name of column used for the horizontal axis.
+        vertical (str): The name of the column used for the vertical axis.
+        horizontal (str): The name of the column used for the horizontal axis.
 
     Returns:
-        plt.Figure: The matrix plot if successful, or a message prompting
-        the user to load the data first.
+        Union[plt.Figure, str]: The matrix plot if successful, or a message
+        prompting the user to load the data first.
     """
     global plotter
     if plotter is None:
@@ -144,7 +144,7 @@ def plot_matrix(vertical: str, horizontal: str):
     return plt.gcf()
 
 
-def plot_outcome_descriptive(outcome: str, title: str):
+def _plot_outcome_descriptive(outcome: str, title: str) -> Union[plt.Figure, str]:
     """Plots a descriptive analysis for a given outcome variable.
 
     Args:
@@ -152,8 +152,8 @@ def plot_outcome_descriptive(outcome: str, title: str):
         title (str): The title of the plot.
 
     Returns:
-        plt.Figure: The descriptive outcome plot if successful, or a message
-        prompting the user to load the data first.
+        Union[plt.Figure, str]: The descriptive outcome plot if successful, or
+        a message prompting the user to load the data first.
     """
     global plotter
     if plotter is None:
@@ -162,7 +162,7 @@ def plot_outcome_descriptive(outcome: str, title: str):
     return plt.gcf()
 
 
-def run_benchmarks(
+def _run_benchmarks(
     task: str,
     learners: list,
     tuning_methods: list,
@@ -172,7 +172,14 @@ def run_benchmarks(
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
+    cv_folds: Optional[int],
     racing_folds: int,
+    test_seed: Optional[int],
+    test_size: Optional[float],
+    val_size: Optional[float],
+    cv_seed: Optional[int],
+    mlp_flag: Optional[bool],
+    threshold_tuning: bool,
     n_jobs: int,
     path: str,
 ) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
@@ -193,8 +200,15 @@ def run_benchmarks(
         factor (Optional[float]): Factor to control the resampling process, if
             applicable.
         n_configs (int): Number of configurations for hyperparameter tuning.
+        cv_folds (int): Number of cross-validation folds.
         racing_folds (int): Number of folds to use for racing during random
             search (RS).
+        test_seed (Optional[int]): Seed for random train-test split.
+        test_size (Optional[float]): Proportion of data used for testing.
+        val_size (Optional[float]): Proportion of data for validation in holdout.
+        cv_seed (Optional[int]): Seed for cross-validation splits.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
 
@@ -236,7 +250,14 @@ def run_benchmarks(
         sampling=sampling_benchmark,
         factor=factor,
         n_configs=int(n_configs),
+        cv_folds=cv_folds,
         racing_folds=int(racing_folds),
+        test_size=test_size,
+        test_seed=test_seed,
+        val_size=val_size,
+        cv_seed=cv_seed,
+        mlp_flag=mlp_flag,
+        threshold_tuning=threshold_tuning,
         n_jobs=int(n_jobs),
         path=Path(file_path),
         name=file_name,
@@ -265,13 +286,14 @@ def run_benchmarks(
     if not metrics_to_plot:
         raise ValueError("No matching metrics found in results to plot.")
 
-    plt.figure(figsize=(8, 6))
-    df_results.plot(
+    plt.figure(figsize=(8, 6), dpi=300)
+    ax = df_results.plot(
         x="Learner",
         y=metrics_to_plot,
         kind="bar",
         ax=plt.gca(),
     )
+
     plt.title("Benchmark Metrics for Each Learner")
     plt.xlabel("Learner")
     plt.ylabel("Score")
@@ -279,12 +301,15 @@ def run_benchmarks(
     plt.legend(title="Metrics")
     plt.tight_layout()
 
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.2f", label_type="edge")
+
     metrics_plot = plt.gcf()
 
     return df_results, metrics_plot, learners_dict
 
 
-def benchmarks_wrapper(*args: Any) -> Any:
+def _benchmarks_wrapper(*args: Any) -> Any:
     """Wrapper function to pass arguments to the run_benchmarks function.
 
     Args:
@@ -295,11 +320,20 @@ def benchmarks_wrapper(*args: Any) -> Any:
             - hpo_methods (List[str]): List of hyperparameter optimization methods.
             - criteria (List[str]): List of evaluation criteria.
             - encodings (List[str]): List of encodings for categorical features.
-            - sampling (Optional[List[str]]): The sampling method.
-            - factor (Optional[float]): The sampling factor.
-            - n_configs (int): Number of configurations.
-            - racing_folds (int): Number of folds for racing methods.
-            - n_jobs (int): Number of jobs to run in parallel.
+            - sampling (Optional[List[Optional[str]]]): Sampling strategies.
+            - factor (Optional[float]): Factor for the resampling process.
+            - n_configs (int): Number of configurations for HPO.
+            - racing_folds (int): Number of folds for racing during random search.
+            - cv_folds (Optional[int]): Number of cross-validation folds.
+            - test_seed (Optional[int]): Seed for random train-test split.
+            - test_size (Optional[float]): Proportion of data used for testing.
+            - val_size (Optional[float]): Proportion of data used for validation in
+                holdout.
+            - cv_seed (Optional[int]): Seed for cross-validation splits.
+            - mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+            - threshold_tuning (bool): Enables threshold tuning for binary
+                classification.
+            - n_jobs (int): Number of parallel jobs to run during evaluation.
             - path (str): The file path where data is stored.
 
     Returns:
@@ -315,11 +349,19 @@ def benchmarks_wrapper(*args: Any) -> Any:
         sampling,
         factor,
         n_configs,
+        cv_folds,
         racing_folds,
+        test_seed,
+        test_size,
+        val_size,
+        cv_seed,
+        mlp_flag,
+        threshold_tuning,
         n_jobs,
         path,
     ) = args
-    return run_benchmarks(
+
+    return _run_benchmarks(
         task=task,
         learners=learners,
         tuning_methods=tuning_methods,
@@ -329,13 +371,20 @@ def benchmarks_wrapper(*args: Any) -> Any:
         sampling=sampling,
         factor=factor,
         n_configs=n_configs,
+        cv_folds=cv_folds,
         racing_folds=racing_folds,
+        test_seed=test_seed,
+        test_size=test_size,
+        val_size=val_size,
+        cv_seed=cv_seed,
+        mlp_flag=mlp_flag,
+        threshold_tuning=threshold_tuning,
         n_jobs=n_jobs,
         path=path,
     )
 
 
-def load_data(
+def _load_data(
     task: str, encoding: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Load and prepare the dataset for training and testing.
@@ -364,7 +413,7 @@ def load_data(
     return "Data loaded successfully", train_df, X_train, y_train, X_test, y_test
 
 
-def load_data_wrapper(
+def _load_data_wrapper(
     task: str, encoding: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Wraooer to load data.
@@ -377,10 +426,10 @@ def load_data_wrapper(
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
-    return load_data(InputProcessor.process_task(task=task), encoding=encoding)
+    return _load_data(InputProcessor.process_task(task=task), encoding=encoding)
 
 
-def update_model_dropdown(models: Dict[str, Any]) -> dict:
+def _update_model_dropdown(models: Dict[str, Any]) -> dict:
     """Updates the model dropdown options based on the provided models.
 
     Args:
@@ -393,7 +442,7 @@ def update_model_dropdown(models: Dict[str, Any]) -> dict:
     return gr.update(choices=model_keys, value=model_keys[0] if model_keys else None)
 
 
-def plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
+def _plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
     """Generates a confusion matrix plot for the given model and test data.
 
     Args:
@@ -408,7 +457,7 @@ def plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
     return plt.gcf()
 
 
-def plot_fi(
+def _plot_fi(
     model: Any,
     fi_types: List[str],
     X: pd.DataFrame,
@@ -436,7 +485,7 @@ def plot_fi(
     return plt.gcf()
 
 
-def plot_cluster(
+def _plot_cluster(
     model: tuple[Any, Any],
     X: pd.DataFrame,
     y: pd.Series,
@@ -464,7 +513,7 @@ def plot_cluster(
     ).analyze_brier_within_clusters(n_clusters=n_clusters)
 
 
-def brier_score_wrapper(
+def _brier_score_wrapper(
     models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series
 ) -> plt.Figure:
     """Wrapper function to generate Brier score plots.
@@ -482,7 +531,7 @@ def brier_score_wrapper(
     return plt.gcf()
 
 
-def plot_fi_wrapper(
+def _plot_fi_wrapper(
     models: dict,
     selected_model: str,
     fi_types: List[str],
@@ -503,7 +552,7 @@ def plot_fi_wrapper(
     Returns:
         Any: The result from the plot_fi function.
     """
-    return plot_fi(
+    return _plot_fi(
         model=models[selected_model],
         fi_types=fi_types,
         X=X,
@@ -512,7 +561,7 @@ def plot_fi_wrapper(
     )
 
 
-def plot_cluster_wrapper(
+def _plot_cluster_wrapper(
     models: dict,
     selected_model: str,
     X: Any,
@@ -533,7 +582,7 @@ def plot_cluster_wrapper(
     Returns:
         Tuple[Any, Any]: The Brier score plot and heatmap plot.
     """
-    return plot_cluster(
+    return _plot_cluster(
         model=models[selected_model],
         X=X,
         y=y,
@@ -542,7 +591,7 @@ def plot_cluster_wrapper(
     )
 
 
-def handle_tooth_selection(
+def _handle_tooth_selection(
     selected_tooth: Union[str, int],
     tooth_states_value: Dict[str, Any],
     tooth_components: Dict[str, gr.components.Component],
@@ -578,7 +627,7 @@ def handle_tooth_selection(
     return tooth_updates + side_updates
 
 
-def update_tooth_state(
+def _update_tooth_state(
     tooth_states_value: Dict[str, Any],
     selected_tooth: Union[str, int],
     input_value: Any,
@@ -602,7 +651,7 @@ def update_tooth_state(
     return tooth_states_value
 
 
-def update_side_state(
+def _update_side_state(
     tooth_states_value: Dict[str, Any],
     selected_tooth: Union[str, int],
     input_value: Any,
@@ -633,7 +682,7 @@ def update_side_state(
     return tooth_states_value
 
 
-def collect_data(
+def _collect_data(
     age: Union[int, float],
     gender: int,
     bmi: float,
@@ -748,7 +797,7 @@ def collect_data(
     return "Patient data collected successfully!", patient_df
 
 
-def app_inference(
+def _app_inference(
     task: str,
     models: dict,
     selected_model: str,
@@ -790,7 +839,7 @@ def app_inference(
     )
 
 
-def run_jackknife_inference(
+def _run_jackknife_inference(
     task: str,
     models: dict,
     selected_model: str,
@@ -798,8 +847,9 @@ def run_jackknife_inference(
     patient_data: pd.DataFrame,
     encoding: str,
     inference_results: pd.DataFrame,
-    sample_fraction: float = 1.0,
-    n_jobs: int = -1,
+    alpha: float,
+    sample_fraction: float,
+    n_jobs: int,
 ) -> Tuple[pd.DataFrame, plt.Figure]:
     """Run jackknife inference and generate confidence intervals and plots.
 
@@ -811,6 +861,7 @@ def run_jackknife_inference(
         patient_data (pd.DataFrame): Patient data to predict on.
         encoding (str): Encoding type.
         inference_results (pd.DataFrame): Original inference results.
+        alpha (float, optional): Significance level for confidence intervals.
         sample_fraction (float, optional): Fraction of patient IDs to use in jackknife.
             Defaults to 1.0.
         n_jobs (int, optional): Number of parallel jobs. Defaults to -1.
@@ -831,6 +882,7 @@ def run_jackknife_inference(
         patient_data=patient_data,
         encoding=encoding,
         inference_results=inference_results,
+        alpha=alpha,
         sample_fraction=sample_fraction,
         n_jobs=n_jobs,
     )

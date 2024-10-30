@@ -1,4 +1,14 @@
-"""Gradio frontend."""
+"""Gradio frontend for periodontal modeling.
+
+Contains streamlined methods for plotting, benchmarking, evaluation and inference.
+
+Example:
+    ```
+    from pamod.app import app
+
+    app.launch()
+    ```
+"""
 
 from functools import partial
 from typing import Dict, List, Union
@@ -6,26 +16,26 @@ from typing import Dict, List, Union
 import gradio as gr
 
 from pamod.app import (
+    _app_inference,
+    _benchmarks_wrapper,
+    _brier_score_wrapper,
+    _collect_data,
+    _handle_tooth_selection,
+    _load_and_initialize_plotter,
+    _load_data_wrapper,
+    _plot_cluster_wrapper,
+    _plot_cm,
+    _plot_fi_wrapper,
+    _plot_histogram_2d,
+    _plot_matrix,
+    _plot_outcome_descriptive,
+    _plot_pocket_comparison,
+    _plot_pocket_group_comparison,
+    _run_jackknife_inference,
+    _update_model_dropdown,
+    _update_side_state,
+    _update_tooth_state,
     all_teeth,
-    app_inference,
-    benchmarks_wrapper,
-    brier_score_wrapper,
-    collect_data,
-    handle_tooth_selection,
-    load_and_initialize_plotter,
-    load_data_wrapper,
-    plot_cluster_wrapper,
-    plot_cm,
-    plot_fi_wrapper,
-    plot_histogram_2d,
-    plot_matrix,
-    plot_outcome_descriptive,
-    plot_pocket_comparison,
-    plot_pocket_group_comparison,
-    run_jackknife_inference,
-    update_model_dropdown,
-    update_side_state,
-    update_tooth_state,
 )
 from pamod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
@@ -105,32 +115,32 @@ with gr.Blocks() as app:
             outcome_output = gr.Plot(scale=6)
 
             load_button.click(
-                fn=load_and_initialize_plotter,
+                fn=_load_and_initialize_plotter,
                 inputs=[path_input],
                 outputs=[load_output],
             )
             plot_hist_2d_button.click(
-                fn=plot_histogram_2d,
+                fn=_plot_histogram_2d,
                 inputs=[column_before_input, column_after_input],
                 outputs=hist_2d_output,
             )
             plot_comparison_button.click(
-                fn=plot_pocket_comparison,
+                fn=_plot_pocket_comparison,
                 inputs=[column1_input, column2_input],
                 outputs=pocket_comparison_output,
             )
             plot_group_comparison_button.click(
-                fn=plot_pocket_group_comparison,
+                fn=_plot_pocket_group_comparison,
                 inputs=[group_column_before_input, group_column_after_input],
                 outputs=group_comparison_output,
             )
             plot_matrix_button.click(
-                fn=plot_matrix,
+                fn=_plot_matrix,
                 inputs=[vertical_input, horizontal_input],
                 outputs=matrix_output,
             )
             plot_outcome_button.click(
-                fn=plot_outcome_descriptive,
+                fn=_plot_outcome_descriptive,
                 inputs=[outcome_input, title_input],
                 outputs=outcome_output,
             )
@@ -141,57 +151,76 @@ with gr.Blocks() as app:
                 value=str(PROCESSED_BASE_DIR) + "/" + "processed_data.csv",
             )
 
-            task_input = gr.Dropdown(
-                label="Task",
-                choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
-                value="Pocket closure",
-            )
+            with gr.Row():
+                task_input = gr.Dropdown(
+                    label="Task",
+                    choices=["Pocket closure", "Pocket improvement", "Pocket groups"],
+                    value="Pocket closure",
+                )
+                learners_input = gr.CheckboxGroup(
+                    label="Learners",
+                    choices=[
+                        "XGBoost",
+                        "Random Forest",
+                        "Logistic Regression",
+                        "Multilayer Perceptron",
+                    ],
+                    value=["XGBoost"],
+                )
 
-            learners_input = gr.CheckboxGroup(
-                label="Learners",
-                choices=[
-                    "XGBoost",
-                    "Random Forest",
-                    "Logistic Regression",
-                    "Multilayer Perceptron",
-                ],
-                value=["XGBoost"],  # Default value can be set
-            )
+            with gr.Row():
+                tuning_methods_input = gr.CheckboxGroup(
+                    label="Tuning Methods",
+                    choices=["Holdout", "Cross-Validation"],
+                    value=["Holdout"],
+                )
+                hpo_methods_input = gr.CheckboxGroup(
+                    label="HPO Methods",
+                    choices=["HEBO", "Random Search"],
+                    value=["HEBO"],
+                )
+                criteria_input = gr.CheckboxGroup(
+                    label="Criteria",
+                    choices=["F1 Score", "Brier Score", "Macro F1 Score"],
+                    value=["F1 Score"],
+                )
 
-            tuning_methods_input = gr.CheckboxGroup(
-                label="Tuning Methods",
-                choices=["Holdout", "Cross-Validation"],
-                value=["Holdout"],  # Default value can be set
-            )
+            with gr.Row():
+                encodings_input = gr.CheckboxGroup(
+                    label="Encoding",
+                    choices=["One-hot", "Target"],
+                    value=["One-hot"],
+                )
+                sampling_input = gr.CheckboxGroup(
+                    label="Sampling Strategy",
+                    choices=["None", "upsampling", "downsampling", "smote"],
+                    value=["None"],
+                )
+                factor_input = gr.Textbox(label="Sampling Factor", value="")
 
-            hpo_methods_input = gr.CheckboxGroup(
-                label="HPO Methods",
-                choices=["HEBO", "Random Search"],
-                value=["HEBO"],  # Default value can be set
-            )
+            with gr.Row():
+                n_configs_input = gr.Number(label="Num Configs", value=3)
+                cv_folds_input = gr.Number(label="CV Folds", value=10)
+                racing_folds_input = gr.Number(label="Racing Folds", value=5)
+                n_jobs_input = gr.Number(label="Num Jobs", value=-1)
 
-            criteria_input = gr.CheckboxGroup(
-                label="Criteria",
-                choices=["F1 Score", "Brier Score", "Macro F1 Score"],
-                value=["F1 Score"],  # Default value can be set
-            )
+            with gr.Row():
+                test_seed_input = gr.Number(label="Test Seed", value=0)
+                cv_seed_input = gr.Number(label="CV Seed", value=0)
+                test_size_input = gr.Number(
+                    label="Test Set Size", value=0.2, minimum=0.0, maximum=1.0
+                )
+                val_size_input = gr.Number(
+                    label="Val Set Size", value=0.2, minimum=0.0, maximum=1.0
+                )
 
-            encodings_input = gr.CheckboxGroup(
-                label="Encoding",
-                choices=["One-hot", "Target"],
-                value=["One-hot"],  # Default value can be set
-            )
-
-            sampling_input = gr.CheckboxGroup(
-                label="Sampling Strategy",
-                choices=["None", "upsampling", "downsampling", "smote"],
-                value=["None"],  # Default value is None
-            )
-
-            factor_input = gr.Textbox(label="Sampling Factor", value="")
-            n_configs_input = gr.Number(label="Number of Configurations", value=3)
-            racing_folds_input = gr.Number(label="Racing Folds", value=5)
-            n_jobs_input = gr.Number(label="Number of Jobs", value=-1)
+            with gr.Row():
+                mlp_flag_input = gr.Checkbox(
+                    label="Enable MLP Training with Early Stopping", value=True
+                )
+                threshold_tuning_input = gr.Checkbox(
+                    label="Enable Threshold Tuning", value=True
+                )
 
             run_button = gr.Button("Run Benchmark")
 
@@ -201,7 +230,7 @@ with gr.Blocks() as app:
             task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
 
             run_button.click(
-                fn=benchmarks_wrapper,
+                fn=_benchmarks_wrapper,
                 inputs=[
                     task_input,
                     learners_input,
@@ -212,7 +241,14 @@ with gr.Blocks() as app:
                     sampling_input,
                     factor_input,
                     n_configs_input,
+                    cv_folds_input,
                     racing_folds_input,
+                    test_seed_input,
+                    test_size_input,
+                    val_size_input,
+                    cv_seed_input,
+                    mlp_flag_input,
+                    threshold_tuning_input,
                     n_jobs_input,
                     path_input,
                 ],
@@ -220,24 +256,25 @@ with gr.Blocks() as app:
             )
 
         with gr.Tab("Evaluation"):
-            task_display = gr.Textbox(
-                label="Selected Task", value="", interactive=False
-            )
-            model_dropdown = gr.Dropdown(
-                label="Select Model", choices=[], value=None, multiselect=False
-            )  # Ensure single selection
-            encoding_input = gr.Dropdown(
-                label="Encoding",
-                choices=["one_hot", "target"],
-                value="one_hot",
-            )
+            with gr.Row():
+                task_display = gr.Textbox(
+                    label="Selected Task", value="", interactive=False
+                )
+                model_dropdown = gr.Dropdown(
+                    label="Select Model", choices=[], value=None, multiselect=False
+                )
+                encoding_input = gr.Dropdown(
+                    label="Encoding",
+                    choices=["one_hot", "target"],
+                    value="one_hot",
+                )
 
             load_data_button = gr.Button("Load Data")
             load_status_output = gr.Textbox(label="Status", interactive=False)
             task_display.value = task_input.value  # Keep this line
 
             models_state.change(
-                fn=update_model_dropdown,
+                fn=_update_model_dropdown,
                 inputs=models_state,
                 outputs=model_dropdown,
             )
@@ -271,7 +308,7 @@ with gr.Blocks() as app:
             cluster_heatmap_plot = gr.Plot()
 
             load_data_button.click(
-                fn=load_data_wrapper,
+                fn=_load_data_wrapper,
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
@@ -296,7 +333,7 @@ with gr.Blocks() as app:
             )
 
             generate_confusion_matrix_button.click(
-                fn=lambda models, selected_model, X_test, y_test: plot_cm(
+                fn=lambda models, selected_model, X_test, y_test: _plot_cm(
                     models[selected_model], X_test, y_test
                 ),
                 inputs=[models_state, model_dropdown, X_test_state, y_test_state],
@@ -304,13 +341,13 @@ with gr.Blocks() as app:
             )
 
             generate_brier_scores_button.click(
-                fn=brier_score_wrapper,
+                fn=_brier_score_wrapper,
                 inputs=[models_state, model_dropdown, X_test_state, y_test_state],
                 outputs=brier_score_plot,
             )
 
             generate_feature_importance_button.click(
-                fn=plot_fi_wrapper,
+                fn=_plot_fi_wrapper,
                 inputs=[
                     models_state,
                     model_dropdown,
@@ -323,7 +360,7 @@ with gr.Blocks() as app:
             )
 
             cluster_button.click(
-                fn=plot_cluster_wrapper,
+                fn=_plot_cluster_wrapper,
                 inputs=[
                     models_state,
                     model_dropdown,
@@ -453,7 +490,7 @@ with gr.Blocks() as app:
 
             tooth_selector.change(
                 fn=partial(
-                    handle_tooth_selection,
+                    _handle_tooth_selection,
                     tooth_components=tooth_components,
                     sides_components=sides_components,
                 ),
@@ -463,7 +500,7 @@ with gr.Blocks() as app:
 
             for input_name, component in tooth_components.items():
                 component.change(
-                    fn=partial(update_tooth_state, input_name=input_name),
+                    fn=partial(_update_tooth_state, input_name=input_name),
                     inputs=[tooth_states, tooth_selector, component],
                     outputs=tooth_states,
                 )
@@ -473,7 +510,7 @@ with gr.Blocks() as app:
                 for input_name, component in side_components.items():
                     component.change(
                         fn=partial(
-                            update_side_state, side_num=side_num, input_name=input_name
+                            _update_side_state, side_num=side_num, input_name=input_name
                         ),
                         inputs=[tooth_states, tooth_selector, component],
                         outputs=tooth_states,
@@ -496,24 +533,22 @@ with gr.Blocks() as app:
             ]
 
             submit_button.click(
-                fn=collect_data,
+                fn=_collect_data,
                 inputs=patient_inputs + [tooth_states],
                 outputs=[output_message, patient_data],
             )
-
-            task_display = gr.Textbox(
-                label="Selected Task", value="", interactive=False
-            )
-
-            inference_model_dropdown = gr.Dropdown(
-                label="Select Model", choices=[], value=None, multiselect=False
-            )
-
-            encoding_input = gr.Dropdown(
-                label="Encoding",
-                choices=["one_hot", "target"],
-                value="one_hot",
-            )
+            with gr.Row():
+                task_display = gr.Textbox(
+                    label="Selected Task", value="", interactive=False
+                )
+                inference_model_dropdown = gr.Dropdown(
+                    label="Select Model", choices=[], value=None, multiselect=False
+                )
+                encoding_input = gr.Dropdown(
+                    label="Encoding",
+                    choices=["one_hot", "target"],
+                    value="one_hot",
+                )
 
             results = gr.DataFrame(visible=False)
 
@@ -523,7 +558,7 @@ with gr.Blocks() as app:
             )
 
             task_input.change(
-                fn=load_data_wrapper,
+                fn=_load_data_wrapper,
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
@@ -536,7 +571,7 @@ with gr.Blocks() as app:
             )
 
             encoding_input.change(
-                fn=load_data_wrapper,
+                fn=_load_data_wrapper,
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
@@ -553,13 +588,13 @@ with gr.Blocks() as app:
             prediction_output = gr.Dataframe(label="Prediction Results")
 
             models_state.change(
-                fn=update_model_dropdown,
+                fn=_update_model_dropdown,
                 inputs=models_state,
                 outputs=inference_model_dropdown,
             )
 
             inference_button.click(
-                fn=app_inference,
+                fn=_app_inference,
                 inputs=[
                     task_input,
                     models_state,
@@ -583,14 +618,18 @@ with gr.Blocks() as app:
                 value=1.0,
             )
 
-            n_jobs_input = gr.Number(
-                label="Number of Parallel Jobs (n_jobs)",
-                value=-1,
-                precision=0,
-            )
+            with gr.Row():
+                n_jobs_input = gr.Number(
+                    label="Number of Parallel Jobs (n_jobs)",
+                    value=-1,
+                    precision=0,
+                )
+                alpha_input = gr.Number(
+                    label="Confidence Level", value=0.05, minimum=0.0, maximum=1.0
+                )
 
             load_data_button.click(
-                fn=load_data_wrapper,
+                fn=_load_data_wrapper,
                 inputs=[task_input, encoding_input],
                 outputs=[
                     load_status_output,
@@ -606,7 +645,7 @@ with gr.Blocks() as app:
             jackknife_plot = gr.Plot(label="Confidence Intervals Plot")
 
             jackknife_button.click(
-                fn=run_jackknife_inference,
+                fn=_run_jackknife_inference,
                 inputs=[
                     task_input,
                     models_state,
@@ -615,10 +654,11 @@ with gr.Blocks() as app:
                     prediction_data,
                     encoding_input,
                     results,
+                    alpha_input,
                     sample_fraction_input,
                     n_jobs_input,
                 ],
                 outputs=[jackknife_plot],
             )
 
-app.launch()
+app.launch(server_port=7880, server_name="0.0.0.0")

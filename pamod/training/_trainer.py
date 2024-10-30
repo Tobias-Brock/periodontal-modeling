@@ -48,11 +48,11 @@ class Trainer(BaseTrainer):
 
     Methods:
         train: Trains a machine learning model, handling custom logic for
-          MLP and standard models.
+            MLP and standard models.
         train_mlp: Trains an MLPClassifier with early stopping, adapting
-          based on classification type and criterion.
+            based on classification type and criterion.
         train_final_model: Trains the final model on resampled data,
-          returning model and metrics.
+            returning model and metrics.
 
     Inherited Methods:
         - `evaluate`: Determines model performance based on the criterion.
@@ -63,7 +63,7 @@ class Trainer(BaseTrainer):
     Example:
         ```
         trainer = Trainer(
-            classification="binary", criterion="f1", tuning="cv", hpo="grid"
+            classification="binary", criterion="f1", tuning="cv", hpo="hebo"
         )
         final_model_info = trainer.train_final_model(
             df=training_data,
@@ -189,7 +189,7 @@ class Trainer(BaseTrainer):
         X_val: pd.DataFrame,
         y_val: pd.Series,
         final: bool = False,
-    ):
+    ) -> Tuple:
         """Trains MLPClassifier with early stopping and evaluates performance.
 
         Applies evaluation for both binary and multiclass classification.
@@ -203,7 +203,7 @@ class Trainer(BaseTrainer):
             final (bool): Flag for final model training.
 
         Returns:
-            tuple: The best validation score, trained MLPClassifier, and the
+            tuple (Tuple): The best validation score, trained MLPClassifier, and the
                 optimal threshold (None for multiclass).
         """
         best_val_score = (
@@ -253,7 +253,7 @@ class Trainer(BaseTrainer):
         seed: int,
         test_size: float,
         verbose: bool = True,
-    ):
+    ) -> dict:
         """Trains the final model.
 
         Args:

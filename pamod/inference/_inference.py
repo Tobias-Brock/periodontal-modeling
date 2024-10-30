@@ -34,16 +34,14 @@ class ModelInference(BaseModelInference):
 
     Methods:
         jackknife_resampling: Re-trains the model on subsets of data,
-          excluding each patient iteratively to compute jackknife estimates.
-        jackknife_confidence_intervals`: Calculates confidence intervals
-          based on jackknife results, returning bounds for each data index
-          and class.
-        plot_jackknife_intervals: Visualizes jackknife confidence intervals
-          for specific data points and classes, displaying both the estimated
-          intervals and original predictions.
+            excluding each patient iteratively to compute jackknife estimates.
+        jackknife_confidence_intervals: Calculates confidence intervals based on
+            jackknife results, returning bounds for each data index and class.
+        plot_jackknife_intervals: Visualizes jackknife confidence intervals for specific
+            data points. Displays the estimated intervals and original predictions.
         jackknife_inference: Runs the complete jackknife inference
-          workflow, generating confidence intervals and an optional plot to
-          illustrate interval bounds across specified data points.
+            workflow, generating confidence intervals and an optional plot to
+            illustrate interval bounds across specified data points.
 
     Inherited Methods:
         - `predict`: Runs predictions on a batch of input data, returning
