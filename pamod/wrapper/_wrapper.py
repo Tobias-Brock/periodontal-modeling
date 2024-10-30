@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
-from ..base import Patient, patient_to_dataframe
+from ..base import Patient, patient_to_df
 from ..benchmarking import BaseBenchmark, Baseline, Benchmarker
 from ..config import MODELS_DIR, PROCESSED_BASE_DIR, REPORTS_DIR
 from ..wrapper import BaseEvaluatorWrapper
@@ -17,7 +17,7 @@ def load_benchmark(
     path: Path = REPORTS_DIR,
     file_name: Optional[str] = None,
     folder_name: Optional[str] = None,
-    verbosity: bool = False,
+    verbose: bool = False,
 ) -> pd.DataFrame:
     """Loads the benchmark DataFrame from a CSV file.
 
@@ -28,7 +28,7 @@ def load_benchmark(
             Defaults to 'benchmark.csv'.
         folder_name (Optional[str]): Folder name to load the CSV from.
             Defaults to a subfolder within REPORTS_DIR named after the task.
-        verbosity (bool): Prints loaded models. Defaults to False.
+        verbose (bool): Prints loaded models. Defaults to False.
 
     Returns:
         pd.DataFrame: Loaded benchmark DataFrame.
@@ -44,14 +44,14 @@ def load_benchmark(
         raise FileNotFoundError(f"The file {csv_file_path} does not exist.")
 
     benchmark_df = pd.read_csv(csv_file_path)
-    if verbosity:
+    if verbose:
         print(f"Loaded benchmark report from {csv_file_path}")
 
     return benchmark_df
 
 
 def load_learners(
-    path: Path = MODELS_DIR, folder_name: Optional[str] = None, verbosity: bool = False
+    path: Path = MODELS_DIR, folder_name: Optional[str] = None, verbose: bool = False
 ) -> dict:
     """Loads the learners from a specified directory.
 
@@ -59,7 +59,7 @@ def load_learners(
         path (Path): Path from where models are loaded. Defaults to MODELS_DIR.
         folder_name (Optional[str]): Folder name to load models from.
             Defaults to a subfolder within MODELS_DIR named after the task.
-        verbosity (bool): Prints loaded models. Defaults to False.
+        verbose (bool): Prints loaded models. Defaults to False.
 
     Returns:
         dict: Dictionary containing loaded learners.
@@ -73,14 +73,85 @@ def load_learners(
         model_name = model_file.stem
         model = joblib.load(model_file)
         learners_dict[model_name] = model
-        if verbosity:
+        if verbose:
             print(f"Loaded model {model_name} from {model_file}")
 
     return learners_dict
 
 
 class BenchmarkWrapper(BaseBenchmark):
-    """Benchmarking and Evaluation Wrapper."""
+    """Wrapper class for model benchmarking, baseline evaluation, and result storage.
+
+    Inherits:
+        - BaseBenchmark: Initializes parameters for benchmarking models and provides
+          configuration for task, learners, tuning methods, HPO, and criteria.
+
+    Args:
+        task (str): Task for evaluation, defining classification type.
+        encodings (List[str]): List of encoding types for categorical features.
+        learners (List[str]): List of learners (models) to benchmark.
+        tuning_methods (List[str]): List of tuning methods for learners.
+        hpo_methods (List[str]): Hyperparameter optimization methods.
+        criteria (List[str]): Evaluation criteria for benchmarking.
+        sampling (Optional[List[Union[str, None]]]): Sampling strategy for data.
+        factor (Optional[float]): Resampling factor (if applicable).
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        n_jobs (Optional[int]): Number of parallel jobs.
+        cv_folds (Optional[int]): Number of cross-validation folds.
+        racing_folds (Optional[int]): Number of racing folds for RS.
+        test_seed (Optional[int]): Random seed for test splits.
+        test_size (Optional[float]): Fraction of data allocated to test set.
+        val_size (Optional[float]): Fraction of data allocated to validation set.
+        cv_seed (Optional[int]): Seed for cross-validation splitting.
+        mlp_flag (Optional[bool]): Flag for enabling MLP with early stopping.
+        threshold_tuning (bool): Enable threshold tuning for binary classification
+            if criterion is 'f1'.
+        verbose (bool): Enable verbose output if set to True.
+        path (Path): Directory path for processed data storage.
+        name (str): Filename for processed data.
+
+    Attributes:
+        classification (str): 'binary' or 'multiclass' based on the task.
+
+    Methods:
+        baseline: Evaluates baseline models for each encoding and returns metrics.
+        wrapped_benchmark: Runs benchmarks with various learners, encodings, and
+            tuning methods.
+        save_benchmark: Saves benchmark results to a specified directory.
+        save_learners: Saves learners to a specified directory as serialized files.
+
+    Example:
+        ```
+        # Initialize the BenchmarkWrapper
+        benchmarker = BenchmarkWrapper(
+            task="pocketclosure",
+            encodings=["one_hot", "target"],
+            learners=["rf", "xgb", "lr"],
+            tuning_methods=["holdout", "cv"],
+            hpo_methods=["rs", "hebo"],
+            criteria=["f1", "brier_score"],
+            sampling=["upsampling"],
+            factor=0.5,
+            n_configs=10,
+            n_jobs=4,
+            verbose=True,
+            path=Path("data"),
+            name="processed_data.csv"
+        )
+
+        # Run baseline benchmarking
+        baseline_df = benchmarker.baseline()
+
+        # Run full benchmark and retrieve results
+        benchmark_results, learners_used = benchmarker.wrapped_benchmark()
+
+        # Save the benchmark results
+        benchmarker.save_benchmark(baseline_df, path=Path("reports"))
+
+        # Save the trained learners
+        benchmarker.save_learners(learners_dict=learners_used, path=Path("models"))
+        ```
+    """
 
     def __init__(
         self,
@@ -94,7 +165,7 @@ class BenchmarkWrapper(BaseBenchmark):
         factor: Optional[float] = None,
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
-        verbosity: bool = False,
+        verbose: bool = False,
         cv_folds: Optional[int] = None,
         racing_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
@@ -106,36 +177,7 @@ class BenchmarkWrapper(BaseBenchmark):
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
     ) -> None:
-        """Initializes the BenchmarkWrapper.
-
-        Args:
-            task (str): Task for evaluation. Can be "pocketclosure",
-                "pdgrouprevaluation", or "improvement".
-            encodings (List[str]): Type of encoding. Can be "one_hot" or "target".
-            learners (List[str]): List of learners for benchmarking.
-            tuning_methods (List[str]): Tuning methods for learners.
-            hpo_methods (List[str]): Hyperparameter optimization methods.
-            criteria (List[str]): Evaluation criteria for benchmarking.
-            sampling (Optional[List[str]]): Sampling strategy to use. Defaults to None.
-            factor (Optional[float]): Factor for resampling. Defaults to None.
-            n_configs (int, optional): Number of configurations to test in HPO.
-                Defaults to 10.
-            n_jobs (Optional[int], optional): Number of parallel jobs. Defaults to None.
-            cv_folds (Optional[int], optional): Number of folds for cross-validation.
-                Defaults to None, in which case the class's `n_folds` will be used.
-            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            test_seed (Optional[int], optional): Random seed for splitting.
-                Defaults to None.
-            test_size (Optional[float]): Size of grouped train test split.
-            val_size (Optional[float]): Size of grouped train test split for holdout.
-            cv_seed (int): Seed for splitting CV folds.
-            mlp_flag (bool): Flag for MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1". Defaults to True.
-            verbosity (bool): Enables verbose output if set to True.
-            path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
-        """
+        """Initializes the BenchmarkWrapper."""
         super().__init__(
             task=task,
             learners=learners,
@@ -155,7 +197,7 @@ class BenchmarkWrapper(BaseBenchmark):
             cv_seed=cv_seed,
             mlp_flag=mlp_flag,
             threshold_tuning=threshold_tuning,
-            verbosity=verbosity,
+            verbose=verbose,
             path=path,
             name=name,
         )
@@ -208,7 +250,7 @@ class BenchmarkWrapper(BaseBenchmark):
             cv_seed=self.cv_seed,
             mlp_flag=self.mlp_flag,
             threshold_tuning=self.threshold_tuning,
-            verbosity=self.verbosity,
+            verbose=self.verbose,
             path=self.path,
             name=self.name,
         )
@@ -263,30 +305,106 @@ class BenchmarkWrapper(BaseBenchmark):
 
 
 class EvaluatorWrapper(BaseEvaluatorWrapper):
-    """Wrapper class for model evaluation and inference, including jackknife resampling.
+    """Wrapper class for model evaluation, feature importance, and inference.
+
+    Extends the base evaluation functionality to enable comprehensive model
+    evaluation, feature importance analysis, patient inference, and jackknife
+    resampling for confidence interval estimation.
+
+    Inherits:
+        - BaseEvaluatorWrapper: Provides foundational methods and attributes for
+          model evaluation, data preparation, and inference.
 
     Args:
         learners_dict (dict): Dictionary containing trained models and their metadata.
         criterion (str): The criterion used to select the best model (e.g., 'f1').
-        aggregate (bool, optional): Whether to aggregate one-hot encoding.
-            Defaults to True.
-        verbosity (bool, optional): If True, enables verbose logging during evaluation
+        aggregate (bool, optional): Whether to aggregate one-hot encoding. Defaults
+            to True.
+        verbose (bool, optional): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
+
+    Attributes:
+        learners_dict (dict): Contains metadata about trained models.
+        criterion (str): Criterion used for model selection.
+        aggregate (bool): Flag for aggregating one-hot encoded metrics.
+        verbose (bool): Controls verbose in evaluation processes.
+        model (object): Best-ranked model based on the criterion.
+        encoding (str): Encoding method ('one_hot' or 'target').
+        learner (str): Type of model (learner) used in training.
+        task (str): Task associated with the model (e.g., 'pocketclosure', 'improve').
+        factor (Optional[float]): Resampling factor if applicable.
+        sampling (Optional[str]): Resampling strategy ('upsampling', 'smote', etc.).
+        classification (str): Classification type ('binary' or 'multiclass').
+        dataloader (ProcessedDataLoader): Data loader and transformer.
+        resampler (Resampler): Resampling strategy for training and testing.
+        df (pd.DataFrame): Loaded dataset.
+        train_df (pd.DataFrame): Training data after splitting.
+        _test_df (pd.DataFrame): Test data after splitting.
+        X_train (pd.DataFrame): Training features.
+        y_train (pd.Series): Training labels.
+        X_test (pd.DataFrame): Test features.
+        y_test (pd.Series): Test labels.
+        base_target (Optional[np.ndarray]): Baseline target for evaluations.
+        evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
+        inference_engine (ModelInference): Model inference manager.
+        trainer (Trainer): Trainer for model evaluation and optimization.
+
+    Methods:
+        wrapped_evaluation: Runs comprehensive evaluation with optional plots for
+          metrics such as confusion matrix and Brier scores.
+        evaluate_feature_importance: Computes feature importance using specified
+          methods (e.g., SHAP, permutation importance).
+        average_over_splits: Aggregates metrics across multiple data splits for
+          robust evaluation.
+        wrapped_patient_inference: Conducts inference on individual patient data.
+        wrapped_jackknife: Executes jackknife resampling on patient data to
+          estimate confidence intervals.
+
+    Examples:
+        ```
+        # Initialize the evaluator with required parameters
+        evaluator = EvaluatorWrapper(
+            learners_dict=my_learners,
+            criterion="f1",
+            aggregate=True,
+            verbose=True
+        )
+
+        # Evaluate the model and generate plots
+        evaluator.wrapped_evaluation(cm=True, brier_groups=True)
+
+        # Calculate feature importance
+        evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
+
+        # Train and average over multiple random splits
+        avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=4)
+
+        # Run inference on a specific patient's data
+        patient_inference_df = evaluator.wrapped_patient_inference(patient=my_patient)
+
+        # Execute jackknife resampling for robust inference
+        jackknife_results_df = evaluator.wrapped_jackknife(
+            patient=my_patient,
+            results=results_df,
+            sample_fraction=0.8,
+            n_jobs=2
+        )
+        ```
     """
 
     def __init__(
         self,
         learners_dict: dict,
-        criterion,
+        criterion: str,
         aggregate: bool = True,
-        verbosity: bool = False,
+        verbose: bool = False,
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup."""
         super().__init__(
             learners_dict=learners_dict,
             criterion=criterion,
             aggregate=aggregate,
-            verbosity=verbosity,
+            verbose=verbose,
         )
 
     def wrapped_evaluation(
@@ -381,7 +499,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             pd.DataFrame: DataFrame with predictions and probabilities for each side
             of the patient's teeth.
         """
-        patient_data = patient_to_dataframe(patient=patient)
+        patient_data = patient_to_df(patient=patient)
         predict_data, patient_data = self.inference_engine.prepare_inference(
             task=self.task,
             patient_data=patient_data,
@@ -416,7 +534,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         Returns:
             pd.DataFrame: The results of jackknife inference.
         """
-        patient_data = patient_to_dataframe(patient=patient)
+        patient_data = patient_to_df(patient=patient)
         patient_data, _ = self.inference_engine.prepare_inference(
             task=self.task,
             patient_data=patient_data,

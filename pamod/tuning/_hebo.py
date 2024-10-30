@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from hebo.design_space.design_space import DesignSpace
 from hebo.optimizers.hebo import HEBO
@@ -14,7 +14,88 @@ from ._basetuner import BaseTuner
 
 
 class HEBOTuner(BaseTuner):
-    """Hyperparameter tuning class using HEBO (Bayesian Optimization)."""
+    """HEBO (Bayesian Optimization) hyperparameter tuning class.
+
+    This class performs hyperparameter tuning for machine learning models
+    using Bayesian Optimization with the HEBO library, supporting both holdout
+    and cross-validation (CV) tuning methods.
+
+    Inherits:
+        - BaseTuner: Provides a framework for implementing HPO strategies,
+          including shared evaluation and logging functions.
+
+    Args:
+        classification (str): The type of classification ('binary' or 'multiclass').
+        criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
+        tuning (str): The type of tuning ('holdout' or 'cv').
+        hpo (str): The hyperparameter optimization method (default is 'HEBO').
+        n_configs (int): Number of configurations to evaluate. Defaults to 10.
+        n_jobs (Optional[int]): Number of parallel jobs for model training.
+            Defaults to None.
+        verbose (bool): Whether to print detailed logs during HEBO optimization.
+            Defaults to True.
+        trainer (Optional[Trainer]): Trainer instance for model training.
+        mlp_training (bool): Enables MLP-specific training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification
+            when the criterion is "f1".
+
+    Attributes:
+        classification (str): Specifies the classification type
+            ('binary' or 'multiclass').
+        criterion (str): The tuning criterion to optimize
+            ('f1', 'brier_score' or 'macro_f1').
+        tuning (str): Indicates the tuning approach ('holdout' or 'cv').
+        hpo (str): Hyperparameter optimization method, default is 'HEBO'.
+        n_configs (int): Number of configurations for HPO.
+        n_jobs (int): Number of parallel jobs for model evaluation.
+        verbose (bool): Enables logging during tuning if set to True.
+        mlp_training (bool): Flag to enable MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        trainer (Trainer): Trainer instance for managing model training and evaluation.
+
+    Methods:
+        holdout: Optimizes hyperparameters using HEBO for holdout validation.
+        cv: Optimizes hyperparameters using HEBO with cross-validation.
+        evaluate_objective: Computes the objective function score for model
+          evaluation based on holdout or cross-validation.
+
+    Example:
+        ```
+        tuner = HEBOTuner(
+            classification="binary",
+            criterion="f1",
+            tuning="holdout",
+            hpo="hebo",
+            n_configs=10,
+            n_jobs=4,
+            verbose=True,
+            trainer=Trainer(
+                classification="binary",
+                criterion="f1",
+                tuning="holdout",
+                hpo="hebo",
+                mlp_training=True,
+                threshold_tuning=True,
+            ),
+            mlp_training=True,
+            threshold_tuning=True,
+        )
+
+        best_params, best_threshold = tuner.holdout(
+            learner="rf",
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val
+        )
+
+        # Using cross-validation
+        best_params, best_threshold = tuner.cv(
+            learner="rf",
+            outer_splits=cross_val_splits
+        )
+        ```
+    """
 
     def __init__(
         self,
@@ -24,32 +105,12 @@ class HEBOTuner(BaseTuner):
         hpo: str = "hebo",
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
-        verbosity: bool = True,
+        verbose: bool = True,
         trainer: Optional[Trainer] = None,
         mlp_training: bool = True,
         threshold_tuning: bool = True,
     ) -> None:
-        """Initialize HEBOTuner with classification, criterion, and tuning method.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
-            tuning (str): The type of tuning ('holdout' or 'cv').
-            hpo (str): The hyperparameter optimization method (default is 'HEBO').
-            n_configs (int): The number of configurations to evaluate during HPO.
-                Defaults to 10.
-            n_jobs (Optional[int]): The number of parallel jobs for model training.
-                Defaults to None.
-            verbosity (bool): Whether to print detailed logs during hebo optimization.
-                Defaults to True.
-            trainer (Optional[Trainer]): An instance of Trainer. If None, a default
-                instance will be created.
-                If None, a default instance will be created.
-            mlp_training (bool): Flag for MLP training with early stopping.
-                Defaults to True.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1". Defaults to True.
-        """
+        """Initialize HEBOTuner."""
         super().__init__(
             classification=classification,
             criterion=criterion,
@@ -57,7 +118,7 @@ class HEBOTuner(BaseTuner):
             hpo=hpo,
             n_configs=n_configs,
             n_jobs=n_jobs,
-            verbosity=verbosity,
+            verbose=verbose,
             trainer=trainer,
             mlp_training=mlp_training,
             threshold_tuning=threshold_tuning,
@@ -170,7 +231,7 @@ class HEBOTuner(BaseTuner):
             )
             optimizer.observe(pd.DataFrame([params_suggestion]), np.array([score]))
 
-            if self.verbosity:
+            if self.verbose:
                 self._print_iteration_info(
                     iteration=i, model=model, params_dict=params_dict, score=score
                 )
@@ -198,7 +259,7 @@ class HEBOTuner(BaseTuner):
 
     def _objective(
         self,
-        model,
+        model: Any,
         params_dict: Dict[str, Union[float, int]],
         X_train: Optional[pd.DataFrame],
         y_train: Optional[pd.Series],
@@ -209,7 +270,7 @@ class HEBOTuner(BaseTuner):
         """Evaluate the model performance for both holdout and cross-validation.
 
         Args:
-            model: The machine learning model to evaluate.
+            model (Any): The machine learning model to evaluate.
             params_dict (Dict[str, Union[float, int]]): The suggested hyperparameters
                 as a dictionary.
             X_train (Optional[pd.DataFrame]): Training features for the holdout set
@@ -245,7 +306,7 @@ class HEBOTuner(BaseTuner):
 
     def evaluate_objective(
         self,
-        model,
+        model: Any,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -257,7 +318,7 @@ class HEBOTuner(BaseTuner):
         The tuning strategy can be either 'holdout' or 'cv' (cross-validation).
 
         Args:
-            model: The cloned machine learning model to be
+            model (Any): The cloned machine learning model to be
                 evaluated.
             X_train (pd.DataFrame): Training features for the holdout set.
             y_train (pd.Series): Training labels for the holdout set.

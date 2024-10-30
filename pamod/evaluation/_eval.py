@@ -17,6 +17,65 @@ from ._baseeval import BaseModelEvaluator
 
 
 class ModelEvaluator(BaseModelEvaluator):
+    """Concrete implementation for evaluating machine learning model performance.
+
+    This class extends `BaseModelEvaluator` to provide methods for calculating
+    feature importance using SHAP, permutation importance, and standard model
+    importance. It also supports clustering analyses of Brier scores.
+
+    Inherits:
+        - BaseModelEvaluator: Provides methods for model evaluation, calculating
+            Brier scores, plotting confusion matrices, and aggregating feature
+            importance for one-hot encoded features.
+
+    Args:
+        X (pd.DataFrame): Dataset features used for testing.
+        y (pd.Series): True labels for the test dataset.
+        model (Union[sklearn estimators, None], optional): A single trained
+            model instance, such as `RandomForestClassifier` or `LogisticRegression`.
+            Defaults to None.
+        models (Union[List[sklearn estimators], None], optional): List of trained
+            models to evaluate. Defaults to None.
+        encoding (Optional[str], optional): Encoding type for plot titles
+            ('one_hot' or 'target'). Defaults to None.
+        aggregate (bool, optional): If True, aggregates one-hot feature
+            importance scores. Defaults to True.
+
+    Attributes:
+        X (pd.DataFrame): Stores the test dataset features for evaluation.
+        y (pd.Series): Stores the test dataset labels for evaluation.
+        model (Union[sklearn estimators, None]): The primary model for evaluation.
+        models (List[sklearn estimators]): List of trained models for multi-model
+            evaluation.
+        encoding (Optional[str]): The encoding type used, impacting plot titles
+            and feature grouping.
+        aggregate (bool): Determines if importance values of one-hot encoded
+            features are aggregated for interpretability.
+
+    Methods:
+        evaluate_feature_importance: Calculates feature importance scores
+          using specified methods (`shap`, `permutation`, or `standard`), with
+          options for plotting and aggregating one-hot encoded features.
+        analyze_brier_within_clusters: Computes Brier scores within clusters
+          formed by a specified clustering algorithm and provides visualizations
+          of score distributions across clusters.
+
+    Inherited Methods:
+        - `brier_score_groups`: Calculates Brier score within specified groups
+          based on a grouping variable (e.g., target class).
+        - `plot_confusion_matrix`: Generates a styled confusion matrix heatmap
+          for model predictions, with optional normalization.
+
+    Example:
+        ```
+        evaluator = ModelEvaluator(X, y, model=trained_rf_model, encoding="one_hot")
+        evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
+        brier_plot, heatmap_plot, clustered_data = (
+            evaluator.analyze_brier_within_clusters()
+        )
+        ```
+    """
+
     def __init__(
         self,
         X: pd.DataFrame,

@@ -1,60 +1,51 @@
-# pamod
+# pa-modeling
 
-<a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
-    <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
-</a>
+A Python package for comprehensive periodontal data processing and modeling. This package provides tools for preprocessing, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. It is designed for Python 3.11.
 
-Package for short term periodontal modeling
+## Features
 
-## Project Organization
+- **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, and transformation.
+- **Automatic Model Tuning**: Supports multiple learners and tuning strategies for optimized model training.
+- **Resampling and Handling Class Imbalance**: Resampling strategies such as SMOTE and upsampling/downsampling to balance dataset classes.
+- **Model Evaluation**: Cross-validation and holdout evaluation with support for criteria such as F1, Brier score, and Macro-F1.
+- **Inference and Descriptive Statistics**: Patient-level inference, jackknife resampling, and 2D histogram generation.
+- **Interactive Frontend with Gradio**: A simple Gradio interface for streamlined model benchmarking and inference.
+- **Descriptive Analysis**: Generate descriptive statistics and plots such as confusion matrices and bar plots for model insights.
 
-```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
-│
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── pyproject.toml     <- Project configuration file with package metadata for
-│                         pamod and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── pamod   <- Source code for use in this project.
-    │
-    ├── __init__.py             <- Makes pamod a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── dataset.py              <- Scripts to download or generate data
-    │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling
-    │   ├── __init__.py
-    │   ├── predict.py          <- Code to run model inference with trained models
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
+## Installation
+
+Ensure you have Python 3.11 installed. Install the package via pip:
+
+```bash
+pip install pa-modeling
 ```
 
---------
+## Usage
+
+### 1. Prprocessing
+
+Use the StaticProcessEngine class to preprocess your data. This class handles data transformation, encoding, and other preprocessing tasks to prepare data for modeling.
+
+```python
+from pamod.data import StaticProcessEngine
+
+engine = StaticProcessEngine(df=my_data)
+processed_data = engine.transform_data()
+```
+
+### 2. Training
+
+```python
+from pamod.training import Trainer
+
+trainer = Trainer(classification="binary", criterion="f1", tuning="cv", hpo="hebo")
+trained_model = trainer.train_final_model(df=processed_data)
+```
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.

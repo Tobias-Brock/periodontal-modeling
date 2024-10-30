@@ -1,16 +1,69 @@
 from typing import Optional, Tuple, Union
 
-from imblearn.over_sampling import SMOTE, RandomOverSampler
-from imblearn.under_sampling import RandomUnderSampler
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
-from sklearn.preprocessing._target_encoder import TargetEncoder
 
-from ..base import BaseValidator
+from ._baseresampler import BaseResampler
 
 
-class Resampler(BaseValidator):
+class Resampler(BaseResampler):
+    """Resampler class for handling data resampling and train-test splitting.
+
+    This class extends `BaseResampler` to provide additional functionality
+    for resampling datasets using various strategies (e.g., SMOTE, upsampling,
+    downsampling) and for handling train-test splitting and cross-validation
+    with group constraints.
+
+    Inherits:
+        - BaseResampler: Base class for resampling and validation methods.
+
+    Args:
+        classification (str): Specifies the type of classification ('binary'
+            or 'multiclass').
+        encoding (str): Specifies the encoding type ('one_hot' or 'target').
+
+    Attributes:
+        classification (str): Type of classification task ('binary' or 'multiclass').
+        encoding (str): Encoding strategy for categorical features
+            ('one_hot' or 'target').
+        random_state_sampling (int): Seed used for reproducibility in sampling.
+        all_cat_vars (list): List of categorical variables in the dataset, used in
+            target encoding when applicable.
+
+    Methods:
+        split_train_test_df: Splits the dataset into train and test sets based
+          on group constraints, ensuring reproducibility.
+        split_x_y: Separates features and target labels in both train and test sets,
+          applying optional sampling and encoding.
+        cv_folds: Performs group-based cross-validation, applying resampling
+          strategies to balance training data where specified.
+
+    Inherited Methods:
+        - `apply_sampling`: Applies specified sampling strategy to balance
+          the dataset, supporting SMOTE, upsampling, and downsampling.
+        - `apply_target_encoding`: Applies target encoding to categorical
+          variables in the dataset.
+        - `validate_dataframe`: Validates that input data meets requirements,
+          such as having specified columns.
+        - `validate_n_folds`: Ensures the number of cross-validation folds
+          is a positive integer.
+        - `validate_sampling_strategy`: Verifies the sampling strategy is
+          one of the allowed options.
+
+    Example:
+        ```
+        resampler = Resampler(classification="binary", encoding="one_hot")
+        train_df, test_df = resampler.split_train_test_df(df, seed=42, test_size=0.3)
+        X_train, y_train, X_test, y_test = resampler.split_x_y(
+            train_df, test_df, sampling="upsampling", factor=1.5
+        )
+        outer_splits, cv_folds_indices = resampler.cv_folds(
+            df, sampling="smote", factor=2.0, seed=42, n_folds=5
+        )
+        ```
+    """
+
     def __init__(self, classification: str, encoding: str) -> None:
         """Initializes the Resampler class.
 
@@ -21,126 +74,7 @@ class Resampler(BaseValidator):
             classification (str): The type of classification ('binary' or 'multiclass').
             encoding (str): Tyoe if encoding ('one_hot' or 'target').
         """
-        super().__init__(classification=classification)
-        self.encoding = encoding
-
-    def apply_sampling(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        sampling: str,
-        sampling_factor: Optional[float] = None,
-    ) -> Tuple[pd.DataFrame, pd.Series]:
-        """Applies resampling strategies to the dataset.
-
-        Methods such as SMOTE, upsampling, or downsampling are applied.
-
-        Args:
-            X (pd.DataFrame): The feature set of the dataset.
-            y (pd.Series): The target variable containing class labels.
-            sampling (str): The type of sampling to apply. Options are 'smote',
-                'upsampling', 'downsampling', or None.
-            sampling_factor (float): The factor by which to upsample or downsample.
-
-        Returns:
-            tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
-
-        Raises:
-            ValueError: If an invalid sampling or classification method is specified.
-        """
-        self.validate_sampling_strategy(sampling=sampling)
-        if sampling == "smote":
-            if self.classification == "multiclass":
-                smote_strategy = {
-                    1: int(sum(y == 1) * sampling_factor),
-                    2: int(sum(y == 2) * sampling_factor),
-                }
-            elif self.classification == "binary":
-                smote_strategy = {1: int(sum(y == 1) * sampling_factor)}
-            smote_sampler = SMOTE(
-                sampling_strategy=smote_strategy,
-                random_state=self.random_state_sampling,
-            )
-            return smote_sampler.fit_resample(X=X, y=y)
-
-        elif sampling == "upsampling":
-            if self.classification == "multiclass":
-                up_strategy = {
-                    1: int(sum(y == 1) * sampling_factor),
-                    2: int(sum(y == 2) * sampling_factor),
-                }
-            elif self.classification == "binary":
-                up_strategy = {0: int(sum(y == 0) * sampling_factor)}
-            up_sampler = RandomOverSampler(
-                sampling_strategy=up_strategy, random_state=self.random_state_sampling
-            )
-            return up_sampler.fit_resample(X=X, y=y)
-
-        elif sampling == "downsampling":
-            if self.classification in ["binary", "multiclass"]:
-                down_strategy = {1: int(sum(y == 1) // sampling_factor)}
-            down_sampler = RandomUnderSampler(
-                sampling_strategy=down_strategy, random_state=self.random_state_sampling
-            )
-            return down_sampler.fit_resample(X=X, y=y)
-
-        else:
-            return X, y
-
-    def apply_target_encoding(
-        self,
-        X: pd.DataFrame,
-        X_val: pd.DataFrame,
-        y: pd.Series,
-        jackknife: bool = False,
-    ) -> pd.DataFrame:
-        """Applies target encoding to categorical variables.
-
-        Args:
-            X (pd.DataFrame): Training dataset.
-            X_val (pd.DataFrame): Validation dataset.
-            y (pd.Series): The target variable.
-            jackknife (bool, optional): If True, do not transform X_val.
-                Defaults to False.
-
-        Returns:
-            pd.DataFrame: Dataset with target encoded features.
-        """
-        cat_vars = [col for col in self.all_cat_vars if col in X.columns]
-
-        if cat_vars:
-            encoder = TargetEncoder(target_type=self.classification)
-            X_encoded = encoder.fit_transform(X[cat_vars], y)
-
-            if not jackknife and X_val is not None:
-                X_val_encoded = encoder.transform(X_val[cat_vars])
-            else:
-                X_val_encoded = None
-
-            if self.classification == "multiclass":
-                n_classes = len(set(y))
-                encoded_cols = [
-                    f"{col}_class_{i}" for col in cat_vars for i in range(n_classes)
-                ]
-            else:
-                encoded_cols = cat_vars
-
-            X_encoded = pd.DataFrame(X_encoded, columns=encoded_cols, index=X.index)
-
-            if X_val_encoded is not None:
-                X_val_encoded = pd.DataFrame(
-                    X_val_encoded, columns=encoded_cols, index=X_val.index
-                )
-
-            X.drop(columns=cat_vars, inplace=True)
-            if X_val is not None:
-                X_val.drop(columns=cat_vars, inplace=True)
-
-            X = pd.concat([X, X_encoded], axis=1)
-            if X_val_encoded is not None:
-                X_val = pd.concat([X_val, X_val_encoded], axis=1)
-
-        return X, X_val
+        super().__init__(classification=classification, encoding=encoding)
 
     def split_train_test_df(
         self,

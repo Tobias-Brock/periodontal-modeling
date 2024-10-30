@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
@@ -12,17 +12,96 @@ from ._baseinference import BaseModelInference
 
 
 class ModelInference(BaseModelInference):
-    def __init__(self, classification: str, model, verbosity: bool = True):
+    """Performs model inference and jackknife resampling on patient data.
+
+    This class extends `BaseModelInference` with specific implementations for
+    jackknife resampling, confidence interval computation, and visualization of
+    prediction intervals for binary and multiclass classification models. It
+    incorporates methods for generating predictions, preparing data for model
+    inference, and applying jackknife inference, thus enabling robust model
+    evaluation with confidence bounds.
+
+    Inherits:
+        - BaseModelInference: Base class that implements prediction and
+            preprocessing methods.
+
+    Args:
+        classification (str): Specifies the classification type ('binary' or
+            'multiclass').
+        model: A trained model instance compatible with scikit-learn's
+            `predict_proba` method.
+        verbose (bool): Enables detailed logging if set to True.
+
+    Methods:
+        jackknife_resampling: Re-trains the model on subsets of data,
+          excluding each patient iteratively to compute jackknife estimates.
+        jackknife_confidence_intervals`: Calculates confidence intervals
+          based on jackknife results, returning bounds for each data index
+          and class.
+        plot_jackknife_intervals: Visualizes jackknife confidence intervals
+          for specific data points and classes, displaying both the estimated
+          intervals and original predictions.
+        jackknife_inference: Runs the complete jackknife inference
+          workflow, generating confidence intervals and an optional plot to
+          illustrate interval bounds across specified data points.
+
+    Inherited Methods:
+        - `predict`: Runs predictions on a batch of input data, returning
+          probabilities and predicted classes.
+        - `create_predict_data`: Encodes and prepares raw patient data for
+          model prediction.
+        - `prepare_inference`: Prepares data for inference by processing and
+          encoding patient data.
+        - `patient_inference`: Generates prediction probabilities for
+          a specified patient's data.
+        - `process_patient`: Excludes data for each patient iteratively and
+          retrains the model for jackknife resampling.
+
+    Example:
+        ```
+        model_inference = ModelInference(
+            classification="binary",
+            model=trained_model,
+            verbose=True
+        )
+
+        # Prepare data for inference
+        prepared_data, patient_data = model_inference.prepare_inference(
+            task="classification_task",
+            patient_data=patient_df,
+            encoding="one_hot",
+            X_train=train_df,
+            y_train=target_series
+        )
+
+        # Run inference on patient data
+        inference_results = model_inference.patient_inference(
+            predict_data=prepared_data, patient_data=patient_data
+        )
+
+        # Perform jackknife inference with confidence interval plotting
+        jackknife_results, ci_plot = model_inference.jackknife_inference(
+            model=trained_model,
+            train_df=train_df,
+            patient_data=patient_df,
+            encoding="target",
+            inference_results=inference_results,
+            alpha=0.05,
+            sample_fraction=0.8,
+            n_jobs=4
+        )
+        ```
+    """
+
+    def __init__(self, classification: str, model: Any, verbose: bool = True):
         """Initialize the ModelInference class with a trained model.
 
         Args:
             classification (str): Classification type ('binary' or 'multiclass').
-            model: Trained classification model with a `predict_proba` method.
-            verbosity (bool): Activates verbosity if set to True.
+            model (Any): Trained classification model with a `predict_proba` method.
+            verbose (bool): Activates verbose if set to True.
         """
-        super().__init__(
-            classification=classification, model=model, verbosity=verbosity
-        )
+        super().__init__(classification=classification, model=model, verbose=verbose)
 
     def jackknife_resampling(
         self,
@@ -197,7 +276,7 @@ class ModelInference(BaseModelInference):
 
     def jackknife_inference(
         self,
-        model,
+        model: Any,
         train_df: pd.DataFrame,
         patient_data: pd.DataFrame,
         encoding: str,
@@ -210,7 +289,7 @@ class ModelInference(BaseModelInference):
         """Run jackknife inference and generate confidence intervals and plots.
 
         Args:
-            model: Dictionary of trained models.
+            model (Any): Trained model instance.
             train_df (pd.DataFrame): Training DataFrame.
             patient_data (pd.DataFrame): Patient data to predict on.
             encoding (str): Encoding type.

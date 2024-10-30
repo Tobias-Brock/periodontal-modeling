@@ -4,14 +4,84 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from pamod.base import BaseEvaluator, BaseHydra
+from pamod.base import BaseConfig, BaseValidator
 from pamod.resampling import Resampler
 from pamod.training import Trainer
 from pamod.tuning import HEBOTuner, RandomSearchTuner
 
 
-class BaseExperiment(BaseEvaluator, ABC):
-    """Base class to handle common attributes for benchmarking-related classes."""
+class BaseExperiment(BaseValidator, ABC):
+    """Base class for experiment workflows with model benchmarking.
+
+    This class provides a shared framework for setting up and running
+    experiments with model training, resampling, tuning, and evaluation. It
+    supports configurations for task-specific classification, tuning methods,
+    hyperparameter optimization, and sampling strategies, providing core methods
+    to set up tuning, training, and evaluation for different machine learning
+    tasks.
+
+    Inherits:
+        - BaseValidator: Validates instance-level variables and parameters.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        df (pd.DataFrame): The preloaded dataset used for training and evaluation.
+        task (str): Task name, used to determine classification type.
+        learner (str): Specifies the model or algorithm for evaluation.
+        criterion (str): Criterion for performance evaluation ('macro_f1' or
+            'brier_score').
+        encoding (str): Encoding type for categorical features ('one_hot' or 'binary').
+        tuning (Optional[str]): Method of tuning to apply ('holdout' or 'cv').
+        hpo (Optional[str]): Hyperparameter optimization strategy ('rs', 'hebo').
+        sampling (Optional[str]): Resampling strategy to handle class imbalance.
+        factor (Optional[float]): Factor applied during resampling.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        racing_folds (Optional[int]): Number of racing folds for random search.
+        n_jobs (Optional[int]): Number of parallel jobs for processing.
+        cv_folds (Optional[int]): Number of folds for cross-validation; defaults to
+            the value set in `self.n_folds` if None.
+        test_seed (Optional[int]): Seed for random train-test split; defaults to
+            `self.random_state_split` if None.
+        test_size (Optional[float]): Proportion of data used for testing; defaults to
+            `self.test_set_size` if None.
+        val_size (Optional[float]): Proportion of data used for validation in holdout;
+            defaults to `self.val_set_size` if None.
+        cv_seed (Optional[int]): Seed for cross-validation; defaults to
+            `self.random_state_cv` if None.
+        mlp_flag (Optional[bool]): Whether to enable MLP training with early stopping;
+            defaults to `self.mlp_training`.
+        threshold_tuning (bool): If True, tunes the decision threshold for binary
+            classification when optimizing `f1`.
+        verbose (bool): If True, enables detailed logging of model and tuning
+            processes.
+
+    Attributes:
+        task (str): Name of the task used for model evaluation.
+        classification (str): Classification type ('binary' or 'multiclass') based on
+            task.
+        df (pd.DataFrame): Loaded dataset for training, validation, and testing.
+        learner (str): Model or algorithm used for evaluation.
+        encoding (str): Encoding type for categorical features.
+        sampling (str): Resampling strategy for handling class imbalance.
+        factor (float): Factor for applying the specified resampling strategy.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        racing_folds (int): Number of racing folds for random search.
+        n_jobs (int): Number of parallel jobs for processing.
+        cv_folds (int): Number of cross-validation folds for training.
+        test_seed (int): Seed for random train-test split for reproducibility.
+        test_size (float): Proportion of data for test split.
+        val_size (float): Proportion of data for validation split in holdout.
+        cv_seed (int): Seed for cross-validation for reproducibility.
+        mlp_flag (bool): Enables MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): Enables verbose logging during model tuning and evaluation.
+        resampler (Resampler): Resampler instance for handling data resampling.
+        trainer (Trainer): Trainer instance for managing model training.
+        tuner (Tuner): Tuner instance for hyperparameter optimization.
+
+    Abstract Method:
+        - `perform_evaluation`: Abstract method to handle the model evaluation process.
+    """
 
     def __init__(
         self,
@@ -34,33 +104,9 @@ class BaseExperiment(BaseEvaluator, ABC):
         cv_seed: Optional[int],
         mlp_flag: Optional[bool],
         threshold_tuning: bool,
-        verbosity: bool,
+        verbose: bool,
     ) -> None:
-        """Initialize the Experiment class with tuning parameters.
-
-        Args:
-            df (pd.DataFrame): The preloaded data.
-            task (str): The task name used to determine classification type.
-            learner (str): The machine learning model to evaluate.
-            criterion (str): Criterion for optimization ('macro_f1' or 'brier_score').
-            encoding (str): Encoding type ('one_hot' or 'binary')
-            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            sampling (Optional[str]): Sampling strategy to use.
-            factor (Optional[float]): Factor for resampling.
-            n_configs (int): Number of configurations for hyperparameter tuning.
-            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
-            cv_folds (Optional[int], optional): Number of folds for cross-validation.
-            test_seed (Optional[int], optional): Random seed for splitting.
-            test_size (Optional[float]): Size of grouped train test split.
-            val_size (Optional[float]): Size of grouped train test split for holdout.
-            cv_seed (int): Seed for splitting CV folds.
-            mlp_flag (bool): Flag for MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1".
-            verbosity (bool): Enables verbose output if set to True.
-        """
+        """Initialize the Experiment class with tuning parameters."""
         self.task = task
         classification = self._determine_classification()
         super().__init__(
@@ -81,7 +127,7 @@ class BaseExperiment(BaseEvaluator, ABC):
         self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
         self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
         self.threshold_tuning = threshold_tuning
-        self.verbosity = verbosity
+        self.verbose = verbose
         self.resampler = Resampler(self.classification, self.encoding)
         self.trainer = Trainer(
             self.classification,
@@ -118,7 +164,7 @@ class BaseExperiment(BaseEvaluator, ABC):
                 hpo=self.hpo,
                 n_configs=self.n_configs,
                 n_jobs=self.n_jobs,
-                verbosity=self.verbosity,
+                verbose=self.verbose,
                 trainer=self.trainer,
                 mlp_training=self.mlp_flag,
                 threshold_tuning=self.threshold_tuning,
@@ -131,7 +177,7 @@ class BaseExperiment(BaseEvaluator, ABC):
                 hpo=self.hpo,
                 n_configs=self.n_configs,
                 n_jobs=self.n_jobs,
-                verbosity=self.verbosity,
+                verbose=self.verbose,
                 trainer=self.trainer,
                 mlp_training=self.mlp_flag,
                 threshold_tuning=self.threshold_tuning,
@@ -160,7 +206,7 @@ class BaseExperiment(BaseEvaluator, ABC):
             n_jobs=self.n_jobs,
             seed=self.test_seed,
             test_size=self.test_size,
-            verbosity=self.verbosity,
+            verbose=self.verbose,
         )
 
     @abstractmethod
@@ -180,8 +226,62 @@ class BaseExperiment(BaseEvaluator, ABC):
         """Perform cross-validation and return the final model metrics."""
 
 
-class BaseBenchmark(BaseHydra):
-    """Base class to handle common attributes for benchmarking-related classes."""
+class BaseBenchmark(BaseConfig):
+    """Base class for benchmarking models on specified tasks with various settings.
+
+    This class initializes common parameters for benchmarking, including task
+    specifications, encoding and sampling methods, tuning strategies, and model
+    evaluation criteria.
+
+    Inherits:
+        BaseConfig: Base configuration class providing configuration loading.
+
+    Args:
+        task (str): Task for evaluation, defining classification type.
+        learners (List[str]): List of learners (models) for benchmarking.
+        tuning_methods (List[str]): List of tuning methods for learners.
+        hpo_methods (List[str]): Hyperparameter optimization methods.
+        criteria (List[str]): Evaluation criteria (e.g., 'f1', 'brier_score').
+        encodings (List[str]): Encoding types for categorical features.
+        sampling (Optional[List[Union[str, None]]]): Sampling strategy to use.
+        factor (Optional[float]): Factor for resampling.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        n_jobs (Optional[int]): Number of parallel jobs.
+        cv_folds (Optional[int]): Number of folds for cross-validation.
+        racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+        test_seed (Optional[int]): Random seed for test set splitting.
+        test_size (Optional[float]): Size of the test set as a fraction.
+        val_size (Optional[float]): Size of validation set as a fraction for holdout.
+        cv_seed (Optional[int]): Seed for cross-validation splitting.
+        mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning if criterion is 'f1'.
+        verbose (bool): Enables verbose logging if set to True.
+        path (Path): Directory path for storing processed data.
+        name (str): Filename for the processed data file.
+
+    Attributes:
+        task (str): Task for classification or regression.
+        learners (List[str]): Selected models to benchmark.
+        tuning_methods (List[str]): Tuning methods for optimization.
+        hpo_methods (List[str]): Hyperparameter optimization strategies.
+        criteria (List[str]): Criteria for evaluating model performance.
+        encodings (List[str]): Encoding schemes for data transformation.
+        sampling (Optional[List[Union[str, None]]]): Sampling strategies.
+        factor (Optional[float]): Factor used in sampling strategy.
+        n_configs (int): Number of HPO configurations to test.
+        n_jobs (Optional[int]): Parallel jobs for model training and evaluation.
+        cv_folds (Optional[int]): Number of cross-validation folds.
+        racing_folds (Optional[int]): Racing folds for optimization.
+        test_seed (Optional[int]): Seed for test-train splits.
+        test_size (Optional[float]): Test set fraction.
+        val_size (Optional[float]): Validation set fraction for holdout tuning.
+        cv_seed (Optional[int]): Seed for cross-validation splitting.
+        mlp_flag (Optional[bool]): Flag indicating MLP usage with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for 'f1' optimization.
+        verbose (bool): Enables verbose logging.
+        path (Path): Directory path for processed data storage.
+        name (str): Name of processed data file.
+    """
 
     def __init__(
         self,
@@ -203,36 +303,11 @@ class BaseBenchmark(BaseHydra):
         cv_seed: Optional[int],
         mlp_flag: Optional[bool],
         threshold_tuning: bool,
-        verbosity: bool,
+        verbose: bool,
         path: Path,
         name: str,
     ) -> None:
-        """Initialize the base benchmark class with common parameters.
-
-        Args:
-            task (str): Task for evaluation.
-            learners (List[str]): List of learners for benchmarking.
-            tuning_methods (List[str]): Tuning methods for learners.
-            hpo_methods (List[str]): Hyperparameter optimization methods.
-            criteria (List[str]): Evaluation criteria for benchmarking.
-            encodings (List[str]): Type of encoding ('one_hot' or 'target').
-            sampling (Optional[List[str]]): Sampling strategy to use.
-            factor (Optional[float]): Factor for resampling.
-            n_configs (int): Number of configurations for hyperparameter tuning.
-            n_jobs (Optional[int]): Number of parallel jobs.
-            cv_folds (Optional[int]): Number of folds for cross-validation.
-            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            test_seed (Optional[int]): Random seed for splitting.
-            test_size (Optional[float]): Size of grouped train test split.
-            val_size (Optional[float]): Size of grouped train test split for holdout.
-            cv_seed (Optional[int]): Seed for splitting CV folds.
-            mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1".
-            verbosity (bool): Enables verbose output if True.
-            path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
-        """
+        """Initialize the base benchmark class with common parameters."""
         super().__init__()
         self.task = task
         self.learners = learners
@@ -244,7 +319,7 @@ class BaseBenchmark(BaseHydra):
         self.factor = factor
         self.n_configs = n_configs
         self.n_jobs = n_jobs
-        self.verbosity = verbosity
+        self.verbose = verbose
         self.cv_folds = cv_folds
         self.racing_folds = racing_folds
         self.test_seed = test_seed

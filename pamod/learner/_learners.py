@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
 
-from ..base import BaseValidator
+from ..base import BaseConfig
 from ._parameters import (
     get_lr_params_hebo_oh,
     get_mlp_params_hebo,
@@ -22,7 +22,48 @@ from ._parameters import (
 )
 
 
-class Model(BaseValidator):
+class Model(BaseConfig):
+    """Configurable machine learning model class with HPO options.
+
+    This class provides an interface for initializing machine learning models
+    based on the specified learner type (e.g., random forest, logistic regression)
+    and classification type (binary or multiclass). It supports optional
+    hyperparameter optimization (HPO) configurations.
+
+    Inherits:
+        - BaseConfig: Provides base configuration settings, including random
+            state and model parameters.
+
+    Args:
+        learner (str): The machine learning algorithm to use, such as 'rf'
+            (random forest), 'mlp' (multi-layer perceptron), 'xgb' (XGBoost),
+            or 'lr' (logistic regression).
+        classification (str): Specifies the classification type, either
+            'binary' or 'multiclass'.
+        hpo (str, optional): The hyperparameter optimization (HPO) method to
+            use, such as 'hebo' or 'rs' (random search). Defaults to None,
+            which requires specifying HPO in relevant methods.
+
+    Attributes:
+        learner (str): The specified machine learning algorithm for the model.
+        classification (str): Defines the type of classification task
+            ('binary' or 'multiclass').
+        hpo (Optional[str]): Hyperparameter optimization method for tuning, if
+            specified.
+
+    Methods:
+        get: Class method returning a model and hyperparameter search space
+          or parameter grid.
+        get_model: Class method that returns only the instantiated model
+          without HPO options.
+
+    Example:
+        ```
+        model_instance = Model.get(learner="rf", classification="binary", hpo="hebo")
+        trained_model = Model.get_model(learner="mlp", classification="multiclass")
+        ```
+    """
+
     def __init__(
         self, learner: str, classification: str, hpo: Optional[str] = None
     ) -> None:
@@ -35,7 +76,9 @@ class Model(BaseValidator):
             hpo (str, optional): The hyperparameter optimization method to use
                 (default None).
         """
-        super().__init__(classification=classification, hpo=hpo)
+        super().__init__()
+        self.classification = classification
+        self.hpo = hpo
         self.learner = learner
 
     def _get_model_instance(self):

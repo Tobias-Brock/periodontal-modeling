@@ -5,28 +5,64 @@ from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from ..base import BaseHydra
+from ..base import BaseConfig
 from ..data import ProcessedDataLoader
 from ..resampling import Resampler
 from ..training import final_metrics, get_probs
 
 
-class Baseline(BaseHydra):
+class Baseline(BaseConfig):
     """Evaluates baseline models on a given dataset.
 
+    This class loads, preprocesses, and evaluates a set of baseline models on a
+    specified dataset. The baseline models include a Random Forest, Logistic
+    Regression, and a Dummy Classifier, which are trained and evaluated on
+    split data, returning a summary of performance metrics for each model.
+
     Attributes:
-        classification (str): Specifies the classification type ('binary' or
+        classification (str): Specifies classification type ('binary' or
             'multiclass') based on the task.
-        resampler (Resampler): The resampling strategy for training/testing split.
+        resampler (Resampler): Strategy for resampling data during training/testing
+            split.
         dataloader (ProcessedDataLoader): Loader for processing and transforming the
             dataset.
-        dummy_strategy (str): Strategy used by the DummyClassifier (default is
-            'prior').
-        lr_solver (str): Solver for Logistic Regression (default is 'saga').
-        random_state (int): Random state used for reproducibility (default is 0).
-        models (List[Tuple[str, object]]): List of models to benchmark, with each
-            model represented as a tuple containing the model's name and the
-            initialized model object.
+        dummy_strategy (str): Strategy used by the DummyClassifier, default is 'prior'.
+        lr_solver (str): Solver for Logistic Regression, default is 'saga'.
+        random_state (int): Random seed for reproducibility, default is 0.
+        models (List[Tuple[str, object]]): List of models to benchmark, each
+            represented as a tuple containing the model's name and the initialized
+            model object.
+
+    Args:
+        task (str): Task name used to determine the classification type.
+        encoding (str): Encoding type for categorical columns.
+        random_state (int, optional): Random seed for reproducibility. Defaults to 0.
+        lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
+            'saga'.
+        dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
+            'prior'.
+        models (List[Tuple[str, object]], optional): List of models to benchmark.
+            If not provided, default models are initialized.
+
+    Methods:
+        baseline: Trains and evaluates each model in the models list, returning
+            a DataFrame with evaluation metrics.
+
+    Example:
+        ```
+        # Initialize baseline evaluation for pocket closure task
+        baseline = Baseline(
+            task="pocketclosure",
+            encoding="one_hot",
+            random_state=42,
+            lr_solver="saga",
+            dummy_strategy="most_frequent"
+        )
+
+        # Evaluate baseline models and display results
+        results_df = baseline.baseline()
+        print(results_df)
+        ```
     """
 
     def __init__(

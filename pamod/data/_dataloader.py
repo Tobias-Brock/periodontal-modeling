@@ -5,20 +5,56 @@ from ..data import BaseDataLoader
 
 
 class ProcessedDataLoader(BaseDataLoader):
+    """Concrete data loader for loading, transforming, and saving processed data.
+
+    This class implements methods for encoding categorical columns, scaling numeric
+    columns, and transforming data based on the specified task. It supports encoding
+    types such as 'one_hot' and 'target', with optional scaling of numeric columns.
+
+    Inherits:
+        - BaseDataLoader: Provides core data loading, encoding, and scaling methods.
+
+    Args:
+        task (str): The task column name, used to guide specific transformations.
+        encoding (str): Specifies the encoding method for categorical columns.
+            Options include 'one_hot', 'target', or None.
+        encode (bool, optional): If True, applies encoding to categorical columns.
+            Defaults to True.
+        scale (bool, optional): If True, applies scaling to numeric columns.
+            Defaults to True.
+
+    Attributes:
+        task (str): Task column name used during data transformations.
+        encoding (str): Encoding method specified for categorical columns.
+        encode (bool): Flag to enable encoding of categorical columns.
+        scale (bool): Flag to enable scaling of numeric columns.
+
+    Methods:
+        encode_categorical_columns: Encodes categorical columns based on the
+          specified encoding method.
+        scale_numeric_columns: Scales numeric columns to normalize data.
+        transform_data: Executes the complete data processing pipeline, including
+          encoding and scaling.
+
+    Inherited Methods:
+        - `load_data`: Load processed data from the specified path and file.
+        - `save_data`: Save processed data to the specified path and file.
+
+    Example:
+        ```
+        loader = ProcessedDataLoader(
+            task="outcome", encoding="one_hot", encode=True, scale=True
+            )
+        data = loader.load_data()
+        data = loader.transform_data(data)
+        loader.save_data(data)
+        ```
+    """
+
     def __init__(
         self, task: str, encoding: str, encode: bool = True, scale: bool = True
     ) -> None:
-        """Initializes the ProcessedDataLoader with the specified task column.
-
-        Args:
-            task (str): The task column name.
-            encoding (str): Specifies the encoding for categorical columns.
-                Options: 'one_hot', 'target', or None.
-            encode (bool): If True, performs encodign on categorical columns.
-                Defaults to True.
-            scale (bool): If True, performs scaling on numeric columns.
-                Defaults to True.
-        """
+        """Initializes the ProcessedDataLoader with the specified task column."""
         super().__init__(task=task, encoding=encoding, encode=encode, scale=scale)
 
     def encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:

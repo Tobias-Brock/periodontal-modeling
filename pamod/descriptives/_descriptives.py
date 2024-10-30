@@ -10,6 +10,38 @@ from sklearn.metrics import confusion_matrix
 
 
 class DescriptivesPlotter:
+    """Class for creating various descriptive plots based on periodontal data.
+
+    This class provides methods for visualizing data through heatmaps, bar plots,
+    2D histograms, and other descriptive plots to analyze pocket depth and therapy
+    outcomes.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the data for plotting.
+
+    Attributes:
+        df (pd.DataFrame): Stores the input DataFrame for use in plotting.
+
+    Methods:
+        plt_matrix: Plots a heatmap/confusion matrix based on two columns.
+        pocket_comparison: Creates bar plots to compare pocket depth before
+          and after therapy.
+        pocket_group_comparison: Generates side-by-side bar plots for pocket
+          depth categories before and after therapy.
+        histogram_2d: Creates a 2D histogram plot based on two columns, visualizing
+          pocket depth before and after therapy.
+        outcome_descriptive: Creates a bar plot for an outcome variable, useful
+          for examining therapy outcomes.
+
+    Example:
+        ```
+        plotter = DescriptivesPlotter(df)
+        plotter.plt_matrix(vertical="depth_before", horizontal="depth_after")
+        plotter.pocket_comparison(column1="depth_before", column2="depth_after")
+        plotter.histogram_2d(column_before="depth_before", column_after="depth_after")
+        ```
+    """
+
     def __init__(self, df: pd.DataFrame) -> None:
         """Initializes DescriptivesPlotter with pd.DataFrame.
 

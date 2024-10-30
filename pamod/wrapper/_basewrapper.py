@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from ..base import BaseHydra, Patient
+from ..base import BaseConfig, Patient
 from ..data import ProcessedDataLoader
 from ..evaluation import ModelEvaluator
 from ..inference import ModelInference
@@ -12,13 +12,67 @@ from ..resampling import Resampler
 from ..training import Trainer
 
 
-class BaseEvaluatorWrapper(BaseHydra, ABC):
+class BaseEvaluatorWrapper(BaseConfig, ABC):
+    """Base class for wrappers handling model evaluation processes.
+
+    This class serves as a foundational structure for evaluator wrappers, offering
+    methods to initialize, prepare, and evaluate models according to specified
+    parameters. It provides core functionality to streamline evaluation, feature
+    importance analysis, patient inference, and jackknife resampling.
+
+    Inherits:
+        BaseConfig: Loads configuration parameters and manages general setup.
+        ABC: Specifies abstract methods that must be implemented by subclasses.
+
+    Args:
+        learners_dict (Dict): Dictionary containing models and their metadata.
+        criterion (str): Criterion for selecting models (e.g., 'f1', 'brier_score').
+        aggregate (bool): Whether to aggregate metrics.
+        verbose (bool): Controls verbose in the evaluation process.
+
+    Attributes:
+        learners_dict (dict): Holds learners and metadata.
+        criterion (str): Evaluation criterion to select the optimal model.
+        aggregate (bool): Indicates if metrics should be aggregated.
+        verbose (bool): Flag for controlling logging verbose.
+        model (object): Best-ranked model for the given criterion.
+        encoding (str): Encoding type, either 'one_hot' or 'target'.
+        learner (str): The learner associated with the best model.
+        task (str): Task associated with the model ('pocketclosure', 'improve', etc.).
+        factor (Optional[float]): Resampling factor if applicable.
+        sampling (Optional[str]): Resampling strategy used (e.g., 'smote').
+        classification (str): Classification type ('binary' or 'multiclass').
+        dataloader (ProcessedDataLoader): Data loader and transformer.
+        resampler (Resampler): Resampling strategy for training and testing.
+        df (pd.DataFrame): Loaded dataset.
+        train_df (pd.DataFrame): Training data after splitting.
+        test_df (pd.DataFrame): Test data after splitting.
+        X_train (pd.DataFrame): Training features.
+        y_train (pd.Series): Training labels.
+        X_test (pd.DataFrame): Test features.
+        y_test (pd.Series): Test labels.
+        base_target (Optional[np.ndarray]): Baseline target for evaluations.
+        evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
+        inference_engine (ModelInference): Model inference manager.
+        trainer (Trainer): Trainer for model evaluation and optimization.
+
+    Abstract Methods:
+        - `wrapped_evaluation`: Performs model evaluation and generates specified plots.
+        - `evaluate_feature_importance`: Computes feature importance using specified
+          methods.
+        - `average_over_splits`: Aggregates metrics over multiple splits for model
+          robustness.
+        - `wrapped_patient_inference`: Runs inference on individual patient data.
+        - `wrapped_jackknife`: Executes jackknife resampling on patient data for
+          confidence interval estimation.
+    """
+
     def __init__(
         self,
         learners_dict: Dict,
         criterion: str,
         aggregate: bool,
-        verbosity: bool,
+        verbose: bool,
     ):
         """Base class for EvaluatorWrapper, initializing common parameters.
 
@@ -26,13 +80,13 @@ class BaseEvaluatorWrapper(BaseHydra, ABC):
             learners_dict (dict): Dictionary containing models and their metadata.
             criterion (str): Criterion for selecting model (e.g., 'f1', 'brier_score').
             aggregate (bool): Method for aggregating metrics.
-            verbosity (bool): Verbosity flag.
+            verbose (bool): verbose flag.
         """
         super().__init__()
         self.learners_dict = learners_dict
         self.criterion = criterion
         self.aggregate = aggregate
-        self.verbosity = verbosity
+        self.verbose = verbose
         (
             self.model,
             self.encoding,
@@ -68,7 +122,7 @@ class BaseEvaluatorWrapper(BaseHydra, ABC):
         self.inference_engine = ModelInference(
             classification=self.classification,
             model=self.model,
-            verbosity=self.verbosity,
+            verbose=self.verbose,
         )
         self.trainer = Trainer(
             classification=self.classification,
@@ -226,7 +280,7 @@ class BaseEvaluatorWrapper(BaseHydra, ABC):
             n_jobs=n_jobs,
             seed=seed,
             test_size=self.test_set_size,
-            verbosity=self.verbosity,
+            verbose=self.verbose,
         )
         return result["metrics"]
 
