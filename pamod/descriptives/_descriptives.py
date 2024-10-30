@@ -10,6 +10,38 @@ from sklearn.metrics import confusion_matrix
 
 
 class DescriptivesPlotter:
+    """Class for creating various descriptive plots based on periodontal data.
+
+    This class provides methods for visualizing data through heatmaps, bar plots,
+    2D histograms, and other descriptive plots to analyze pocket depth and therapy
+    outcomes.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the data for plotting.
+
+    Attributes:
+        df (pd.DataFrame): Stores the input DataFrame for use in plotting.
+
+    Methods:
+        plt_matrix: Plots a heatmap/confusion matrix based on two columns.
+        pocket_comparison: Creates bar plots to compare pocket depth before
+            and after therapy.
+        pocket_group_comparison: Generates side-by-side bar plots for pocket
+            depth categories before and after therapy.
+        histogram_2d: Creates a 2D histogram plot based on two columns, visualizing
+            pocket depth before and after therapy.
+        outcome_descriptive: Creates a bar plot for an outcome variable, useful
+            for examining therapy outcomes.
+
+    Example:
+        ```
+        plotter = DescriptivesPlotter(df)
+        plotter.plt_matrix(vertical="depth_before", horizontal="depth_after")
+        plotter.pocket_comparison(column1="depth_before", column2="depth_after")
+        plotter.histogram_2d(column_before="depth_before", column_after="depth_after")
+        ```
+    """
+
     def __init__(self, df: pd.DataFrame) -> None:
         """Initializes DescriptivesPlotter with pd.DataFrame.
 
@@ -100,27 +132,27 @@ class DescriptivesPlotter:
 
         if save:
             if name is None:
-                raise ValueError("'name' argument must required when 'save' is True.")
+                raise ValueError("'name' argument required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
         plt.show()
 
     def pocket_comparison(
-        self, column1: str, column2: str, name: Optional[str] = None, save: bool = False
+        self, col1: str, col2: str, name: Optional[str] = None, save: bool = False
     ) -> None:
         """Creates two bar plots for comparing pocket depth before and after therapy.
 
         Args:
-            column1 (str): Column name for the first plot (before therapy).
-            column2 (str): Column name for the second plot (after therapy).
+            col1 (str): Column name for the first plot (before therapy).
+            col2 (str): Column name for the second plot (after therapy).
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        value_counts_1 = self.df[column1].value_counts()
+        value_counts_1 = self.df[col1].value_counts()
         x_values_1 = value_counts_1.index
         heights_1 = value_counts_1.values
 
-        value_counts_2 = self.df[column2].value_counts()
+        value_counts_2 = self.df[col2].value_counts()
         x_values_2 = value_counts_2.index
         heights_2 = value_counts_2.values
 
@@ -175,25 +207,25 @@ class DescriptivesPlotter:
 
     def pocket_group_comparison(
         self,
-        column_before: str,
-        column_after: str,
+        col_before: str,
+        col_after: str,
         name: Optional[str] = None,
         save: bool = False,
     ) -> None:
         """Creates side-by-side bar plots for pocket depth before and after therapy.
 
         Args:
-            column_before (str): Column name for the first plot (before therapy).
-            column_after (str): Column name for the second plot (after therapy).
+            col_before (str): Column name for the first plot (before therapy).
+            col_after (str): Column name for the second plot (after therapy).
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        value_counts = self.df[column_before].value_counts()
+        value_counts = self.df[col_before].value_counts()
         x_values = value_counts.index
         heights = value_counts.values
         total_values = sum(heights)
 
-        value_counts2 = self.df[column_after].value_counts()
+        value_counts2 = self.df[col_after].value_counts()
         x_values2 = value_counts2.index
         heights2 = value_counts2.values
         total_values2 = sum(heights2)
@@ -267,21 +299,21 @@ class DescriptivesPlotter:
 
     def histogram_2d(
         self,
-        column_before: str,
-        column_after: str,
+        col_before: str,
+        col_after: str,
         name: Optional[str] = None,
         save: bool = False,
     ) -> None:
         """Creates a 2D histogram plot based on two columns.
 
         Args:
-            column_before (str): Column name for pocket depth before therapy.
-            column_after (str): Column name for pocket depth after therapy.
+            col_before (str): Column name for pocket depth before therapy.
+            col_after (str): Column name for pocket depth after therapy.
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
         heatmap, _, _ = np.histogram2d(
-            self.df[column_before], self.df[column_after], bins=(12, 12)
+            self.df[col_before], self.df[col_after], bins=(12, 12)
         )
 
         plt.figure(figsize=(8, 6), dpi=300)

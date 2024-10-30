@@ -3,6 +3,6 @@ random_state_split : 0
 random_state_cv : 0
 test_set_size : 0.2
 val_set_size : 0.2
+n_folds : 10
 group_col : 'id_patient'
-n_folds : 5
-target : "y"
+y : "y"

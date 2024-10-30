@@ -1,45 +1,93 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 
-from pamod.base import BaseEvaluator
-from pamod.training import MetricEvaluator, Trainer
-
-
-class MetaTuner(ABC):
-    """Abstract base class enforcing implementation of tuning strategies."""
-
-    @abstractmethod
-    def cv(self, *args, **kwargs):
-        """Perform cross-validation based tuning."""
-        pass
-
-    @abstractmethod
-    def holdout(self, *args, **kwargs):
-        """Perform holdout based tuning."""
-        pass
+from ..base import BaseValidator
+from ..training import Trainer
 
 
-class BaseTuner(BaseEvaluator):
-    """Base class for different hyperparameter tuning strategies."""
+class BaseTuner(BaseValidator, ABC):
+    """Base class for implementing hyperparameter tuning strategies.
+
+    This class provides a framework for various hyperparameter optimization
+    (HPO) strategies, supporting cross-validation (CV) and holdout tuning
+    with options for binary and multiclass classification. Subclasses are
+    expected to implement specific tuning methods, including holdout and CV
+    procedures, while inheriting shared parameters, evaluation, and iteration
+    logging functions.
+
+    Inherits:
+        - BaseValidator: Validates instance-level variables.
+        - ABC: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        classification (str): The type of classification ('binary' or 'multiclass').
+        criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
+        tuning (str): The tuning type ('holdout' or 'cv').
+        hpo (str): The hyperparameter optimization method (e.g., 'random_search').
+        n_configs (int): Number of configurations to evaluate during HPO.
+        n_jobs (Optional[int]): Number of parallel jobs for model training.
+        verbose (bool): Enables detailed logs during tuning if True.
+        trainer (Optional[Trainer]): Trainer instance for evaluation.
+        mlp_training (bool): Enables MLP training with early stopping.
+        threshold_tuning (bool): Performs threshold tuning for binary
+            classification if criterion is 'f1'.
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): The performance criterion for optimization
+            (e.g., 'f1', 'brier_score').
+        tuning (str): Indicates the tuning approach ('holdout' or 'cv').
+        hpo (str): Hyperparameter optimization method (e.g., 'random_search').
+        n_configs (int): Number of configurations for HPO.
+        n_jobs (int): Number of parallel jobs for evaluation.
+        verbose (bool): Enables logs during tuning if True.
+        mlp_training (bool): Flag to enable MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        trainer (Trainer): Trainer instance to handle model training and evaluation.
+
+    Abstract Methods:
+        - cv: Defines cross-validation strategy with or without tuning.
+        - holdout: Implements holdout tuning on a validation set for selected
+          hyperparameter configurations.
+    """
 
     def __init__(
-        self, classification: str, criterion: str, tuning: str, hpo: str
+        self,
+        classification: str,
+        criterion: str,
+        tuning: str,
+        hpo: str,
+        n_configs: int,
+        n_jobs: Optional[int],
+        verbose: bool,
+        trainer: Optional[Trainer],
+        mlp_training: bool,
+        threshold_tuning: bool,
     ) -> None:
-        """Initializes the base tuner class with common parameters.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            criterion (str): The evaluation criterion (e.g., 'f1', 'brier_score').
-            tuning (str): The type of tuning ('holdout' or 'cv').
-            hpo (str): The hyperparameter optimization method.
-        """
-        super().__init__(classification, criterion, tuning, hpo)
-        self.trainer = Trainer(
-            self.classification, self.criterion, self.tuning, self.hpo
+        """Initializes the base tuner class with common parameters."""
+        super().__init__(
+            classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
+        self.n_configs = n_configs
+        self.n_jobs = n_jobs if n_jobs is not None else 1
+        self.verbose = verbose
+        self.mlp_training = mlp_training
+        self.threshold_tuning = threshold_tuning
+        self.trainer = (
+            trainer
+            if trainer
+            else Trainer(
+                classification=self.classification,
+                criterion=self.criterion,
+                tuning=self.tuning,
+                hpo=self.hpo,
+                mlp_training=self.mlp_training,
+                threshold_tuning=self.threshold_tuning,
+            )
+        )
 
     def _print_iteration_info(
         self,
@@ -88,3 +136,39 @@ class BaseTuner(BaseEvaluator):
                 f"{self.hpo} CV iteration {iteration + 1} {model_name}: "
                 f"'{params_str}', {self.criterion}={score_value}"
             )
+
+    @abstractmethod
+    def cv(
+        self,
+        learner: str,
+        outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
+        racing_folds: Optional[int],
+    ):
+        """Perform cross-validation with optional tuning.
+
+        Args:
+            learner (str): The model to evaluate.
+            outer_splits (List[Tuple[pd.DataFrame, pd.DataFrame]]): Train/validation
+                splits.
+            racing_folds (Optional[int]): Number of racing folds; if None regular
+                cross-validation is performed.
+        """
+
+    @abstractmethod
+    def holdout(
+        self,
+        learner: str,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ):
+        """Perform random search on the holdout set for binary and multiclass .
+
+        Args:
+            learner (str): The machine learning model used for evaluation.
+            X_train (pd.DataFrame): Training features for the holdout set.
+            y_train (pd.Series): Training labels for the holdout set.
+            X_val (pd.DataFrame): Validation features for the holdout set.
+            y_val (pd.Series): Validation labels for the holdout set.
+        """

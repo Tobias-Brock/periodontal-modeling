@@ -1,40 +1,62 @@
-import os
-from pathlib import Path
-
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from pamod.base import BaseData
-from pamod.config import PROCESSED_BASE_DIR
+from ..data import BaseDataLoader
 
 
-class ProcessedDataLoader(BaseData):
-    def __init__(self, target: str, encoding: str) -> None:
-        """Initializes the ProcessedDataLoader with the specified target column.
+class ProcessedDataLoader(BaseDataLoader):
+    """Concrete data loader for loading, transforming, and saving processed data.
 
-        Args:
-            target (str): The target column name.
-            encoding (str): Specifies the encoding for categorical columns.
-                Options: 'one_hot', 'target', or None.
-        """
-        super().__init__()  # No need for behavior flag anymore
-        self.target = target
-        self.encoding = encoding
+    This class implements methods for encoding categorical columns, scaling numeric
+    columns, and transforming data based on the specified task. It supports encoding
+    types such as 'one_hot' and 'target', with optional scaling of numeric columns.
 
-    def load_data(
-        self, path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
-    ) -> pd.DataFrame:
-        """Loads the processed data from the specified path.
+    Inherits:
+        BaseDataLoader: Provides core data loading, encoding, and scaling methods.
 
-        Args:
-            path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
+    Args:
+        task (str): The task column name, used to guide specific transformations.
+        encoding (str): Specifies the encoding method for categorical columns.
+            Options include 'one_hot', 'target', or None.
+        encode (bool, optional): If True, applies encoding to categorical columns.
+            Defaults to True.
+        scale (bool, optional): If True, applies scaling to numeric columns.
+            Defaults to True.
 
-        Returns:
-            pd.DataFrame: Loaded DataFrame.
-        """
-        input_file = os.path.join(path, name)
-        return pd.read_csv(input_file)
+    Attributes:
+        task (str): Task column name used during data transformations.
+        encoding (str): Encoding method specified for categorical columns.
+        encode (bool): Flag to enable encoding of categorical columns.
+        scale (bool): Flag to enable scaling of numeric columns.
+
+    Methods:
+        encode_categorical_columns: Encodes categorical columns based on
+            the specified encoding method.
+        scale_numeric_columns: Scales numeric columns to normalize
+            data.
+        transform_data: Executes the complete data processing pipeline,
+            including encoding and scaling.
+
+    Inherited Methods:
+        load_data: Load processed data from the specified path and file.
+        save_data: Save processed data to the specified path and file.
+
+    Example:
+        ```
+        loader = ProcessedDataLoader(
+            task="pocketclosure", encoding="one_hot", encode=True, scale=True
+        )
+        data = loader.load_data()
+        data = loader.transform_data(data)
+        loader.save_data(data)
+        ```
+    """
+
+    def __init__(
+        self, task: str, encoding: str, encode: bool = True, scale: bool = True
+    ) -> None:
+        """Initializes the ProcessedDataLoader with the specified task column."""
+        super().__init__(task=task, encoding=encoding, encode=encode, scale=scale)
 
     def encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
@@ -48,7 +70,7 @@ class ProcessedDataLoader(BaseData):
         Raises:
             ValueError: If an invalid encoding type is specified.
         """
-        if self.encoding is None:
+        if not self.encode:
             return df
 
         cat_vars = [col for col in self.all_cat_vars if col in df.columns]
@@ -70,75 +92,60 @@ class ProcessedDataLoader(BaseData):
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
-
+        self._check_encoded_columns(df=df_final)
         return df_final
 
-    def _check_encoded_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Verifies that categorical columns were correctly one-hot encoded.
+    def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Scales numeric columns in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame to check.
+            df (pd.DataFrame): The DataFrame containing numeric columns.
 
-        Raises:
-            ValueError: If columns are not correctly encoded.
+        Returns:
+            pd.DataFrame: The DataFrame with scaled numeric columns.
         """
-        if self.encoding == "one_hot":
-            cat_vars = [col for col in self.all_cat_vars if col in df.columns]
-
-            for col in cat_vars:
-                if col in df.columns:
-                    raise ValueError(
-                        f"Column '{col}' was not correctly one-hot encoded."
-                    )
-                matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
-                if not matching_columns:
-                    raise ValueError(f"No one-hot encoded columns for '{col}'.")
-        elif self.encoding == "target":
-            if "toothside" not in df.columns:
-                raise ValueError("Target encoding for 'toothside' failed.")
-        elif self.encoding is None:
-            print("No encoding was applied.")
-        else:
-            raise ValueError(f"Invalid encoding '{self.encoding}'.")
+        scale_vars = [col for col in self.scale_vars if col in df.columns]
+        df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
+        scaler = StandardScaler()
+        scaled_values = scaler.fit_transform(df[scale_vars])
+        df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
+        self._check_scaled_columns(df=df)
+        return df
 
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Select target column, rename to 'y', and delete remaining targets.
+        """Select task column, rename to 'y', and delete remaining tasks.
 
         Args:
             df (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame with the selected target 'y'.
+            pd.DataFrame: DataFrame with the selected task 'y'.
         """
-        df = self.encode_categorical_columns(df)
-        self._check_encoded_columns(df)
+        if self.encode:
+            df = self.encode_categorical_columns(df=df)
+        if self.scale:
+            df = self.scale_numeric_columns(df=df)
 
-        if self.target not in df.columns:
-            raise ValueError(
-                f"Target column '{self.target}' not found in the DataFrame."
-            )
+        if self.task not in df.columns:
+            raise ValueError(f"task column '{self.task}' not found in the DataFrame.")
 
-        target_columns = ["pocketclosure", "pdgrouprevaluation", "improve"]
-
-        columns_to_drop = [
-            col for col in target_columns if col != self.target and col in df.columns
+        cols_to_drop = [
+            col for col in self.task_cols if col != self.task and col in df.columns
         ]
-        df = df.drop(columns=columns_to_drop)
-        df = df.drop(
-            columns=["boprevaluation", "pdrevaluation", "pdgroup", "pdgroupbase"],
-            errors="ignore",
-        )
-        if self.target == "improve":
+        cols_to_drop.extend(self.no_train_cols)
+
+        if self.task == "improve":
             if "pdgroupbase" in df.columns:
-                df = df.query("pdgroupbase == 0")
-        df = df.rename(columns={self.target: "y"})
+                df = df.query("pdgroupbase in [1, 2]")
+
+        df = df.drop(columns=cols_to_drop, errors="ignore").rename(
+            columns={self.task: "y"}
+        )
 
         if "y" not in df.columns:
-            raise ValueError(f"Target column '{self.target}' was not renamed to 'y'.")
+            raise ValueError(f"task column '{self.task}' was not renamed to 'y'.")
 
-        if any(col in df.columns for col in columns_to_drop):
-            raise ValueError(
-                f"Error removing targets: Remaining columns: {columns_to_drop}"
-            )
+        if any(col in df.columns for col in cols_to_drop):
+            raise ValueError(f"Error removing tasks: Remaining columns: {cols_to_drop}")
 
         return df

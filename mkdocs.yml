@@ -1,6 +1,15 @@
 site_name: pa-modeling
 theme:
-  name: material  # Use Material for MkDocs theme (optional)
+  name: material
+  palette:
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
 
 site_author: Tobias Brock
 
@@ -19,30 +28,65 @@ markdown_extensions:
 
 nav:
   - pamod: index.md
-  - pamod.app: "reference/app.md"
+  - pamod.app:
+      - Overview: "reference/app/index.md"
+      - App: "reference/app/app.md"
+  - pamod.base:
+      - Overview: "reference/base/index.md"
+      - BaseConfig: "reference/base/baseconfig.md"
+      - BaseValidator: "reference/base/basevalidator.md"
+      - patient_to_df: "reference/base/patient_to_df.md"
+      - Patient: "reference/base/patient.md"
+      - Side: "reference/base/side.md"
+      - Tooth: "reference/base/tooth.md"
   - pamod.benchmarking:
+      - Overview: "reference/benchmarking/index.md"
+      - BaseExperiment: "reference/benchmarking/baseexperiment.md"
       - Experiment: "reference/benchmarking/experiment.md"
-      - Becnhmarker: "reference/benchmarking/benchmarker.md"
+      - BaseBenchmark: "reference/benchmarking/basebenchmark.md"
+      - Benchmarker: "reference/benchmarking/benchmarker.md"
       - InputProcessor: "reference/benchmarking/processor.md"
   - pamod.data:
+      - Overview: "reference/data/index.md"
+      - BaseLoader: "reference/data/baseloader.md"
+      - BaseProcessor: "reference/data/baseprocessor.md"
       - StaticProcessEngine: "reference/data/staticengine.md"
       - ProcessDataHelper: "reference/data/datahelper.md"
+      - BaseDataLoader: "reference/data/basedataloader.md"
       - ProcessedDataLoader: "reference/data/dataloader.md"
   - pamod.descriptives:
+      - Overview: "reference/descriptives/index.md"
       - DescriptivesPlotter: "reference/descriptives/descriptives.md"
+  - pamod.evaluation:
+      - Overview: "reference/evaluation/index.md"
+      - BaseModelEvaluator: "reference/evaluation/basemodelevaluator.md"
+      - ModelEvaluator: "reference/evaluation/modelevaluator.md"
+  - pamod.inference:
+      - Overview: "reference/inference/index.md"
+      - BaseModelInference: "reference/inference/basemodelinference.md"
+      - ModelInference: "reference/inference/modelinference.md"
   - pamod.learner:
+      - Overview: "reference/learner/index.md"
       - Model: "reference/learner/model.md"
   - pamod.resampling:
+      - Overview: "reference/resampling/index.md"
+      - BaseResampler: "reference/resampling/baseresampler.md"
       - Resampler: "reference/resampling/resampler.md"
   - pamod.training:
+      - Overview: "reference/training/index.md"
       - brier_loss_multi: "reference/training/brier_multi.md"
       - get_probs: "reference/training/probs.md"
       - final_metrics: "reference/training/final_metrics.md"
-      - MetricEvaluator: "reference/training/metrics.md"
-      - MLPTrainer: "reference/training/mlptrainer.md"
+      - BaseTrainer: "reference/training/basetrainer.md"
       - Trainer: "reference/training/trainer.md"
   - pamod.tuning:
+      - Overview: "reference/tuning/index.md"
       - BaseTuner: "reference/tuning/basetuner.md"
-      - MetaTuner: "reference/tuning/metatuner.md"
       - HeboTuner: "reference/tuning/hebotuner.md"
       - RandomSearchTuner: "reference/tuning/rstuner.md"
+  - pamod.wrapper:
+      - Overview: "reference/wrapper/index.md"
+      - BaseEvaluatorWrapper: "reference/wrapper/baseevaluatorwrapper.md"
+      - BenchmarkWrapper: "reference/wrapper/benchmarkwrapper.md"
+      - EvaluatorWrapper: "reference/wrapper/evaluatorwrapper.md"
+      - load_learners: "reference/wrapper/loadlearners.md"

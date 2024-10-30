@@ -3,14 +3,108 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
+from ..base import BaseConfig
 
-class ProcessDataHelper:
+
+def _get_side() -> dict:
+    """Dict containing tooth-side combinations which should have furcation.
+
+    Returns:
+        dict: Dict mapping tooth numbers to corresponding sides with furcation.
+    """
+    return {
+        (14, 24): [1, 3],
+        (16, 17, 18, 26, 27, 28): [2, 4, 6],
+        (36, 37, 38, 46, 47, 48): [2, 5],
+    }
+
+
+def _get_teeth_neighbors() -> dict:
+    """Creates a dictionary assigning each tooth its neighbors.
+
+    Returns:
+        dict: Dict mapping tooth number to a list of neighboring tooth numbers.
+    """
+    return {
+        11: [12, 21],
+        12: [11, 13],
+        13: [12, 14],
+        14: [13, 15],
+        15: [14, 16],
+        16: [15, 17],
+        17: [16, 18],
+        18: [17],
+        21: [11, 22],
+        22: [21, 23],
+        23: [22, 24],
+        24: [23, 25],
+        25: [24, 26],
+        26: [25, 27],
+        27: [26, 28],
+        28: [27],
+        31: [31, 41],
+        32: [31, 33],
+        33: [32, 34],
+        34: [33, 35],
+        35: [34, 36],
+        36: [35, 37],
+        37: [36, 38],
+        38: [37],
+        41: [31, 42],
+        42: [41, 43],
+        43: [42, 44],
+        44: [43, 45],
+        45: [44, 46],
+        46: [45, 47],
+        47: [46, 48],
+        48: [47],
+    }
+
+
+class ProcessDataHelper(BaseConfig):
+    """Helper class for processing periodontal data with utility methods.
+
+    This class provides methods for evaluating tooth infection status,
+    calculating adjacent infected teeth, and imputing values for 'plaque' and
+    'furcationbaseline' columns based on predefined rules and conditions.
+
+    Inherits:
+        BaseConfig: Provides configuration settings for data processing.
+
+    Attributes:
+        teeth_neighbors (dict): Dictionary mapping each tooth to its adjacent
+            neighbors.
+        sides_with_fur (dict): Dictionary specifying teeth with furcations and
+            their respective sides.
+
+    Methods:
+        check_infection: Evaluates infection status based on pocket depth and
+            BOP values.
+        get_adjacent_infected_teeth_count: Adds a column to indicate the count
+            of adjacent infected teeth for each tooth.
+        plaque_imputation: Imputes values in the 'plaque' column.
+        fur_imputation: Imputes values in the 'furcationbaseline' column.
+
+    Example:
+        ```
+        helper = ProcessDataHelper()
+        df = helper.plaque_imputation(df)
+        df = helper.fur_imputation(df)
+        infected_count_df = helper.get_adjacent_infected_teeth_count(
+            df, patient_col="id_patient", tooth_col="tooth",
+            infection_col="infection"
+        )
+        ```
+    """
+
     def __init__(self):
         """Initialize Preprocessor with helper data without storing the DataFrame."""
-        self.teeth_neighbors = self.get_teeth_neighbors()
-        self.sides_with_fur = self.get_side()
+        super().__init__()
+        self.teeth_neighbors = _get_teeth_neighbors()
+        self.sides_with_fur = _get_side()
 
-    def check_infection(self, depth: int, boprevaluation: int) -> int:
+    @staticmethod
+    def check_infection(depth: int, boprevaluation: int) -> int:
         """Check if a given tooth side is infected.
 
         Args:
@@ -26,48 +120,7 @@ class ProcessDataHelper:
             return 1
         return 0
 
-    def get_teeth_neighbors(self) -> dict:
-        """Creates a dictionary assigning each tooth its neighbors.
-
-        Returns:
-            dict: Dict mapping tooth number to a list of neighboring tooth numbers.
-        """
-        return {
-            11: [12, 21],
-            12: [11, 13],
-            13: [12, 14],
-            14: [13, 15],
-            15: [14, 16],
-            16: [15, 17],
-            17: [16, 18],
-            18: [17],
-            21: [11, 22],
-            22: [21, 23],
-            23: [22, 24],
-            24: [23, 25],
-            25: [24, 26],
-            26: [25, 27],
-            27: [26, 28],
-            28: [27],
-            31: [31, 41],
-            32: [31, 33],
-            33: [32, 34],
-            34: [33, 35],
-            35: [34, 36],
-            36: [35, 37],
-            37: [36, 38],
-            38: [37],
-            41: [31, 42],
-            42: [41, 43],
-            43: [42, 44],
-            44: [43, 45],
-            45: [44, 46],
-            46: [45, 47],
-            47: [46, 48],
-            48: [47],
-        }
-
-    def tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
+    def _tooth_neighbor(self, nr: int) -> Union[np.ndarray, str]:
         """Returns adjacent teeth for a given tooth.
 
         Args:
@@ -103,14 +156,15 @@ class ProcessDataHelper:
             ].apply(
                 lambda tooth, infected_teeth=infected_teeth: sum(
                     1
-                    for neighbor in self.tooth_neighbor(tooth)
+                    for neighbor in self._tooth_neighbor(nr=tooth)
                     if neighbor in infected_teeth
                 )
             )
 
         return df
 
-    def plaque_values(self, row: pd.Series, modes_dict: dict) -> int:
+    @staticmethod
+    def _plaque_values(row: pd.Series, modes_dict: dict) -> int:
         """Calculate new values for the Plaque column.
 
         Args:
@@ -136,7 +190,7 @@ class ProcessDataHelper:
                 return 1
             else:
                 return row["plaque"]
-        return 1  # Default value if no other condition matches
+        return 1
 
     def plaque_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
         """Imputes values for Plaque without affecting other columns.
@@ -162,12 +216,14 @@ class ProcessDataHelper:
         df["pdbaseline_grouped"] = np.select(
             conditions_baseline, choices_baseline, default=-1
         )
-        patients_with_all_nas = df.groupby("id_patient")["plaque"].apply(
+
+        patients_with_all_nas = df.groupby(self.group_col)["plaque"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["plaque_all_na"] = df["id_patient"].isin(
+        df["plaque_all_na"] = df[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
+
         grouped_data = df.groupby(["tooth", "side", "pdbaseline_grouped"])
 
         modes_dict = {}
@@ -176,31 +232,15 @@ class ProcessDataHelper:
             mode_value = modes.iloc[0] if not modes.empty else None
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
-        temp_data = df[
-            ["plaque", "tooth", "side", "pdbaseline_grouped", "plaque_all_na"]
-        ].copy()
-        temp_data["plaque"] = temp_data.apply(
-            lambda row: self.plaque_values(row, modes_dict), axis=1
+        df["plaque"] = df.apply(
+            lambda row: self._plaque_values(row=row, modes_dict=modes_dict), axis=1
         )
 
-        df["plaque"] = temp_data["plaque"]
         df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
 
         return df
 
-    def get_side(self) -> dict:
-        """Dict containing tooth-side combinations which should have furcation.
-
-        Returns:
-            dict: Dict mapping tooth numbers to corresponding sides with furcation.
-        """
-        return {
-            (14, 24): [1, 3],
-            (16, 17, 18, 26, 27, 28): [2, 4, 6],
-            (36, 37, 38, 46, 47, 48): [2, 5],
-        }
-
-    def fur_side(self, nr: int) -> Union[np.ndarray, str]:
+    def _fur_side(self, nr: int) -> Union[np.ndarray, str]:
         """Returns the sides for the input tooth that should have furcations.
 
         Args:
@@ -215,7 +255,7 @@ class ProcessDataHelper:
                 return np.array(value)
         return "Tooth without Furkation"
 
-    def fur_values(self, row: pd.Series) -> int:
+    def _fur_values(self, row: pd.Series) -> int:
         """Calculate values for the FurcationBaseline column.
 
         Args:
@@ -232,7 +272,7 @@ class ProcessDataHelper:
 
         if row["furcationbaseline_all_na"] == 1:
             if row["tooth"] in tooth_fur:
-                if row["side"] in self.fur_side(row["tooth"]):
+                if row["side"] in self._fur_side(nr=row["tooth"]):
                     if (row["pdbaseline"] + row["recbaseline"]) < 4:
                         return 0
                     elif 3 < (row["pdbaseline"] + row["recbaseline"]) < 6:
@@ -261,26 +301,14 @@ class ProcessDataHelper:
         if "furcationbaseline" not in df.columns:
             raise KeyError("'furcationbaseline' column not found in the DataFrame")
 
-        patients_with_all_nas = df.groupby("id_patient")["furcationbaseline"].apply(
+        patients_with_all_nas = df.groupby(self.group_col)["furcationbaseline"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["furcationbaseline_all_na"] = df["id_patient"].isin(
+        df["furcationbaseline_all_na"] = df[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
 
-        temp_data = df[
-            [
-                "furcationbaseline",
-                "tooth",
-                "side",
-                "pdbaseline",
-                "recbaseline",
-                "furcationbaseline_all_na",
-            ]
-        ].copy()
-
-        temp_data["furcationbaseline"] = temp_data.apply(self.fur_values, axis=1)
-        df["furcationbaseline"] = temp_data["furcationbaseline"]
+        df["furcationbaseline"] = df.apply(self._fur_values, axis=1)
         df = df.drop(["furcationbaseline_all_na"], axis=1)
 
         return df

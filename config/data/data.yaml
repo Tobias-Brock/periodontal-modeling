@@ -1,3 +1,110 @@
 behavior: False
 scale: True
 encoding: 'one_hot'
+
+patient_columns:
+  - "ID_patient"
+  - "Age"
+  - "Gender"
+  - "BodyMassIndex"
+  - "PerioFamilyHistory"
+  - "Diabetes"
+  - "SmokingType"
+  - "CigaretteNumber"
+  - "AntibioticTreatment"
+  - "Stresslvl"
+  - "PdRevaluation"
+  - "BOPRevaluation"
+  - "Pregnant"
+
+tooth_columns:
+  - "Tooth"
+  - "Toothtype"
+  - "RootNumber"
+  - "Mobility"
+  - "Restoration"
+  - "Percussion-sensitivity"
+  - "Sensitivity"
+
+side_columns:
+  - "FurcationBaseline"
+  - "Side"
+  - "PdBaseline"
+  - "RecBaseline"
+  - "Plaque"
+  - "BOP"
+
+cat_vars:
+  - "side"
+  - "restoration"
+  - "periofamilyhistory"
+  - "diabetes"
+  - "toothtype"
+  - "tooth"
+  - "furcationbaseline"
+  - "smokingtype"
+  - "stresslvl"
+  - "toothside"
+
+bin_vars:
+  - "antibiotictreatment"
+  - "boprevaluation"
+  - "plaque"
+  - "bop"
+  - "mobility"
+  - "percussion-sensitivity"
+  - "sensitivity"
+  - "rootnumber"
+  - "gender"
+
+scale_vars:
+  - "pdbaseline"
+  - "age"
+  - "bodymassindex"
+  - "recbaseline"
+  - "cigarettenumber"
+
+infect_cols:
+  - "side_infected"
+  - "tooth_infected"
+  - "infected_neighbors"
+
+cat_map:
+  side: 6
+  restoration: 3
+  periofamilyhistory: 3
+  diabetes: 4
+  furcationbaseline: 3
+  smokingtype: 5
+  stresslvl: 3
+  toothtype: 3
+
+target_cols:
+  - "mobility"
+  - "percussion-sensitivity"
+  - "sensitivity"
+  - "pdbaseline"
+  - "recbaseline"
+  - "plaque"
+  - "bop"
+  - "age"
+  - "gender"
+  - "bodymassindex"
+  - "cigarettenumber"
+  - "antibiotictreatment"
+  - "rootnumber"
+
+behavior_columns:
+  binary: ["Flossing", "IDB", "SweetFood", "SweetDrinks", "ErosiveDrinks"]
+  categorical: ["OrthoddonticHistory", "DentalVisits", "Toothbrushing", "DryMouth"]
+
+task_cols:
+  - "pocketclosure"
+  - "pdgrouprevaluation"
+  - "improve"
+
+no_train_cols:
+  - "boprevaluation"
+  - "pdrevaluation"
+  - "pdgroup"
+  - "pdgroupbase"

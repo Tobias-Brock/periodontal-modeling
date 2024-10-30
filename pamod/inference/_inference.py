@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
 from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
@@ -6,39 +6,100 @@ import numpy as np
 from numpy.random import default_rng
 import pandas as pd
 from scipy import stats
-from sklearn import clone
 
-from pamod.base import BaseHydra
-from pamod.resampling import Resampler
+from ..resampling import Resampler
+from ._baseinference import BaseModelInference
 
 
-class ModelInference(BaseHydra):
-    def __init__(self, classification: str, model):
+class ModelInference(BaseModelInference):
+    """Performs model inference and jackknife resampling on patient data.
+
+    This class extends `BaseModelInference` with specific implementations for
+    jackknife resampling, confidence interval computation, and visualization of
+    prediction intervals for binary and multiclass classification models. It
+    incorporates methods for generating predictions, preparing data for model
+    inference, and applying jackknife inference, thus enabling robust model
+    evaluation with confidence bounds.
+
+    Inherits:
+        - BaseModelInference: Base class that implements prediction and
+            preprocessing methods.
+
+    Args:
+        classification (str): Specifies the classification type ('binary' or
+            'multiclass').
+        model: A trained model instance compatible with scikit-learn's
+            `predict_proba` method.
+        verbose (bool): Enables detailed logging if set to True.
+
+    Methods:
+        jackknife_resampling: Re-trains the model on subsets of data,
+            excluding each patient iteratively to compute jackknife estimates.
+        jackknife_confidence_intervals: Calculates confidence intervals based on
+            jackknife results, returning bounds for each data index and class.
+        plot_jackknife_intervals: Visualizes jackknife confidence intervals for specific
+            data points. Displays the estimated intervals and original predictions.
+        jackknife_inference: Runs the complete jackknife inference
+            workflow, generating confidence intervals and an optional plot to
+            illustrate interval bounds across specified data points.
+
+    Inherited Methods:
+        - `predict`: Runs predictions on a batch of input data, returning
+          probabilities and predicted classes.
+        - `create_predict_data`: Encodes and prepares raw patient data for
+          model prediction.
+        - `prepare_inference`: Prepares data for inference by processing and
+          encoding patient data.
+        - `patient_inference`: Generates prediction probabilities for
+          a specified patient's data.
+        - `process_patient`: Excludes data for each patient iteratively and
+          retrains the model for jackknife resampling.
+
+    Example:
+        ```
+        model_inference = ModelInference(
+            classification="binary",
+            model=trained_model,
+            verbose=True
+        )
+
+        # Prepare data for inference
+        prepared_data, patient_data = model_inference.prepare_inference(
+            task="classification_task",
+            patient_data=patient_df,
+            encoding="one_hot",
+            X_train=train_df,
+            y_train=target_series
+        )
+
+        # Run inference on patient data
+        inference_results = model_inference.patient_inference(
+            predict_data=prepared_data, patient_data=patient_data
+        )
+
+        # Perform jackknife inference with confidence interval plotting
+        jackknife_results, ci_plot = model_inference.jackknife_inference(
+            model=trained_model,
+            train_df=train_df,
+            patient_data=patient_df,
+            encoding="target",
+            inference_results=inference_results,
+            alpha=0.05,
+            sample_fraction=0.8,
+            n_jobs=4
+        )
+        ```
+    """
+
+    def __init__(self, classification: str, model: Any, verbose: bool = True):
         """Initialize the ModelInference class with a trained model.
 
         Args:
             classification (str): Classification type ('binary' or 'multiclass').
-            model: Trained classification model with a `predict_proba` method.
+            model (Any): Trained classification model with a `predict_proba` method.
+            verbose (bool): Activates verbose if set to True.
         """
-        super().__init__()
-        self.classification = classification
-        self.model = model
-
-    def predict(self, input_data: pd.DataFrame) -> pd.DataFrame:
-        """Run prediction on a batch of input data.
-
-        Args:
-            input_data (pd.DataFrame): DataFrame containing feature values.
-
-        Returns:
-            pd.DataFrame: DataFrame with predictions and probabilities for each class.
-        """
-        preds = self.model.predict(input_data)
-        probs = self.model.predict_proba(input_data)
-        classes = [str(cls) for cls in self.model.classes_]
-        probs_df = pd.DataFrame(probs, columns=classes, index=input_data.index)
-        probs_df["prediction"] = preds
-        return probs_df
+        super().__init__(classification=classification, model=model, verbose=verbose)
 
     def jackknife_resampling(
         self,
@@ -63,7 +124,7 @@ class ModelInference(BaseHydra):
         Returns:
             pd.DataFrame: DataFrame containing predictions for each iteration.
         """
-        resampler = Resampler(self.classification, encoding)
+        resampler = Resampler(classification=self.classification, encoding=encoding)
         patient_ids = train_df[self.group_col].unique()
 
         if sample_fraction < 1.0:
@@ -71,38 +132,11 @@ class ModelInference(BaseHydra):
             rng = default_rng()
             patient_ids = rng.choice(patient_ids, num_patients, replace=False)
 
-        def process_patient(patient_id):
-            train_data = train_df[train_df[self.group_col] != patient_id]
-            X_train = train_data.drop(columns=[self.target])
-            y_train = train_data[self.target]
-
-            if encoding == "target":
-                X_train = X_train.drop(columns=[self.group_col], errors="ignore")
-                X_train_enc, _ = resampler.apply_target_encoding(
-                    X_train, None, y_train, jackknife=True
-                )
-            else:
-                X_train_enc = X_train.drop(columns=[self.group_col], errors="ignore")
-
-            predictor = clone(self.model)
-            predictor.set_params(**model_params)
-            predictor.fit(X_train_enc, y_train)
-
-            val_predictions = predictor.predict_proba(patient_data)
-            val_pred_classes = predictor.predict(patient_data)
-
-            predictions_df = pd.DataFrame(
-                val_predictions,
-                columns=[str(cls) for cls in predictor.classes_],
-                index=patient_data.index,
-            )
-            predictions_df["prediction"] = val_pred_classes
-            predictions_df["iteration"] = patient_id
-            predictions_df["data_index"] = patient_data.index  # Include data index
-            return predictions_df
-
         results = Parallel(n_jobs=n_jobs)(
-            delayed(process_patient)(patient_id) for patient_id in patient_ids
+            delayed(self.process_patient)(
+                patient_id, train_df, patient_data, encoding, model_params, resampler
+            )
+            for patient_id in patient_ids
         )
 
         jackknife_results = pd.concat(results, ignore_index=True)
@@ -151,29 +185,30 @@ class ModelInference(BaseHydra):
         self,
         ci_dict: Dict[int, Dict[str, Dict[str, float]]],
         data_indices: List[int],
-        original_preds: Optional[Dict[int, Dict[str, float]]] = None,
+        original_preds: pd.DataFrame,
     ) -> plt.Figure:
-        """Plot Jackknife confidence intervals for multiple data points as subplots.
+        """Plot Jackknife confidence intervals.
 
         Args:
             ci_dict (Dict[int, Dict[str, Dict[str, float]]]): Confidence intervals for
                 each data index and class.
             data_indices (List[int]): List of data indices to plot.
-            original_preds (Optional[Dict[int, Dict[str, float]]], optional):
-                Original predictions per data index. Defaults to None.
+            original_preds (pd.DataFrame): DataFrame containing original predictions and
+                probabilities for each data point.
 
         Returns:
-            plt.Figure: Figure object containing the plots.
+            plt.Figure: Figure object containing the plots, with one subplot per class.
         """
         classes = list(next(iter(ci_dict.values())).keys())
         num_classes = len(classes)
+        ncols = num_classes
+        nrows = 1
 
         fig, axes = plt.subplots(
-            nrows=1, ncols=num_classes, figsize=(6 * num_classes, 6), sharey=True
+            nrows=nrows, ncols=ncols, figsize=(6 * ncols, 6), sharey=True
         )
-
-        if num_classes == 1:
-            axes = [axes]  # Ensure axes is iterable
+        axes = np.atleast_1d(axes).flatten()
+        predicted_classes = original_preds["prediction"]
 
         for idx, class_name in enumerate(classes):
             ax = axes[idx]
@@ -183,37 +218,34 @@ class ModelInference(BaseHydra):
             data_indices_plot = []
 
             for data_index in data_indices:
-                ci = ci_dict[data_index][class_name]
-                mean = ci["mean"]
-                lower = ci["lower"]
-                upper = ci["upper"]
-                means.append(mean)
-                lowers.append(lower)
-                uppers.append(upper)
-                data_indices_plot.append(str(data_index))
+                if predicted_classes.loc[data_index] == int(class_name):
+                    ci = ci_dict[data_index][class_name]
+                    mean = ci["mean"]
+                    lower = ci["lower"]
+                    upper = ci["upper"]
+                    means.append(mean)
+                    lowers.append(lower)
+                    uppers.append(upper)
+                    data_indices_plot.append(data_index)
 
-            errors = [
-                np.array(means) - np.array(lowers),
-                np.array(uppers) - np.array(means),
-            ]
-
-            ax.barh(
-                data_indices_plot,
-                means,
-                xerr=errors,
-                align="center",
-                alpha=0.7,
-                ecolor="black",
-                capsize=5,
-                color="skyblue",
-                label="Jackknife CI",
-            )
-
-            if original_preds is not None:
-                orig_probs = [
-                    original_preds[data_index].get(class_name, 0)
-                    for data_index in data_indices
+            if means:
+                errors = [
+                    np.array(means) - np.array(lowers),
+                    np.array(uppers) - np.array(means),
                 ]
+
+                ax.errorbar(
+                    means,
+                    data_indices_plot,
+                    xerr=errors,
+                    fmt="o",
+                    color="skyblue",
+                    ecolor="black",
+                    capsize=5,
+                    label="Jackknife CI",
+                )
+
+                orig_probs = original_preds.loc[data_indices_plot, class_name]
                 ax.scatter(
                     orig_probs,
                     data_indices_plot,
@@ -228,14 +260,69 @@ class ModelInference(BaseHydra):
                 ax.set_ylabel("Data Point Index")
             ax.set_title(f"Class {class_name}")
 
-            x_min = min(min(lowers), min(orig_probs) if original_preds else 0)
-            x_max = max(max(uppers), max(orig_probs) if original_preds else 1)
+            x_min = min(lowers) if lowers else 0
+            x_max = max(uppers) if uppers else 1
             x_range = x_max - x_min
             if x_range == 0:
-                x_range = 0.1  # Avoid zero range
+                x_range = 0.1
             ax.set_xlim([x_min - 0.1 * x_range, x_max + 0.1 * x_range])
 
             ax.legend()
 
         plt.tight_layout()
         return fig
+
+    def jackknife_inference(
+        self,
+        model: Any,
+        train_df: pd.DataFrame,
+        patient_data: pd.DataFrame,
+        encoding: str,
+        inference_results: pd.DataFrame,
+        alpha: float = 0.05,
+        sample_fraction: float = 1.0,
+        n_jobs: int = -1,
+        max_plots: int = 12,
+    ) -> Tuple[pd.DataFrame, plt.Figure]:
+        """Run jackknife inference and generate confidence intervals and plots.
+
+        Args:
+            model (Any): Trained model instance.
+            train_df (pd.DataFrame): Training DataFrame.
+            patient_data (pd.DataFrame): Patient data to predict on.
+            encoding (str): Encoding type.
+            inference_results (pd.DataFrame): Original inference results.
+            alpha (float, optional): Significance level for confidence intervals.
+                Defaults to 0.05.
+            sample_fraction (float, optional): Fraction of patient IDs for jackknife.
+                Defaults to 1.0.
+            n_jobs (int, optional): Number of parallel jobs. Defaults to -1.
+            max_plots (int): Maximum number of plots for jackknife intervals.
+
+        Returns:
+            Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
+        """
+        model_params = model.get_params()
+
+        if self.classification == "multiclass":
+            num_classes = len(np.unique(train_df[self.y]))
+            if "num_class" in model.get_params().keys():
+                model_params["num_class"] = num_classes
+
+        jackknife_results = self.jackknife_resampling(
+            train_df=train_df,
+            patient_data=patient_data,
+            encoding=encoding,
+            model_params=model_params,
+            sample_fraction=sample_fraction,
+            n_jobs=n_jobs,
+        )
+        ci_dict = self.jackknife_confidence_intervals(
+            jackknife_results=jackknife_results, alpha=alpha
+        )
+        data_indices = patient_data.index[:max_plots]
+        ci_plot = self.plot_jackknife_intervals(
+            ci_dict=ci_dict, data_indices=data_indices, original_preds=inference_results
+        )
+
+        return jackknife_results, ci_plot
