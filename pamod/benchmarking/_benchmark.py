@@ -1,19 +1,114 @@
 import itertools
 from pathlib import Path
 import traceback
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from pamod.base import BaseEvaluator
-from pamod.config import PROCESSED_BASE_DIR
-from pamod.data import ProcessedDataLoader
-from pamod.resampling import Resampler
-from pamod.training import Trainer
-from pamod.tuning import HEBOTuner, RandomSearchTuner
+from ..config import PROCESSED_BASE_DIR
+from ..data import ProcessedDataLoader
+from ._basebenchmark import BaseBenchmark, BaseExperiment
 
 
-class Experiment(BaseEvaluator):
+class Experiment(BaseExperiment):
+    """Concrete implementation for performing ML experiments and evaluation.
+
+    This class extends `BaseExperiment`, providing methods for evaluating machine
+    learning models using holdout or cross-validation strategies. It performs
+    hyperparameter tuning, final model training, and evaluation based on
+    specified tuning and optimization methods.
+
+    Inherits:
+        BaseExperiment: Provides core functionality for validation, resampling,
+            training, and tuning configurations.
+
+    Args:
+        df (pd.DataFrame): The preloaded data for the experiment.
+        task (str): The task name used to determine classification type.
+        learner (str): Specifies the model or algorithm to evaluate.
+        criterion (str): Criterion for optimization ('macro_f1' or 'brier_score').
+        encoding (str): Encoding type for categorical features ('one_hot' or 'binary').
+        tuning (Optional[str]): Tuning method to apply ('holdout' or 'cv'). Can be None.
+        hpo (Optional[str]): Hyperparameter optimization method (e.g., 'rs', 'hebo').
+            Can be None.
+        sampling (Optional[str]): Resampling strategy to apply. Defaults to None.
+        factor (Optional[float]): Resampling factor. Defaults to None.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+            Defaults to 10.
+        racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+            Defaults to None.
+        n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
+            Defaults to None.
+        cv_folds (Optional[int]): Number of folds for cross-validation; defaults to
+            the class's `n_folds` if None.
+        test_seed (Optional[int]): Random seed for test splitting. Defaults to None.
+        test_size (Optional[float]): Proportion of data used for testing. Defaults to
+            None.
+        val_size (Optional[float]): Size of validation set in holdout tuning.
+        cv_seed (int): Random seed for cross-validation.
+        mlp_flag (bool): Flag to enable MLP training with early stopping. Defaults to
+            None.
+        threshold_tuning (bool): If True, performs threshold tuning for binary
+            classification if the criterion is "f1". Defaults to True.
+        verbose (bool): Enables verbose output if set to True.
+
+    Attributes:
+        df (pd.DataFrame): Dataset used for training and evaluation.
+        task (str): Name of the task used to determine the classification type.
+        learner (str): Model or algorithm name for the experiment.
+        criterion (str): Criterion for performance evaluation.
+        encoding (str): Encoding type for categorical features.
+        sampling (str): Resampling method used in training.
+        factor (float): Factor applied during resampling.
+        n_configs (int): Number of configurations evaluated in hyperparameter tuning.
+        racing_folds (int): Number of racing folds for random search.
+        n_jobs (int): Number of parallel jobs used during processing.
+        cv_folds (int): Number of cross-validation folds.
+        test_seed (int): Seed for reproducible test splitting.
+        test_size (float): Proportion of data reserved for testing.
+        val_size (float): Size of the validation set in holdout tuning.
+        cv_seed (int): Seed for reproducible cross-validation splits.
+        mlp_flag (bool): Indicates if MLP training with early stopping is enabled.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): Controls detailed output during the experiment.
+        resampler (Resampler): Resampler instance for data handling.
+        trainer (Trainer): Trainer instance for model training and evaluation.
+        tuner (Tuner): Initialized tuner for hyperparameter optimization.
+
+    Methods:
+        perform_evaluation: Conducts evaluation based on the tuning method.
+
+    Example:
+        ```
+        experiment = Experiment(
+            df=dataframe,
+            task="pocketclosure",
+            learner="rf",
+            criterion="f1",
+            encoding="one_hot",
+            tuning="cv",
+            hpo="rs",
+            sampling="upsample",
+            factor=1.5,
+            n_configs=20,
+            racing_folds=3,
+            n_jobs=-1,
+            cv_folds=5,
+            test_seed=42,
+            test_size=0.2,
+            val_size=0.1,
+            cv_seed=10,
+            mlp_flag=True,
+            threshold_tuning=True,
+            verbose=True,
+        )
+
+        # Perform the evaluation based on cross-validation
+        final_metrics = experiment.perform_evaluation()
+        print(final_metrics)
+        ```
+    """
+
     def __init__(
         self,
         df: pd.DataFrame,
@@ -23,95 +118,43 @@ class Experiment(BaseEvaluator):
         encoding: str,
         tuning: Optional[str],
         hpo: Optional[str],
-        sampling: Optional[str],
-        factor: Optional[float],
-        n_configs: int,
-        racing_folds: Optional[int],
-        n_jobs: int,
+        sampling: Optional[str] = None,
+        factor: Optional[float] = None,
+        n_configs: int = 10,
+        racing_folds: Optional[int] = None,
+        n_jobs: Optional[int] = None,
         cv_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
         val_size: Optional[float] = None,
         cv_seed: Optional[int] = None,
         mlp_flag: Optional[bool] = None,
-        verbosity: bool = True,
+        threshold_tuning: bool = True,
+        verbose: bool = True,
     ) -> None:
-        """Initialize the Experiment class with tuning parameters.
-
-        Args:
-            df (pd.DataFrame): The preloaded data.
-            task (str): The task name used to determine classification type.
-            learner (str): The machine learning model to evaluate.
-            criterion (str): Criterion for optimization ('macro_f1' or 'brier_score').
-            encoding (str): Encoding type ('one_hot' or 'binary')
-            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            sampling (str): Sampling strategy.
-            factor (float): Factor for resampling.
-            n_configs (int): Number of configurations for hyperparameter tuning.
-            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            n_jobs (int): Number of parallel jobs to run for evaluation.
-            cv_folds (Optional[int], optional): Number of folds for cross-validation.
-                Defaults to None, in which case the class's `n_folds` will be used.
-            test_seed (Optional[int], optional): Random seed for splitting.
-                Defaults to None.
-            test_size (Optional[float]): Size of grouped train test split.
-            val_size (Optional[float]): Size of grouped train test split for holdout.
-            cv_seed (int): Seed for splitting CV folds.
-            mlp_flag (bool): Flag for MLP training with early stopping.
-            verbosity (bool): Enables verbose output if set to True.
-        """
-        self.df = df
-        self.task = task
-        classification = self._determine_classification()
-        super().__init__(classification, criterion, tuning, hpo)
-        self.learner = learner
-        self.encoding = encoding
-        self.sampling = sampling
-        self.factor = factor
-        self.n_configs = n_configs
-        self.racing_folds = racing_folds
-        self.n_jobs = n_jobs
-        self.cv_folds = cv_folds if cv_folds is not None else self.n_folds
-        self.test_seed = test_seed if test_seed is not None else self.random_state_split
-        self.test_size = test_size if test_size is not None else self.test_set_size
-        self.val_size = val_size if val_size is not None else self.val_set_size
-        self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
-        self.verbosity = verbosity
-        self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
-        self.resampler = Resampler(self.classification, self.encoding)
-        self.trainer = Trainer(
-            self.classification,
-            self.criterion,
-            tuning=None,
-            hpo=None,
-            mlp_training=self.mlp_flag,
+        """Initialize the Experiment class with tuning parameters."""
+        super().__init__(
+            df=df,
+            task=task,
+            learner=learner,
+            criterion=criterion,
+            encoding=encoding,
+            tuning=tuning,
+            hpo=hpo,
+            sampling=sampling,
+            factor=factor,
+            n_configs=n_configs,
+            racing_folds=racing_folds,
+            n_jobs=n_jobs,
+            cv_folds=cv_folds,
+            test_seed=test_seed,
+            test_size=test_size,
+            val_size=val_size,
+            cv_seed=cv_seed,
+            mlp_flag=mlp_flag,
+            threshold_tuning=threshold_tuning,
+            verbose=verbose,
         )
-        self.tuner = self._initialize_tuner()
-
-    def _determine_classification(self) -> str:
-        """Determine classification type based on the task name.
-
-        Returns:
-            str: The classification type ('binary' or 'multiclass').
-        """
-        if self.task in ["pocketclosure", "improve"]:
-            return "binary"
-        elif self.task == "pdgrouprevaluation":
-            return "multiclass"
-        else:
-            raise ValueError(
-                f"Unknown task: {self.task}. Unable to determine classification."
-            )
-
-    def _initialize_tuner(self):
-        """Initialize the appropriate tuner based on the hpo method."""
-        if self.hpo == "rs":
-            return RandomSearchTuner(self.classification, self.criterion, self.tuning)
-        elif self.hpo == "hebo":
-            return HEBOTuner(self.classification, self.criterion, self.tuning)
-        else:
-            raise ValueError(f"Unsupported HPO method: {self.hpo}")
 
     def perform_evaluation(self) -> dict:
         """Perform model evaluation and return final metrics.
@@ -120,11 +163,11 @@ class Experiment(BaseEvaluator):
             dict: A dictionary containing the trained model and its evaluation metrics.
         """
         train_df, _ = self.resampler.split_train_test_df(
-            self.df, self.test_seed, self.test_size
+            df=self.df, seed=self.test_seed, test_size=self.test_size
         )
 
         if self.tuning == "holdout":
-            return self._evaluate_holdout(train_df)
+            return self._evaluate_holdout(train_df=train_df)
         elif self.tuning == "cv":
             return self._evaluate_cv()
         else:
@@ -140,33 +183,24 @@ class Experiment(BaseEvaluator):
             dict: A dictionary of evaluation metrics for the final model.
         """
         train_df_h, test_df_h = self.resampler.split_train_test_df(
-            train_df, self.test_seed, self.val_size
+            df=train_df, seed=self.test_seed, test_size=self.val_size
         )
         X_train_h, y_train_h, X_val, y_val = self.resampler.split_x_y(
-            train_df_h, test_df_h, self.sampling, self.factor
+            train_df=train_df_h,
+            test_df=test_df_h,
+            sampling=self.sampling,
+            factor=self.factor,
         )
         best_params, best_threshold = self.tuner.holdout(
-            self.learner,
-            X_train_h,
-            y_train_h,
-            X_val,
-            y_val,
-            self.n_configs,
-            self.n_jobs,
-            self.verbosity,
+            learner=self.learner,
+            X_train=X_train_h,
+            y_train=y_train_h,
+            X_val=X_val,
+            y_val=y_val,
         )
         final_model = (self.learner, best_params, best_threshold)
 
-        return self.trainer.train_final_model(
-            self.df,
-            self.resampler,
-            final_model,
-            self.sampling,
-            self.factor,
-            self.n_jobs,
-            self.test_seed,
-            self.test_size,
-        )
+        return self._train_final_model(final_model)
 
     def _evaluate_cv(self) -> dict:
         """Perform cross-validation and return the final model metrics.
@@ -175,100 +209,162 @@ class Experiment(BaseEvaluator):
             dict: A dictionary of evaluation metrics for the final model.
         """
         outer_splits, _ = self.resampler.cv_folds(
-            self.df, self.sampling, self.factor, self.cv_seed, self.cv_folds
+            df=self.df,
+            sampling=self.sampling,
+            factor=self.factor,
+            seed=self.cv_seed,
+            n_folds=self.cv_folds,
         )
         best_params, best_threshold = self.tuner.cv(
-            self.learner,
-            outer_splits,
-            self.n_configs,
-            self.racing_folds,
-            self.n_jobs,
-            self.verbosity,
+            learner=self.learner,
+            outer_splits=outer_splits,
         )
         final_model = (self.learner, best_params, best_threshold)
 
-        return self.trainer.train_final_model(
-            self.df,
-            self.resampler,
-            final_model,
-            self.sampling,
-            self.factor,
-            self.n_jobs,
-            self.test_seed,
-            self.test_size,
+        return self._train_final_model(final_model_tuple=final_model)
+
+
+class Benchmarker(BaseBenchmark):
+    """Benchmarker for evaluating machine learning models with tuning strategies.
+
+    This class provides functionality to benchmark various machine learning
+    models, tuning methods, HPO techniques, and criteria over multiple
+    encodings, sampling strategies, and evaluation criteria. It supports
+    training and evaluation workflows for different tasks and handles
+    configurations for holdout or cross-validation tuning with threshold
+    optimization.
+
+    Inherits:
+        - BaseBenchmark: Provides common benchmarking attributes.
+
+    Args:
+        task (str): Task for evaluation (e.g., 'pocketclosure', 'improve').
+        learners (List[str]): List of learners to benchmark (e.g., 'xgb', 'rf').
+        tuning_methods (List[str]): Tuning methods for each learner ('holdout', 'cv').
+        hpo_methods (List[str]): HPO methods (e.g., 'hebo', 'rs').
+        criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
+        encodings (List[str]): List of encodings ('one_hot' or 'target').
+        sampling (Optional[List[str]]): Sampling strategies to handle class imbalance.
+        factor (Optional[float]): Factor to apply during resampling.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        n_jobs (Optional[int]): Number of parallel jobs for processing.
+        cv_folds (Optional[int]): Number of folds for cross-validation.
+        racing_folds (Optional[int]): Number of racing folds for random search.
+        test_seed (Optional[int]): Seed for random train-test split.
+        test_size (Optional[float]): Proportion of data used for testing.
+        val_size (Optional[float]): Proportion of data for validation in holdout.
+        cv_seed (Optional[int]): Seed for cross-validation splits.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): If True, enables detailed logging during benchmarking.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file.
+
+    Attributes:
+        task (str): The specified task for evaluation.
+        learners (List[str]): List of learners to evaluate.
+        tuning_methods (List[str]): Tuning methods for model evaluation.
+        hpo_methods (List[str]): HPO methods for hyperparameter tuning.
+        criteria (List[str]): List of evaluation metrics.
+        encodings (List[str]): Encoding types for categorical features.
+        sampling (List[str]): Resampling strategies for class balancing.
+        factor (float): Resampling factor for balancing.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        n_jobs (int): Number of parallel jobs for model training.
+        cv_folds (int): Number of cross-validation folds.
+        racing_folds (int): Number of racing folds for random search.
+        test_seed (int): Seed for reproducible train-test splits.
+        test_size (float): Size of the test split.
+        val_size (float): Size of the validation split in holdout tuning.
+        cv_seed (int): Seed for cross-validation splits.
+        mlp_flag (bool): Indicates if MLP training with early stopping is used.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): Enables detailed logging during benchmarking.
+        path (Path): Directory path for processed data.
+        name (str): File name for processed data.
+        data_cache (dict): Cached data for different task and encoding combinations.
+
+    Methods:
+        run_all_benchmarks: Executes benchmarks for all combinations of learners,
+            tuning methods, HPO, criteria, encodings, and sampling strategies,
+            and returns a DataFrame summary and a dictionary of top models.
+
+    Example:
+        ```
+        benchmarker = Benchmarker(
+            task="pocketclosure",
+            learners=["xgb", "rf"],
+            tuning_methods=["holdout", "cv"],
+            hpo_methods=["hebo", "rs"],
+            criteria=["f1", "brier_score"],
+            encodings=["one_hot", "target"],
+            sampling=["upsampling", "downsampling"],
+            factor=1.5,
+            n_configs=20,
+            n_jobs=4,
+            cv_folds=5,
+            test_seed=42,
+            test_size=0.2,
+            verbose=True,
+            path=Path("/data/processed"),
+            name="processed_data.csv",
         )
 
+        # Running all benchmarks
+        results_df, top_models = benchmarker.run_all_benchmarks()
+        print(results_df)
+        print(top_models)
+        ```
+    """
 
-class Benchmarker:
     def __init__(
         self,
-        tasks: List[str],
+        task: str,
         learners: List[str],
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
         encodings: List[str],
-        sampling: Optional[str],
-        factor: Optional[float],
-        n_configs: int,
-        racing_folds: int,
-        n_jobs: int,
+        sampling: Optional[List[Union[str, None]]] = None,
+        factor: Optional[float] = None,
+        n_configs: int = 10,
+        n_jobs: Optional[int] = None,
         cv_folds: Optional[int] = None,
+        racing_folds: Optional[int] = None,
         test_seed: Optional[int] = None,
         test_size: Optional[float] = None,
         val_size: Optional[float] = None,
         cv_seed: Optional[int] = None,
         mlp_flag: Optional[bool] = None,
-        verbosity: bool = True,
+        threshold_tuning: bool = True,
+        verbose: bool = True,
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
     ) -> None:
-        """Initialize the Experiment with different tasks, learners, etc.
-
-        Args:
-            tasks (List[str]): List of tasks (e.g., 'pocketclosure', 'improve').
-            learners (List[str]): List of learners to benchmark (e.g., 'xgb', etc.).
-            tuning_methods (List[str]): List of tuning methods ('holdout', 'cv').
-            hpo_methods (List[str]): List of HPO methods ('hebo', 'rs').
-            criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
-            encodings (List[str]): List of encodings ('one_hot' or 'target').
-            sampling (str): Sampling strategy to use.
-            factor (float): Factor for resampling.
-            n_configs (int): Number of configurations for hyperparameter tuning.
-            racing_folds (int): Number of racing folds for Random Search.
-            n_jobs (int): Number of parallel jobs to run.
-            cv_folds (Optional[int], optional): Number of folds for cross-validation.
-                Defaults to None, in which case the class's `n_folds` will be used.
-            test_seed (Optional[int], optional): Random seed for splitting.
-                Defaults to None.
-            test_size (Optional[float]): Size of grouped train test split.
-            val_size (Optional[float]): Size of grouped train test split for holdout.
-            cv_seed (int): Seed for splitting CV folds.
-            mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
-            verbosity (bool): Enables verbose output if True.
-            path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
-        """
-        self.tasks = tasks
-        self.learners = learners
-        self.tuning_methods = tuning_methods
-        self.hpo_methods = hpo_methods
-        self.criteria = criteria
-        self.encodings = encodings
-        self.sampling = sampling
-        self.factor = factor
-        self.n_configs = n_configs
-        self.racing_folds = racing_folds
-        self.n_jobs = n_jobs
-        self.verbosity = verbosity
-        self.cv_folds = cv_folds
-        self.test_seed = test_seed
-        self.test_size = test_size
-        self.val_size = val_size
-        self.cv_seed = cv_seed
-        self.mlp_flag = mlp_flag
-        self.path = path
-        self.name = name
+        """Initialize the Experiment with different tasks, learners, etc."""
+        super().__init__(
+            task=task,
+            learners=learners,
+            tuning_methods=tuning_methods,
+            hpo_methods=hpo_methods,
+            criteria=criteria,
+            encodings=encodings,
+            sampling=sampling,
+            factor=factor,
+            n_configs=n_configs,
+            n_jobs=n_jobs,
+            cv_folds=cv_folds,
+            racing_folds=racing_folds,
+            test_seed=test_seed,
+            test_size=test_size,
+            val_size=val_size,
+            cv_seed=cv_seed,
+            mlp_flag=mlp_flag,
+            threshold_tuning=threshold_tuning,
+            verbose=verbose,
+            path=path,
+            name=name,
+        )
         self.data_cache = self._load_data_for_tasks()
 
     def _load_data_for_tasks(self) -> dict:
@@ -278,52 +374,71 @@ class Benchmarker:
             dict: A dictionary containing transformed data for each task-encoding pair.
         """
         data_cache = {}
-        for task, encoding in itertools.product(self.tasks, self.encodings):
-            cache_key = (task, encoding)  # Use task and encoding as key for caching
+        for encoding in self.encodings:
+            cache_key = encoding
 
             if cache_key not in data_cache:
-                dataloader = ProcessedDataLoader(task, encoding)
-                df = dataloader.load_data(self.path, self.name)
+                dataloader = ProcessedDataLoader(task=self.task, encoding=encoding)
+                df = dataloader.load_data(path=self.path, name=self.name)
                 transformed_df = dataloader.transform_data(df)
                 data_cache[cache_key] = transformed_df
 
         return data_cache
 
     def run_all_benchmarks(self) -> Tuple[pd.DataFrame, dict]:
-        """Benchmark all combinations of tasks, learners, tuning, HPO, and criteria."""
+        """Benchmark all combinations of inputs.
+
+        Returns:
+            Tuple[pd.DataFrame, dict]:
+                - A DataFrame summarizing the benchmark results with metrics for each
+                configuration.
+                - A dictionary mapping model keys to trained models for the top
+                configurations per criterion.
+
+        Raises:
+            KeyError: If an unknown criterion is encountered in `metric_map`.
+        """
         results = []
         learners_dict = {}
+        top_models_per_criterion: Dict[
+            str, List[Tuple[float, object, str, str, str, str]]
+        ] = {criterion: [] for criterion in self.criteria}
+        metric_map = {
+            "f1": "F1 Score",
+            "brier_score": "Brier Score",
+            "macro_f1": "Macro F1",
+        }
 
-        for task, learner, tuning, hpo, criterion, encoding in itertools.product(
-            self.tasks,
+        for learner, tuning, hpo, criterion, encoding, sampling in itertools.product(
             self.learners,
             self.tuning_methods,
             self.hpo_methods,
             self.criteria,
             self.encodings,
+            self.sampling or ["no_sampling"],
         ):
-            if (criterion == "macro_f1" and task != "pdgrouprevaluation") or (
-                criterion == "f1" and task == "pdgrouprevaluation"
+            if (criterion == "macro_f1" and self.task != "pdgrouprevaluation") or (
+                criterion == "f1" and self.task == "pdgrouprevaluation"
             ):
-                print(f"Criterion '{criterion}' and task '{task}' not valid.")
+                print(f"Criterion '{criterion}' and task '{self.task}' not valid.")
                 continue
-
-            print(
-                f"\nRunning benchmark for Task: {task}, Learner: {learner}, "
-                f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}"
-            )
-
-            df = self.data_cache[(task, encoding)]
+            if self.verbose:
+                print(
+                    f"\nRunning benchmark for Task: {self.task}, Learner: {learner}, "
+                    f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}, "
+                    f"Sampling: {sampling}, Factor: {self.factor}."
+                )
+            df = self.data_cache[(encoding)]
 
             exp = Experiment(
                 df=df,
-                task=task,
+                task=self.task,
                 learner=learner,
                 criterion=criterion,
                 encoding=encoding,
                 tuning=tuning,
                 hpo=hpo,
-                sampling=self.sampling,
+                sampling=sampling,
                 factor=self.factor,
                 n_configs=self.n_configs,
                 racing_folds=self.racing_folds,
@@ -334,7 +449,8 @@ class Benchmarker:
                 val_size=self.val_size,
                 cv_seed=self.cv_seed,
                 mlp_flag=self.mlp_flag,
-                verbosity=self.verbosity,
+                threshold_tuning=self.threshold_tuning,
+                verbose=self.verbose,
             )
 
             try:
@@ -346,68 +462,90 @@ class Benchmarker:
                     k: round(v, 4) if isinstance(v, float) else v
                     for k, v in metrics.items()
                 }
-
                 results.append(
                     {
-                        "Task": task,
+                        "Task": self.task,
                         "Learner": learner,
                         "Tuning": tuning,
                         "HPO": hpo,
                         "Criterion": criterion,
+                        "Sampling": sampling,
+                        "Factor": self.factor,
                         **unpacked_metrics,
                     }
                 )
 
-                learners_dict[
-                    f"{task}_{learner}_{tuning}_{hpo}_{criterion}_{encoding}"
-                ] = trained_model
+                metric_key = metric_map.get(criterion)
+                if metric_key is None:
+                    raise KeyError(f"Unknown criterion '{criterion}'")
+
+                criterion_value = metrics[metric_key]
+
+                current_model_data = (
+                    criterion_value,
+                    trained_model,
+                    learner,
+                    tuning,
+                    hpo,
+                    encoding,
+                )
+
+                if len(top_models_per_criterion[criterion]) < 4:
+                    top_models_per_criterion[criterion].append(current_model_data)
+                else:
+                    worst_model_idx = min(
+                        range(len(top_models_per_criterion[criterion])),
+                        key=lambda idx: (
+                            top_models_per_criterion[criterion][idx][0]
+                            if criterion != "brier_score"
+                            else -top_models_per_criterion[criterion][idx][0]
+                        ),
+                    )
+                    worst_model_score = top_models_per_criterion[criterion][
+                        worst_model_idx
+                    ][0]
+                    if (
+                        criterion != "brier_score"
+                        and criterion_value > worst_model_score
+                    ) or (
+                        criterion == "brier_score"
+                        and criterion_value < worst_model_score
+                    ):
+                        top_models_per_criterion[criterion][
+                            worst_model_idx
+                        ] = current_model_data
 
             except Exception as e:
-                print(f"Error running benchmark for {task}, {learner}: {e}\n")
-                traceback.print_exc()
+                if (
+                    "Matrix not positive definite after repeatedly adding jitter"
+                    in str(e)
+                ):
+                    print(
+                        f"Suppressed NotPSDError for {self.task}, {learner} due to"
+                        f"convergence issue \n"
+                    )
+                else:
+                    print(f"Error running benchmark for {self.task}, {learner}: {e}\n")
+                    traceback.print_exc()
+
+        for criterion, models in top_models_per_criterion.items():
+            sorted_models = sorted(
+                models, key=lambda x: -x[0] if criterion != "brier_score" else x[0]
+            )
+            for idx, (score, model, learner, tuning, hpo, encoding) in enumerate(
+                sorted_models
+            ):
+                learners_dict_key = (
+                    f"{self.task}_{learner}_{tuning}_{hpo}_{criterion}_{encoding}_"
+                    f"{sampling or 'no_sampling'}_factor{self.factor}_rank{idx+1}_"
+                    f"score{round(score, 4)}"
+                )
+                learners_dict[learners_dict_key] = model
 
         df_results = pd.DataFrame(results)
-        self._print_results_table(df_results)
+        pd.set_option("display.max_columns", None, "display.width", 1000)
+
+        if self.verbose:
+            print(f"\nBenchmark Results Summary:\n{df_results}")
+
         return df_results, learners_dict
-
-    def _print_results_table(self, df_results: pd.DataFrame) -> None:
-        """Print the benchmark results in a tabular format.
-
-        Args:
-            df_results (pd.DataFrame): DataFrame of benchmark results.
-        """
-        pd.set_option("display.max_columns", None)
-        pd.set_option("display.width", 1000)
-        print("\nBenchmark Results Summary:")
-        print(df_results)
-
-
-def main():
-    tasks = ["pdgrouprevaluation"]
-    learners = ["xgb", "rf", "lr", "mlp"]
-    # learners = ["xgb"]
-    tuning_methods = ["holdout"]
-    hpo_methods = ["hebo"]
-    criteria = ["macro_f1"]
-    encoding = ["one_hot"]
-
-    benchmarker = Benchmarker(
-        tasks=tasks,
-        learners=learners,
-        tuning_methods=tuning_methods,
-        hpo_methods=hpo_methods,
-        criteria=criteria,
-        encodings=encoding,
-        sampling=None,
-        factor=None,
-        n_configs=3,
-        racing_folds=3,
-        n_jobs=-1,
-        verbosity=True,
-    )
-
-    benchmarker.run_all_benchmarks()
-
-
-if __name__ == "__main__":
-    main()

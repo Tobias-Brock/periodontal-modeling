@@ -1,21 +1,110 @@
-from typing import List, Optional, Tuple, Union
-import warnings
+from typing import Any, Optional, Tuple, Union
 
-from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn import clone
-from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import f1_score
 from sklearn.neural_network import MLPClassifier
 
-from pamod.base import BaseEvaluator
-from pamod.learner import Model
-from pamod.resampling import Resampler
-from pamod.training import MetricEvaluator, MLPTrainer, final_metrics, get_probs
+from ..learner import Model
+from ..resampling import Resampler
+from ._basetrainer import BaseTrainer
+from ._metrics import final_metrics, get_probs
 
 
-class Trainer(BaseEvaluator):
+class Trainer(BaseTrainer):
+    """Trainer class for supervised machine learning model training.
+
+    Extends functionality to support MLP training with early stopping,
+    threshold optimization, and performance evaluation based on specified
+    criteria. The Trainer class is compatible with both binary and multiclass
+    classification, with options for cross-validation and hyperparameter
+    tuning.
+
+    Inherits:
+        - BaseTrainer: Base class that implements evaluation methods.
+
+    Args:
+        classification (str): Specifies the type of classification ('binary'
+            or 'multiclass').
+        criterion (str): Defines the performance criterion to optimize (e.g.,
+            'f1' or 'brier_score').
+        tuning (Optional[str]): Specifies the tuning method ('holdout' or
+            'cv') or None.
+        hpo (Optional[str]): Specifies the hyperparameter optimization method.
+        mlp_training (bool): Flag to indicate if a separate MLP training
+            procedure with early stopping is to be used.
+        threshold_tuning (bool): Determines if threshold tuning is performed
+            for binary classification when the criterion is "f1".
+
+    Attributes:
+        classification (str): Type of classification ('binary' or 'multiclass').
+        criterion (str): Performance criterion to optimize
+            ('f1', 'brier_score' or 'macro_f1').
+        tuning (Optional[str]): Tuning method ('holdout' or 'cv') or None.
+        hpo (Optional[str]): Hyperparameter optimization method if specified.
+        mlp_training (bool): Indicates if MLP training with early stopping is applied.
+        threshold_tuning (bool): Specifies if threshold tuning is performed for
+            binary classification when the criterion is 'f1'.
+
+    Methods:
+        train: Trains a machine learning model, handling custom logic for
+            MLP and standard models.
+        train_mlp: Trains an MLPClassifier with early stopping, adapting
+            based on classification type and criterion.
+        train_final_model: Trains the final model on resampled data,
+            returning model and metrics.
+
+    Inherited Methods:
+        - `evaluate`: Determines model performance based on the criterion.
+        - `optimize_threshold`: Aggregates predictions across CV folds to
+          optimize the decision threshold.
+        - `evaluate_cv`: Evaluates a model's performance on a CV fold.
+
+    Example:
+        ```
+        trainer = Trainer(
+            classification="binary", criterion="f1", tuning="cv", hpo="hebo"
+        )
+        final_model_info = trainer.train_final_model(
+            df=training_data,
+            resampler=Resampler("binary", "target"),
+            model=(learner_type, best_params, optimal_threshold),
+            sampling="smote",
+            factor=1.5,
+            n_jobs=4,
+            seed=42,
+            test_size=0.2,
+            verbose=True,
+        )
+        print(final_model_info["metrics"])
+        ```
+
+    Example for `train`:
+        ```
+        score, trained_model, threshold = trainer.train(
+            model=logistic_regression_model,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+        )
+        print(f"Score: {score}, Optimal Threshold: {threshold}")
+        ```
+
+    Example for `train_mlp`:
+        ```
+        score, trained_mlp, threshold = trainer.train_mlp(
+            mlp_model=mlp_classifier,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            final=True
+        )
+        print(f"MLP Validation Score: {score}, Optimal Threshold: {threshold}")
+        ```
+    """
+
     def __init__(
         self,
         classification: str,
@@ -23,6 +112,7 @@ class Trainer(BaseEvaluator):
         tuning: Optional[str],
         hpo: Optional[str],
         mlp_training: bool = True,
+        threshold_tuning: bool = True,
     ) -> None:
         """Initializes the Trainer with classification type and criterion.
 
@@ -34,14 +124,21 @@ class Trainer(BaseEvaluator):
             tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
             hpo (Optional[str]): The hyperparameter optimization method. Can be None.
             mlp_training (bool): Flag for separate MLP training with early stopping.
+            threshold_tuning (bool): Perform threshold tuning for binary classification
+                if the criterion is "f1". Defaults to True.
         """
-        super().__init__(classification, criterion, tuning, hpo)
-        self.metric_evaluator = MetricEvaluator(self.classification, self.criterion)
-        self.mlp_training = mlp_training
+        super().__init__(
+            classification=classification,
+            criterion=criterion,
+            tuning=tuning,
+            hpo=hpo,
+            mlp_training=mlp_training,
+            threshold_tuning=threshold_tuning,
+        )
 
     def train(
         self,
-        model,
+        model: Any,
         X_train: pd.DataFrame,
         y_train: pd.Series,
         X_val: pd.DataFrame,
@@ -50,7 +147,7 @@ class Trainer(BaseEvaluator):
         """Trains either an MLP model with custom logic or a standard model.
 
         Args:
-            model (sklearn estimator): The machine learning model to be trained.
+            model (Any): The machine learning model to be trained.
             X_train (pd.DataFrame): Training features.
             y_train (pd.Series): Training labels.
             X_val (pd.DataFrame): Validation features.
@@ -60,129 +157,90 @@ class Trainer(BaseEvaluator):
             Tuple: The evaluation score, trained model, and the best threshold.
         """
         if isinstance(model, MLPClassifier) and self.mlp_training:
-            mlp_trainer = MLPTrainer(
-                self.classification, self.criterion, self.tuning, self.hpo
-            )
-            score, model, best_threshold = mlp_trainer.train(
-                model, X_train, y_train, X_val, y_val
+            score, model, best_threshold = self.train_mlp(
+                mlp_model=model,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                final=self.mlp_training,
             )
         else:
             model.fit(X_train, y_train)
-            probs = get_probs(model, self.classification, X_val)
+            probs = get_probs(model=model, classification=self.classification, X=X_val)
             best_threshold = None
 
             if self.classification == "binary" and (
                 self.tuning == "cv" or self.hpo == "hebo"
             ):
-                score = self.metric_evaluator.evaluate_metric(model, y_val, probs)
+                score, _ = self.evaluate(y=y_val, probs=probs, threshold=False)
             else:
-                score, best_threshold = self.metric_evaluator.evaluate(y_val, probs)
+                score, best_threshold = self.evaluate(
+                    y=y_val, probs=probs, threshold=self.threshold_tuning
+                )
 
         return score, model, best_threshold
 
-    def evaluate_cv(
-        self, model, fold: Tuple, return_probs: bool = False
-    ) -> Union[float, Tuple[float, np.ndarray, np.ndarray]]:
-        """Evaluates a model on a specific training-validation fold.
-
-        Based on a chosen performance criterion.
-
-        Args:
-            model (sklearn estimator): The machine learning model used for
-                evaluation.
-            fold (tuple): A tuple containing two tuples:
-                - The first tuple contains the training data (features and labels).
-                - The second tuple contains the validation data (features and labels).
-                Specifically, it is structured as ((X_train, y_train), (X_val, y_val)),
-                where X_train and X_val are the feature matrices, and y_train and y_val
-                are the target vectors.
-            return_probs (bool): Return predicted probabilities with score if True.
-
-        Returns:
-            Union[float, Tuple[float, np.ndarray, np.ndarray]]: The calculated score of
-                the model on the validation data, and optionally the true labels and
-                predicted probabilities.
-        """
-        (X_train, y_train), (X_val, y_val) = fold
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            warnings.filterwarnings("ignore", category=ConvergenceWarning)
-
-            # Train the model and get the score
-            score, _, _ = self.train(model, X_train, y_train, X_val, y_val)
-
-            if return_probs:
-                # Get predicted probabilities if requested
-                if hasattr(model, "predict_proba"):
-                    probs = model.predict_proba(X_val)[:, 1]
-                    return score, y_val, probs
-                else:
-                    raise AttributeError(
-                        f"The model {type(model)} does not support predict_proba."
-                    )
-
-        return score
-
-    def find_optimal_threshold(
-        self, true_labels: np.ndarray, probs: np.ndarray
-    ) -> Union[float, None]:
-        """Find the optimal threshold based on the criterion.
-
-        Converts probabilities into binary decisions.
-
-        Args:
-            true_labels (np.ndarray): The true labels for validation or test data.
-            probs (np.ndarray): Predicted probabilities for the positive class.
-
-        Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
-                'brier_score'.
-        """
-        if self.criterion == "brier_score":
-            return None
-
-        elif self.criterion == "f1":
-            thresholds = np.linspace(0, 1, 101)
-            scores = [
-                f1_score(true_labels, probs >= th, pos_label=0) for th in thresholds
-            ]
-            best_threshold = thresholds[np.argmax(scores)]
-            print(f"Best threshold: {best_threshold}, Best F1 score: {np.max(scores)}")
-            return best_threshold
-        raise ValueError(f"Invalid criterion: {self.criterion}")
-
-    def optimize_threshold(
+    def train_mlp(
         self,
-        model,
-        outer_splits: Optional[List[Tuple[pd.DataFrame, pd.DataFrame]]],
-        n_jobs: int,
-    ) -> Union[float, None]:
-        """Optimize the decision threshold using cross-validation.
+        mlp_model: MLPClassifier,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        final: bool = False,
+    ) -> Tuple:
+        """Trains MLPClassifier with early stopping and evaluates performance.
 
-        Aggregates probability predictions across cross-validation folds.
+        Applies evaluation for both binary and multiclass classification.
 
         Args:
-            model (sklearn estimator): The trained machine learning model.
-            best_params (dict): The best hyperparameters obtained from optimization.
-            outer_splits (List[Tuple]): List of ((X_train, y_train), (X_val, y_val)).
-            n_jobs (int): Number of parallel jobs to use for cross-validation.
+            mlp_model (MLPClassifier): The MLPClassifier to be trained.
+            X_train (pd.DataFrame): Training features.
+            y_train (pd.Series): Training labels.
+            X_val (pd.DataFrame): Validation features.
+            y_val (pd.Series): Validation labels.
+            final (bool): Flag for final model training.
 
         Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
-                'brier_score'.
+            tuple (Tuple): The best validation score, trained MLPClassifier, and the
+                optimal threshold (None for multiclass).
         """
-        if outer_splits is None:
-            return None
-
-        results = Parallel(n_jobs=n_jobs)(
-            delayed(self.evaluate_cv)(model, fold, return_probs=True)
-            for fold in outer_splits
+        best_val_score = (
+            -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         )
+        best_threshold = None
+        no_improvement_count = 0
 
-        all_true_labels = np.concatenate([y for _, y, _ in results])
-        all_probs = np.concatenate([probs for _, _, probs in results])
+        for _ in range(mlp_model.max_iter):
+            mlp_model.partial_fit(X_train, y_train, classes=np.unique(y_train))
 
-        return self.find_optimal_threshold(all_true_labels, all_probs)
+            probs = get_probs(
+                model=mlp_model, classification=self.classification, X=X_val
+            )
+            if self.classification == "binary":
+                if final or (self.tuning == "cv" or self.hpo == "hebo"):
+                    score, _ = self.evaluate(y=y_val, probs=probs, threshold=False)
+            else:
+                score, best_threshold = self.evaluate(
+                    y=y_val, probs=probs, threshold=self.threshold_tuning
+                )
+
+            if self.criterion in ["f1", "macro_f1"]:
+                improvement = score > best_val_score + self.tol
+            else:
+                improvement = score < best_val_score - self.tol
+
+            if improvement:
+                best_val_score = score
+                no_improvement_count = 0
+            else:
+                no_improvement_count += 1
+
+            if no_improvement_count >= self.n_iter_no_change:
+                break
+
+        return best_val_score, mlp_model, best_threshold
 
     def train_final_model(
         self,
@@ -191,11 +249,11 @@ class Trainer(BaseEvaluator):
         model: Tuple,
         sampling: Optional[str],
         factor: Optional[float],
-        n_jobs: int,
+        n_jobs: Optional[int],
         seed: int,
         test_size: float,
-        verbosity: bool = True,
-    ):
+        verbose: bool = True,
+    ) -> dict:
         """Trains the final model.
 
         Args:
@@ -207,7 +265,7 @@ class Trainer(BaseEvaluator):
             n_jobs (int): The number of parallel jobs to run for evaluation.
             seed (int): Seed for splitting.
             test_size (float): Size of train test split.
-            verbosity (bool): Verbosity during model evaluation process if set to True.
+            verbose (bool): verbose during model evaluation process if set to True.
 
         Returns:
             dict: A dictionary containing the trained model and metrics.
@@ -221,36 +279,53 @@ class Trainer(BaseEvaluator):
         if "n_jobs" in final_model.get_params():
             final_model.set_params(n_jobs=n_jobs)
 
-        train_df, test_df = resampler.split_train_test_df(df, seed, test_size)
+        train_df, test_df = resampler.split_train_test_df(
+            df=df, seed=seed, test_size=test_size
+        )
 
         X_train, y_train, X_test, y_test = resampler.split_x_y(
-            train_df, test_df, sampling, factor
+            train_df=train_df, test_df=test_df, sampling=sampling, factor=factor
         )
         if learner == "mlp" and self.mlp_training:
-            mlp = MLPTrainer(self.classification, self.criterion, None, None)
             train_df_h, test_df_h = resampler.split_train_test_df(
-                train_df, seed, test_size
+                df=train_df, seed=seed, test_size=test_size
             )
 
             X_train_h, y_train_h, X_val, y_val = resampler.split_x_y(
-                train_df_h, test_df_h, sampling, factor
+                train_df=train_df_h, test_df=test_df_h, sampling=sampling, factor=factor
             )
-            _, final_model, _ = mlp.train(
-                final_model, X_train_h, y_train_h, X_val, y_val, final=True
+            _, final_model, _ = self.train_mlp(
+                mlp_model=final_model,
+                X_train=X_train_h,
+                y_train=y_train_h,
+                X_val=X_val,
+                y_val=y_val,
+                final=self.mlp_training,
             )
         else:
             final_model.fit(X_train, y_train)
-        final_probs = get_probs(final_model, self.classification, X_test)
+        final_probs = get_probs(
+            model=final_model, classification=self.classification, X=X_test
+        )
 
-        if self.criterion in ["f1"] and final_probs is not None:
+        if (
+            self.criterion == "f1"
+            and final_probs is not None
+            and np.any(final_probs)
+            and best_threshold is not None
+        ):
             final_predictions = (final_probs >= best_threshold).astype(int)
         else:
             final_predictions = final_model.predict(X_test)
 
         metrics = final_metrics(
-            self.classification, y_test, final_predictions, final_probs, best_threshold
+            classification=self.classification,
+            y=y_test,
+            preds=final_predictions,
+            probs=final_probs,
+            threshold=best_threshold,
         )
-        if verbosity:
+        if verbose:
             unpacked_metrics = {
                 k: round(v, 4) if isinstance(v, float) else v
                 for k, v in metrics.items()
@@ -264,10 +339,7 @@ class Trainer(BaseEvaluator):
             }
 
             df_results = pd.DataFrame([results])
-            pd.set_option("display.max_columns", None)
-            pd.set_option("display.width", 1000)
-
-            print("\nFinal Model Metrics Summary:")
-            print(df_results)
+            pd.set_option("display.max_columns", None, "display.width", 1000)
+            print("\nFinal Model Metrics Summary:\n", df_results)
 
         return {"model": final_model, "metrics": metrics}

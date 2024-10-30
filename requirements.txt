@@ -2,11 +2,7 @@ gradio==4.44.1
 HEBO==0.3.5
 hydra-core==1.3.2
 imbalanced-learn==0.12.3
-ipykernel==6.29.5
-ipython==8.27.0
 jackknife==0.1.0
-jupyter_client==8.6.2
-jupyter_core==5.7.2
 loguru==0.7.2
 matplotlib==3.9.2
 mkdocs==1.6.1
@@ -14,6 +10,7 @@ numpy==1.24.4
 openpyxl==3.1.5
 pandas==2.2.2
 pre-commit
+py-cpuinfo==9.0.0
 pytest==8.3.2
 python-dotenv==1.0.1
 PyYAML==6.0.2
@@ -22,4 +19,5 @@ ruff==0.6.3
 scikit-learn==1.5.1
 seaborn==0.13.2
 shap==0.46.0
+uvicorn==0.23.1
 xgboost==2.1.1

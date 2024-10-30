@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type, Union
+from typing import List, Optional, Type, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,197 +13,140 @@ from sklearn.metrics import brier_score_loss
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 
-
-def brier_score_groups(model, X_test, y_test, group_by="y"):
-    """Calculates Brier score within groups.
-
-    Args:
-        model (object): Model with a `predict_proba` method for probability estimation.
-        X_test (pd.DataFrame): The input features as a pandas DataFrame.
-        y_test (pd.Series): The true labels corresponding to the input data `X`.
-        group_by (str): Grouping varuable.
-
-    Returns:
-        pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
-    """
-    if not hasattr(model, "predict_proba"):
-        raise ValueError("The provided model cannot predict probabilities.")
-
-    probas = model.predict_proba(X_test)
-
-    if len(probas[0]) == 1:
-        brier_scores = [
-            brier_score_loss([true_label], [pred_proba[0]])
-            for true_label, pred_proba in zip(y_test, probas, strict=False)
-        ]
-    else:
-        brier_scores = [
-            brier_score_loss(
-                [1 if true_label == idx else 0 for idx in range(len(proba))], proba
-            )
-            for true_label, proba in zip(y_test, probas, strict=False)
-        ]
-
-        data = pd.DataFrame({group_by: y_test, "Brier_Score": brier_scores})
-        data_grouped = data.groupby(group_by)
-
-    summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
-
-    print(f"Average and Median Brier Scores by {group_by}:")
-    print(summary)
-
-    plt.figure(figsize=(10, 6), dpi=300)
-    sns.boxplot(x=group_by, y="Brier_Score", data=data)
-    plt.title("Distribution of Brier Scores", fontsize=18)
-    plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
-    plt.ylabel("Brier Score", fontsize=18)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.show()
+from ._baseeval import BaseModelEvaluator
 
 
-def _is_one_hot_encoded(feature: str) -> bool:
-    """Check if a feature is one-hot encoded.
+class ModelEvaluator(BaseModelEvaluator):
+    """Concrete implementation for evaluating machine learning model performance.
+
+    This class extends `BaseModelEvaluator` to provide methods for calculating
+    feature importance using SHAP, permutation importance, and standard model
+    importance. It also supports clustering analyses of Brier scores.
+
+    Inherits:
+        - BaseModelEvaluator: Provides methods for model evaluation, calculating
+            Brier scores, plotting confusion matrices, and aggregating feature
+            importance for one-hot encoded features.
 
     Args:
-        feature (str): The name of the feature to check.
+        X (pd.DataFrame): Dataset features used for testing.
+        y (pd.Series): True labels for the test dataset.
+        model (Union[sklearn estimators, None], optional): A single trained
+            model instance, such as `RandomForestClassifier` or `LogisticRegression`.
+            Defaults to None.
+        models (Union[List[sklearn estimators], None], optional): List of trained
+            models to evaluate. Defaults to None.
+        encoding (Optional[str], optional): Encoding type for plot titles
+            ('one_hot' or 'target'). Defaults to None.
+        aggregate (bool, optional): If True, aggregates one-hot feature
+            importance scores. Defaults to True.
 
-    Returns:
-        bool: True if the feature is one-hot encoded.
+    Attributes:
+        X (pd.DataFrame): Stores the test dataset features for evaluation.
+        y (pd.Series): Stores the test dataset labels for evaluation.
+        model (Union[sklearn estimators, None]): The primary model for evaluation.
+        models (List[sklearn estimators]): List of trained models for multi-model
+            evaluation.
+        encoding (Optional[str]): The encoding type used, impacting plot titles
+            and feature grouping.
+        aggregate (bool): Determines if importance values of one-hot encoded
+            features are aggregated for interpretability.
+
+    Methods:
+        evaluate_feature_importance: Calculates feature importance scores using
+            specified methods (`shap`, `permutation`, or `standard`).
+        analyze_brier_within_clusters: Computes Brier scores within clusters formed by a
+            specified clustering algorithm and provides visualizations.
+
+    Inherited Methods:
+        - `brier_score_groups`: Calculates Brier score within specified groups
+          based on a grouping variable (e.g., target class).
+        - `plot_confusion_matrix`: Generates a styled confusion matrix heatmap
+          for model predictions, with optional normalization.
+
+    Example:
+        ```
+        evaluator = ModelEvaluator(X, y, model=trained_rf_model, encoding="one_hot")
+        evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
+        brier_plot, heatmap_plot, clustered_data = (
+            evaluator.analyze_brier_within_clusters()
+        )
+        ```
     """
-    parts = feature.rsplit("_", 1)
-    return len(parts) > 1 and (parts[1].isdigit() or feature.startswith("Stresslvl"))
 
-
-def _get_base_name(feature: str) -> str:
-    """Extract the base name of a feature.
-
-    Args:
-        feature (str): The name of the feature to process.
-
-    Returns:
-        str: The base name of the feature.
-    """
-    if feature.startswith("Stresslvl"):
-        return "Stresslvl"
-    if _is_one_hot_encoded(feature):
-        return feature.rsplit("_", 1)[0]
-    return feature
-
-
-class FeatureImportanceEngine:
     def __init__(
         self,
-        models: List[
-            Union[
-                RandomForestClassifier, LogisticRegression, MLPClassifier, XGBClassifier
-            ]
-        ],
-        X_test: pd.DataFrame,
-        y_test: pd.Series,
-        encoding: str,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model: Union[
+            RandomForestClassifier,
+            LogisticRegression,
+            MLPClassifier,
+            XGBClassifier,
+            None,
+        ] = None,
+        models: Union[
+            List[
+                Union[
+                    RandomForestClassifier,
+                    LogisticRegression,
+                    MLPClassifier,
+                    XGBClassifier,
+                ]
+            ],
+            None,
+        ] = None,
+        encoding: Optional[str] = None,
         aggregate: bool = True,
     ) -> None:
         """Initialize the FeatureImportance class.
 
         Args:
+            X (pd.DataFrame): Test dataset features.
+            y (pd.Series): Test dataset labels.
+            model ([sklearn estimators]): Trained sklearn models.
             models (List[sklearn estimators]): List of trained models.
-            X_test (pd.DataFrame): Test dataset features.
-            y_test (pd.Series): Test dataset labels.
-            encoding (str): Determines encoding for plot titles ('one_hot' or 'target').
+            encoding (Optional[str]): Determines encoding for plot titles
+                ('one_hot' or 'target'). Defaults to None.
             aggregate (bool): If True, aggregates importance values of one-hot features.
         """
-        self.models = models
-        self.X_test = X_test
-        self.y_test = y_test
-        self.encoding = encoding
-        self.aggregate = aggregate
-
-    def _aggregate_one_hot_importances(
-        self, feature_importance_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """Aggregate importance scores of one-hot encoded variables.
-
-        Args:
-            feature_importance_df (pd.DataFrame): DataFrame with features and their
-                importance scores.
-
-        Returns:
-            pd.DataFrame: Updated DataFrame with aggregated importance scores.
-        """
-        base_names = feature_importance_df["Feature"].apply(_get_base_name)
-        aggregated_importances = (
-            feature_importance_df.groupby(base_names)["Importance"].sum().reset_index()
-        )
-        aggregated_importances.columns = ["Feature", "Importance"]
-        original_features = feature_importance_df["Feature"][
-            ~feature_importance_df["Feature"].apply(_is_one_hot_encoded)
-        ].unique()
-
-        aggregated_or_original = (
-            pd.concat(
-                [
-                    aggregated_importances,
-                    feature_importance_df[
-                        feature_importance_df["Feature"].isin(original_features)
-                    ],
-                ]
-            )
-            .drop_duplicates()
-            .sort_values(by="Importance", ascending=False)
+        super().__init__(
+            X=X, y=y, model=model, models=models, encoding=encoding, aggregate=aggregate
         )
 
-        return aggregated_or_original.reset_index(drop=True)
-
-    def _aggregate_shap_one_hot(
-        self, shap_values: np.ndarray, feature_names: List[str]
-    ) -> Tuple[np.ndarray, List[str]]:
-        """Aggregate SHAP values of one-hot encoded variables.
-
-        Args:
-            shap_values (np.ndarray): SHAP values with shape (n_samples, n_features).
-            feature_names (List[str]): List of features corresponding to SHAP values.
-
-        Returns:
-            Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
-            feature names.
-        """
-        shap_df = pd.DataFrame(shap_values, columns=feature_names)
-        base_names = [_get_base_name(feature) for feature in shap_df.columns]
-        feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
-        aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
-        updated_feature_names = list(aggregated_shap_df.columns)
-        aggregated_shap_values = aggregated_shap_df.values
-
-        return aggregated_shap_values, updated_feature_names
-
-    def evaluate_feature_importance(self, importance_types: List[str]) -> None:
+    def evaluate_feature_importance(self, fi_types: List[str]) -> None:
         """Evaluate the feature importance for a list of trained models.
 
         Args:
-            importance_types (List[str]): Methods of feature importance evaluation:
+            fi_types (List[str]): Methods of feature importance evaluation:
                 'shap', 'permutation', 'standard'.
 
         Returns:
             Dict[str, pd.DataFrame]: A dictionary containing DataFrames of features and
             their importance scores for each model.
         """
-        feature_names = self.X_test.columns.tolist()
+        if self.models and self.model is None:
+            return None
+
+        if not self.models and self.model:
+            self.models = [self.model]
+
+        feature_names = self.X.columns.tolist()
         importance_dict = {}
 
         for model in self.models:
-            for importance_type in importance_types:
+            for fi_type in fi_types:
                 model_name = type(model).__name__
 
-                if importance_type == "shap":
+                if fi_type == "shap":
                     if isinstance(model, MLPClassifier):
-                        explainer = shap.Explainer(model.predict_proba, self.X_test)
+                        explainer = shap.Explainer(model.predict_proba, self.X)
                     else:
-                        explainer = shap.Explainer(model, self.X_test)
+                        explainer = shap.Explainer(model, self.X)
 
                     if isinstance(model, (RandomForestClassifier, XGBClassifier)):
                         shap_values = explainer.shap_values(
-                            self.X_test, check_additivity=False
+                            self.X, check_additivity=False
                         )
                         if (
                             isinstance(model, RandomForestClassifier)
@@ -211,7 +154,7 @@ class FeatureImportanceEngine:
                         ):
                             shap_values = np.abs(shap_values).mean(axis=-1)
                     else:
-                        shap_values = explainer.shap_values(self.X_test)
+                        shap_values = explainer.shap_values(self.X)
 
                     if isinstance(shap_values, list):
                         shap_values_stacked = np.stack(shap_values, axis=-1)
@@ -219,18 +162,22 @@ class FeatureImportanceEngine:
                     else:
                         shap_values = np.abs(shap_values)
 
-                elif importance_type == "permutation":
+                elif fi_type == "permutation":
                     result = permutation_importance(
-                        model, self.X_test, self.y_test, n_repeats=10, random_state=0
+                        estimator=model,
+                        X=self.X,
+                        y=self.y,
+                        n_repeats=10,
+                        random_state=0,
                     )
-                    feature_importance_df = pd.DataFrame(
+                    fi_df = pd.DataFrame(
                         {
                             "Feature": feature_names,
                             "Importance": result.importances_mean,
                         }
                     )
 
-                elif importance_type == "standard":
+                elif fi_type == "standard":
                     if isinstance(model, (RandomForestClassifier, XGBClassifier)):
                         importances = model.feature_importances_
                     elif isinstance(model, LogisticRegression):
@@ -238,24 +185,24 @@ class FeatureImportanceEngine:
                     else:
                         print(f"Standard FI not supported for model type {model_name}.")
                         continue
-                    feature_importance_df = pd.DataFrame(
+                    fi_df = pd.DataFrame(
                         {"Feature": feature_names, "Importance": importances}
                     )
 
                 else:
-                    raise ValueError(f"Invalid importance_type: {importance_type}")
+                    raise ValueError(f"Invalid fi_type: {fi_type}")
 
                 if self.aggregate:
-                    if importance_type == "shap":
+                    if fi_type == "shap":
                         aggregated_shap_values, aggregated_feature_names = (
-                            self._aggregate_shap_one_hot(shap_values, feature_names)
+                            self._aggregate_shap_one_hot(
+                                shap_values=shap_values, feature_names=feature_names
+                            )
                         )
                         aggregated_shap_df = pd.DataFrame(
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
-                        importance_dict[f"{model_name}_{importance_type}"] = (
-                            aggregated_shap_df
-                        )
+                        importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
                         plt.figure(figsize=(3, 2), dpi=150)
                         shap.summary_plot(
                             aggregated_shap_values,
@@ -268,21 +215,19 @@ class FeatureImportanceEngine:
                             f"{model_name} SHAP Feature Importance {self.encoding}"
                         )
                     else:
-                        feature_importance_df_aggregated = (
-                            self._aggregate_one_hot_importances(feature_importance_df)
+                        fi_df_aggregated = self._aggregate_one_hot_importances(
+                            fi_df=fi_df
                         )
-                        feature_importance_df_aggregated.sort_values(
+                        fi_df_aggregated.sort_values(
                             by="Importance", ascending=False, inplace=True
                         )
-                        importance_dict[f"{model_name}_{importance_type}"] = (
-                            feature_importance_df_aggregated
-                        )
+                        importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
                 else:
-                    if importance_type == "shap":
+                    if fi_type == "shap":
                         plt.figure(figsize=(3, 2), dpi=150)
                         shap.summary_plot(
                             shap_values,
-                            self.X_test,
+                            self.X,
                             plot_type="bar",
                             feature_names=feature_names,
                             show=False,
@@ -291,27 +236,25 @@ class FeatureImportanceEngine:
                             f"{model_name} SHAP Feature Importance {self.encoding}"
                         )
                     else:
-                        feature_importance_df.sort_values(
+                        fi_df.sort_values(
                             by="Importance", ascending=False, inplace=True
                         )
-                        importance_dict[model_name] = feature_importance_df
+                        importance_dict[model_name] = fi_df
 
-                if importance_type != "shap":
+                if fi_type != "shap":
                     plt.figure(figsize=(6, 4), dpi=200)
                     if self.aggregate:
                         plt.bar(
-                            feature_importance_df_aggregated["Feature"],
-                            feature_importance_df_aggregated["Importance"],
+                            fi_df_aggregated["Feature"],
+                            fi_df_aggregated["Importance"],
                         )
                     else:
                         plt.bar(
-                            feature_importance_df["Feature"],
-                            feature_importance_df["Importance"],
+                            fi_df["Feature"],
+                            fi_df["Importance"],
                         )
 
-                    plt.title(
-                        f"{model_name} {importance_type.title()} FI {self.encoding}"
-                    )
+                    plt.title(f"{model_name} {fi_type.title()} FI {self.encoding}")
                     plt.xticks(rotation=45, fontsize=3)
                     plt.ylabel("Importance")
                     plt.tight_layout()
@@ -319,18 +262,12 @@ class FeatureImportanceEngine:
 
     def analyze_brier_within_clusters(
         self,
-        model: Union[
-            RandomForestClassifier, LogisticRegression, MLPClassifier, XGBClassifier
-        ],
         clustering_algorithm: Type = AgglomerativeClustering,
         n_clusters: int = 3,
     ) -> pd.DataFrame:
         """Analyze distribution of Brier scores within clusters formed by input data.
 
         Args:
-            model (sklearn estimator): A trained model that supports `predict_proba`.
-            X (pd.DataFrame): Input features dataframe without the target variable.
-            y (pd.Series or np.ndarray): True labels corresponding to X.
             clustering_algorithm (Type): Clustering algorithm class from sklearn to use
                 for clustering.
             n_clusters (int): Number of clusters to form.
@@ -342,28 +279,37 @@ class FeatureImportanceEngine:
         Raises:
             ValueError: If the provided model cannot predict probabilities.
         """
-        if not hasattr(model, "predict_proba"):
+        if self.model is None:
+            return None
+
+        if not hasattr(self.model, "predict_proba"):
             raise ValueError("The provided model cannot predict probabilities.")
 
-        probas = model.predict_proba(self.X_test)[:, 1]
+        probas = self.model.predict_proba(self.X)[:, 1]
         brier_scores = [
-            brier_score_loss([true], [proba])
-            for true, proba in zip(self.y_test, probas, strict=False)
+            brier_score_loss(y_true=[true], y_proba=[proba])
+            for true, proba in zip(self.y, probas, strict=False)
         ]
+
+        if self.aggregate and self.encoding == "one_hot":
+            X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
+        else:
+            X_cluster_input = self.X
+
         clustering_algo = clustering_algorithm(n_clusters=n_clusters)
-        cluster_labels = clustering_algo.fit_predict(self.X_test)
-
-        X_clustered = self.X_test.copy()
-        X_clustered["Cluster"] = cluster_labels
-        X_clustered["Brier_Score"] = brier_scores
-
+        cluster_labels = clustering_algo.fit_predict(X_cluster_input)
+        X_clustered = X_cluster_input.assign(
+            Cluster=cluster_labels, Brier_Score=brier_scores
+        )
         mean_brier_scores = X_clustered.groupby("Cluster")["Brier_Score"].mean()
-        print("\nMean Brier Score per cluster:")
-        print(mean_brier_scores)
-
         cluster_counts = X_clustered["Cluster"].value_counts().sort_index()
-        print("Number of observations per cluster:")
-        print(cluster_counts)
+
+        print(
+            "\nMean Brier Score per cluster:\n",
+            mean_brier_scores,
+            "\n\nNumber of observations per cluster:\n",
+            cluster_counts,
+        )
 
         feature_averages = (
             X_clustered.drop(["Cluster", "Brier_Score"], axis=1)

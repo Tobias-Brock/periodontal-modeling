@@ -1,8 +1,9 @@
 """Module for evaluation methods."""
 
-from pamod.evaluation._eval import FeatureImportanceEngine, brier_score_groups
+from pamod.evaluation._baseeval import BaseModelEvaluator
+from pamod.evaluation._eval import ModelEvaluator
 
 __all__ = [
-    "brier_score_groups",
-    "FeatureImportanceEngine",
+    "BaseModelEvaluator",
+    "ModelEvaluator",
 ]
