@@ -1,1 +1,1 @@
-::: pamod.learner.Model
+::: periomod.learner.Model

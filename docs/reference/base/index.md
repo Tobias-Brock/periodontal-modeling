@@ -1,6 +1,6 @@
-# pamod.base Overview
+# periomod.base Overview
 
-The `pamod.base` module contains the foundational classes and helper functions, providing data structure and configuration components.
+The `periomod.base` module contains the foundational classes and helper functions, providing data structure and configuration components.
 
 ## Available Components
 

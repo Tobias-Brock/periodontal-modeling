@@ -1,6 +1,6 @@
-# pamod.evaluation Overview
+# periomod.evaluation Overview
 
-The `pamod.evaluation` module includes evaluative components for assessing model performance and analyzing results.
+The `periomod.evaluation` module includes evaluative components for assessing model performance and analyzing results.
 
 ## Available Components
 

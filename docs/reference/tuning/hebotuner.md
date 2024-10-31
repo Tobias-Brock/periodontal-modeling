@@ -1,1 +1,1 @@
-::: pamod.tuning.HEBOTuner
+::: periomod.tuning.HEBOTuner

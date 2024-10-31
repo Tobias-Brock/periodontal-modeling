@@ -1,1 +1,1 @@
-::: pamod.base.Tooth
+::: periomod.base.Tooth

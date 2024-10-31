@@ -1,4 +1,4 @@
-# pa-modeling
+# periodontal-modeling
 
 A Python package for comprehensive periodontal data processing and modeling. This package provides tools for preprocessing, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. It was developed for Python 3.11.
 
@@ -17,17 +17,17 @@ A Python package for comprehensive periodontal data processing and modeling. Thi
 Ensure you have Python 3.11 installed. Install the package via pip:
 
 ```bash
-pip install pa-modeling
+pip install periodontal-modeling
 ```
 
 ## Usage
 
 ### App Module
 
-The pamod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference. The app can be launched in a straighforward manner.
+The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference. The app can be launched in a straighforward manner.
 
 ```python
-from pamod.app import app
+from periomod.app import app
 
 app.launch()
 ```
@@ -35,10 +35,10 @@ app.launch()
 The app can also be launched using docker. Run the following commands in the root of the repository:
 
 ```bash
-docker build -f docker/app.dockerfile -t pamod-image .
-docker run -p 7880:7880 pamod-image
+docker build -f docker/app.dockerfile -t periomod-image .
+docker run -p 7880:7880 periomod-image
 ```
-By default the app will be launched on port 7880 an can be accessed via `http://localhost:7880`.
+By default the app will be launched on port 7880 and can be accessed via `http://localhost:7880`.
 
 Alternatively, the `make` commands can be used to build and run the docker image:
 
@@ -52,7 +52,7 @@ make docker-run
 Use the `StaticProcessEngine` class to preprocess your data. This class handles data transformations and imputation.
 
 ```python
-from pamod.data import StaticProcessEngine
+from periomod.data import StaticProcessEngine
 
 # do not include behavior columns for processing data
 # activate verbose logging during processing
@@ -62,10 +62,10 @@ df = engine.process_data(df)
 engine.save_data(df=df, path="data/processed", name="processed_data.csv")
 ```
 
-The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of three periodontal task can be selected, either "pocketclosure", "pdgrouprevaluation" or "improve".
+The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of three periodontal task can be selected, either "pocketclosure", "pdgrouprevaluation" or "improvement".
 
 ```python
-from pamod.data import ProcessedDataLoader
+from periomod.data import ProcessedDataLoader
 
 # instantiate with one-hot encoding and scale numerical variables
 dataloader = ProcessedDataLoader(
@@ -81,7 +81,7 @@ dataloader.save_data(df=df, path="data/training", name="training_data.csv")
 `DesctiptivesPlotter` can be used to plot descriptive plots for target columns before and after treatment.
 
 ```python
-from pamod.descriptives import DescriptivesPlotter
+from periomod.descriptives import DescriptivesPlotter
 
 # instantiate plotter with dataframe
 plotter = DescriptivesPlotter(df)
@@ -95,7 +95,7 @@ plotter.histogram_2d(col_before="depth_before", col_after="depth_after")
 The `Resampler` class allows for straightforward grouped splitting operations. It also includes different sampling strategies to treat the minority classes.
 
 ```python
-from pamod.resampling import Resampler
+from periomod.resampling import Resampler
 
 resampler = Resampler(classification="binary", encoding="one_hot")
 train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)
@@ -115,7 +115,7 @@ outer_splits, cv_folds_indices = resampler.cv_folds(
 `Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning.
 
 ```python
-from pamod.training import Trainer
+from periomod.training import Trainer
 from sklearn.ensemble import RandomForestClassifier
 
 trainer = Trainer(classification="binary", criterion="f1", tuning="cv", hpo="hebo")
@@ -152,8 +152,8 @@ The tuning module contains the `HEBOTuner`and `RandomSearchTuner` classes that c
 `HEBOTuner` leverages Bayesian optimization to obtain the optimal set of hyperparameters.
 
 ```python
-from pamod.training import Trainer
-from pamod.tuning import HEBOTuner
+from periomod.training import Trainer
+from periomod.tuning import HEBOTuner
 
 tuner = HEBOTuner(
     classification="binary",
@@ -185,8 +185,8 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 `RandomSearchTuner` implements random search tuning by sampling parameters at random from specified ranges. Also, allows for racing when cross-validation is used as tuning technique.
 
 ```python
-from pamod.training import Trainer
-from pamod.tuning import RandomSearchTuner
+from periomod.training import Trainer
+from periomod.tuning import RandomSearchTuner
 
 tuner = RandomSearchTuner(
     classification="binary",
@@ -222,7 +222,7 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 `ModelEvaluator` contains method for model evaluation after training. It includes prediction analysis and feature importance.
 
 ```python
-from pamod.evaluation import ModelEvaluator
+from periomod.evaluation import ModelEvaluator
 
 evaluator = ModelEvaluator(
     X=X_test, y=y_test, model=trained_rf_model, encoding="one_hot"
@@ -243,7 +243,7 @@ brier_plot, heatmap_plot, clustered_data = evaluator.analyze_brier_within_cluste
 The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also included.
 
 ```python
-from pamod.inference import ModelInference
+from periomod.inference import ModelInference
 
 model_inference = ModelInference(
     classification="binary", model=trained_model, verbose=True
@@ -281,8 +281,8 @@ jackknife_results, ci_plot = model_inference.jackknife_inference(
 The benchmarking module contains methods to run single or multiple experiments with a specified tuning setup. For a single experiment the `Experiment`class can be used.
 
 ```python
-from pamod.benchmarking import Experiment
-from pamod.data import ProcessedDataLoader
+from periomod.benchmarking import Experiment
+from periomod.data import ProcessedDataLoader
 
 # Load a dataframe with the correct target and encoding selected
 dataloader = ProcessedDataLoader(
@@ -322,7 +322,7 @@ print(final_metrics)
 For running multiple experiments, the `Benchmarker`class can be used. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.
 
 ```python
-from pamod.benchmarking import Benchmarker
+from periomod.benchmarking import Benchmarker
 
 benchmarker = Benchmarker(
     task="pocketclosure",
@@ -351,10 +351,10 @@ print(top_models)
 
 ### Wrapper Module
 
-The wrapper module wraps benchmark and evaluation methods to provide a streamlined setup that requires a minimal amount of code while making use of all the submodules contained in the `pamod` package.
+The wrapper module wraps benchmark and evaluation methods to provide a streamlined setup that requires a minimal amount of code while making use of all the submodules contained in the `periomod` package.
 
 ```python
-from pamod.wrapper import BenchmarkWrapper
+from periomod.wrapper import BenchmarkWrapper
 
 # Initialize the BenchmarkWrapper
 benchmarker = BenchmarkWrapper(

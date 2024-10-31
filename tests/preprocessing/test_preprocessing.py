@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from pamod.data import StaticProcessEngine
+from periomod.data import StaticProcessEngine
 
 
 @pytest.fixture
@@ -246,10 +246,10 @@ def test_create_outcome_variables(sample_data):
     # Check if the outcome variables exist
     assert "pocketclosure" in df_outcome.columns
     assert "pdgroup" in df_outcome.columns
-    assert "improve" in df_outcome.columns
+    assert "improvement" in df_outcome.columns
     # Check if outcome variables have values
     assert df_outcome["pocketclosure"].sum() >= 0
-    assert df_outcome["improve"].sum() >= 0
+    assert df_outcome["improvement"].sum() >= 0
 
 
 def test_impute_missing_values(sample_data):

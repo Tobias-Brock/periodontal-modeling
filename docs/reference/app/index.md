@@ -1,6 +1,6 @@
-# pamod.app Overview
+# periomod.app Overview
 
-The `pamod.app` module includes application-specific classes and methods for running the main functionality of `pamod`.
+The `periomod.app` module includes application-specific classes and methods for running the main functionality of `periomod`.
 
 ## Available Components
 

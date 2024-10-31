@@ -1,1 +1,1 @@
-::: pamod.training.Trainer
+::: periomod.training.Trainer
