@@ -1,1 +1,1 @@
-::: pamod.evaluation.ModelEvaluator
+::: periomod.evaluation.ModelEvaluator

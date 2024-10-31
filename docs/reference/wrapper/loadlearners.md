@@ -1,1 +1,1 @@
-::: pamod.wrapper.load_learners
+::: periomod.wrapper.load_learners

@@ -13,4 +13,4 @@ ENV CPUINFO_NO_WARNINGS=1
 # Expose port
 EXPOSE 7880
 
-CMD ["uvicorn", "pamod.app.app:app", "--host", "0.0.0.0", "--port", "7880"]
+CMD ["uvicorn", "periomod.app.app:app", "--host", "0.0.0.0", "--port", "7880"]

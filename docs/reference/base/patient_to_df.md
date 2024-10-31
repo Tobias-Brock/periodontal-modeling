@@ -1,1 +1,1 @@
-::: pamod.base.patient_to_df
+::: periomod.base.patient_to_df

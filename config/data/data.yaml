@@ -100,8 +100,9 @@ behavior_columns:
 
 task_cols:
   - "pocketclosure"
+  - "pocketclosureinf"
   - "pdgrouprevaluation"
-  - "improve"
+  - "improvement"
 
 no_train_cols:
   - "boprevaluation"

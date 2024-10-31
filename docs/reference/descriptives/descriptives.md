@@ -1,1 +1,1 @@
-::: pamod.descriptives.DescriptivesPlotter
+::: periomod.descriptives.DescriptivesPlotter

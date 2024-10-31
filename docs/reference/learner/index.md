@@ -1,6 +1,6 @@
-# pamod.learner Overview
+# periomod.learner Overview
 
-The `pamod.learner` module provides machine learning model definitions and configurations for training and evaluation.
+The `periomod.learner` module provides machine learning model definitions and configurations for training and evaluation.
 
 ## Available Components
 

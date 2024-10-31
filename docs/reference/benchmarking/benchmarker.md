@@ -1,1 +1,1 @@
-::: pamod.benchmarking.Benchmarker
+::: periomod.benchmarking.Benchmarker

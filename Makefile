@@ -2,7 +2,7 @@
 # GLOBALS                                                                       #
 #################################################################################
 
-PROJECT_NAME = pa-modeling
+PROJECT_NAME = periodontal-modeling
 PYTHON_VERSION = 3.11
 PYTHON_INTERPRETER = python
 
@@ -26,7 +26,7 @@ clean:
 ## Format source code with black
 .PHONY: black
 black:
-	black --config pyproject.toml pamod
+	black --config pyproject.toml periomod
 
 ## Format source code with ruff
 .PHONY: ruff
@@ -64,22 +64,22 @@ create_environment:
 
 .PHONY: preprocess
 preprocess:
-	$(PYTHON_INTERPRETER) pamod/data/_preprocessing.py ${ARGS}
+	$(PYTHON_INTERPRETER) periomod/data/_preprocessing.py ${ARGS}
 
 .PHONY: benchmark
 benchmark:
-	$(PYTHON_INTERPRETER) pamod/benchmarking/_benchmark.py ${ARGS}
+	$(PYTHON_INTERPRETER) periomod/benchmarking/_benchmark.py ${ARGS}
 
 .PHONY: app
 app:
-	$(PYTHON_INTERPRETER) pamod/app/app.py
+	$(PYTHON_INTERPRETER) periomod/app/app.py
 
 ## Build Docker image
 .PHONY: docker-build
 docker-build:
-	docker build -f docker/app.dockerfile -t pamod-image .
+	docker build -f docker/app.dockerfile -t periomod-image .
 
 ## Run Docker container
 .PHONY: docker-run
 docker-run:
-	docker run -p 7880:7880 pamod-image
+	docker run -p 7880:7880 periomod-image

@@ -1,1 +1,1 @@
-::: pamod.benchmarking.BaseExperiment
+::: periomod.benchmarking.BaseExperiment

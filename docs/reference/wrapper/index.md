@@ -1,6 +1,6 @@
-# pamod.wrapper Overview
+# periomod.wrapper Overview
 
-The `pamod.wrapper` module contains wrapper classes for evaluation and benchmarking, encapsulating core functionality.
+The `periomod.wrapper` module contains wrapper classes for evaluation and benchmarking, encapsulating core functionality.
 
 ## Available Components
 

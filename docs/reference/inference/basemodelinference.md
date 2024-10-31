@@ -1,1 +1,1 @@
-::: pamod.inference.BaseModelInference
+::: periomod.inference.BaseModelInference

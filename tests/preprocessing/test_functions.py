@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pamod.data._helpers import ProcessDataHelper
+from periomod.data._helpers import ProcessDataHelper
 
 
 @pytest.fixture

@@ -1,1 +1,1 @@
-::: pamod.wrapper.BenchmarkWrapper
+::: periomod.wrapper.BenchmarkWrapper

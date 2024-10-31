@@ -1,1 +1,1 @@
-::: pamod.data.BaseProcessor
+::: periomod.data.BaseProcessor

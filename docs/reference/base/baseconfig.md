@@ -1,1 +1,1 @@
-::: pamod.base.BaseConfig
+::: periomod.base.BaseConfig

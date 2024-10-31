@@ -1,6 +1,6 @@
-# pamod.benchmarking Overview
+# periomod.benchmarking Overview
 
-The `pamod.benchmarking` module provides classes and tools for managing and evaluating benchmarks across different model and data configurations.
+The `periomod.benchmarking` module provides classes and tools for managing and evaluating benchmarks across different model and data configurations.
 
 ## Available Components
 
