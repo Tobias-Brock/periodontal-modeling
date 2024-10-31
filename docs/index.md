@@ -1,8 +1,8 @@
-# pa-modeling Documentation
+# periodontal-modeling Documentation
 
 ## Overview
 
-Welcome to the **pa-modeling** documentation, a fully automated benchmarking and evaluation package for short-term periodontal modeling. The package provides flexible and efficient preprocessing, model tuning, evaluation, inference, and descriptive analysis with an interactive Gradio frontend, allowing users to perform comprehensive periodontal data modeling.
+Welcome to the **periodontal-modeling** documentation, a fully automated benchmarking and evaluation package for short-term periodontal modeling. The package provides flexible and efficient preprocessing, model tuning, evaluation, inference, and descriptive analysis with an interactive Gradio frontend, allowing users to perform comprehensive periodontal data modeling.
 
 This documentation includes detailed information on the functionality, setup, and usage of each module and provides code examples for streamlined integration into your projects.
 
@@ -21,7 +21,7 @@ This documentation includes detailed information on the functionality, setup, an
 Ensure you have Python 3.11 installed. Install the package via pip:
 
 ```bash
-pip install pa-modeling
+pip install periodontal-modeling
 ```
 
 ## Commands and Usage
@@ -32,7 +32,7 @@ The `Makefile` provides key entry points for common tasks, making project setup 
 Launch the Gradio app for interactive model evaluation and benchmarking either directly or through Docker:
 
 ```python
-from pamod.app import app
+from periomod.app import app
 
 app.launch()
 ```
@@ -40,12 +40,12 @@ app.launch()
 For Docker:
 
 ```bash
-docker build -t pamod-image .
-docker run -p 7880:7880 pamod-image
+docker build -t periomod-image .
+docker run -p 7880:7880 periomod-image
 ```
 
 ## Core Modules
-The following sections summarize each core module within `pa-modeling`, with links to detailed documentation and examples for each function.
+The following sections summarize each core module within `periodontal-modeling`, with links to detailed documentation and examples for each function.
 
 ### App Module
 

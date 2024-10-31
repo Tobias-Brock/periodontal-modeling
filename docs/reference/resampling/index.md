@@ -1,6 +1,6 @@
-# pamod.resampling Overview
+# periomod.resampling Overview
 
-The `pamod.resampling` module includes classes for handling data resampling and addressing class imbalance.
+The `periomod.resampling` module includes classes for handling data resampling and addressing class imbalance.
 
 ## Available Components
 

@@ -1,1 +1,1 @@
-::: pamod.benchmarking.Experiment
+::: periomod.benchmarking.Experiment

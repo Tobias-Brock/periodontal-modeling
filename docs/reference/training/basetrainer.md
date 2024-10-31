@@ -1,1 +1,1 @@
-::: pamod.training.BaseTrainer
+::: periomod.training.BaseTrainer
