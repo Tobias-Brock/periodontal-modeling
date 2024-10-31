@@ -1,4 +1,4 @@
-site_name: pa-modeling
+site_name: periodontal-modeling
 theme:
   name: material
   palette:
@@ -27,11 +27,11 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - pamod: index.md
-  - pamod.app:
+  - periomod: index.md
+  - periomod.app:
       - Overview: "reference/app/index.md"
       - App: "reference/app/app.md"
-  - pamod.base:
+  - periomod.base:
       - Overview: "reference/base/index.md"
       - BaseConfig: "reference/base/baseconfig.md"
       - BaseValidator: "reference/base/basevalidator.md"
@@ -39,14 +39,13 @@ nav:
       - Patient: "reference/base/patient.md"
       - Side: "reference/base/side.md"
       - Tooth: "reference/base/tooth.md"
-  - pamod.benchmarking:
+  - periomod.benchmarking:
       - Overview: "reference/benchmarking/index.md"
       - BaseExperiment: "reference/benchmarking/baseexperiment.md"
       - Experiment: "reference/benchmarking/experiment.md"
       - BaseBenchmark: "reference/benchmarking/basebenchmark.md"
       - Benchmarker: "reference/benchmarking/benchmarker.md"
-      - InputProcessor: "reference/benchmarking/processor.md"
-  - pamod.data:
+  - periomod.data:
       - Overview: "reference/data/index.md"
       - BaseLoader: "reference/data/baseloader.md"
       - BaseProcessor: "reference/data/baseprocessor.md"
@@ -54,37 +53,37 @@ nav:
       - ProcessDataHelper: "reference/data/datahelper.md"
       - BaseDataLoader: "reference/data/basedataloader.md"
       - ProcessedDataLoader: "reference/data/dataloader.md"
-  - pamod.descriptives:
+  - periomod.descriptives:
       - Overview: "reference/descriptives/index.md"
       - DescriptivesPlotter: "reference/descriptives/descriptives.md"
-  - pamod.evaluation:
+  - periomod.evaluation:
       - Overview: "reference/evaluation/index.md"
       - BaseModelEvaluator: "reference/evaluation/basemodelevaluator.md"
       - ModelEvaluator: "reference/evaluation/modelevaluator.md"
-  - pamod.inference:
+  - periomod.inference:
       - Overview: "reference/inference/index.md"
       - BaseModelInference: "reference/inference/basemodelinference.md"
       - ModelInference: "reference/inference/modelinference.md"
-  - pamod.learner:
+  - periomod.learner:
       - Overview: "reference/learner/index.md"
       - Model: "reference/learner/model.md"
-  - pamod.resampling:
+  - periomod.resampling:
       - Overview: "reference/resampling/index.md"
       - BaseResampler: "reference/resampling/baseresampler.md"
       - Resampler: "reference/resampling/resampler.md"
-  - pamod.training:
+  - periomod.training:
       - Overview: "reference/training/index.md"
       - brier_loss_multi: "reference/training/brier_multi.md"
       - get_probs: "reference/training/probs.md"
       - final_metrics: "reference/training/final_metrics.md"
       - BaseTrainer: "reference/training/basetrainer.md"
       - Trainer: "reference/training/trainer.md"
-  - pamod.tuning:
+  - periomod.tuning:
       - Overview: "reference/tuning/index.md"
       - BaseTuner: "reference/tuning/basetuner.md"
       - HeboTuner: "reference/tuning/hebotuner.md"
       - RandomSearchTuner: "reference/tuning/rstuner.md"
-  - pamod.wrapper:
+  - periomod.wrapper:
       - Overview: "reference/wrapper/index.md"
       - BaseEvaluatorWrapper: "reference/wrapper/baseevaluatorwrapper.md"
       - BenchmarkWrapper: "reference/wrapper/benchmarkwrapper.md"

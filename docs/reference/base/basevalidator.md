@@ -1,1 +1,1 @@
-::: pamod.base.BaseValidator
+::: periomod.base.BaseValidator

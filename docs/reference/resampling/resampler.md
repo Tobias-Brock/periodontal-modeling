@@ -1,1 +1,1 @@
-::: pamod.resampling.Resampler
+::: periomod.resampling.Resampler

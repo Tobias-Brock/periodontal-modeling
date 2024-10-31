@@ -1,6 +1,6 @@
-# pamod.data Overview
+# periomod.data Overview
 
-The `pamod.data` module contains classes for data loading, preprocessing, and transformation within the `pamod` pipeline.
+The `periomod.data` module contains classes for data loading, preprocessing, and transformation within the `periomod` pipeline.
 
 ## Available Components
 

@@ -1,1 +1,1 @@
-::: pamod.training.brier_loss_multi
+::: periomod.training.brier_loss_multi

@@ -1,1 +1,1 @@
-::: pamod.tuning.RandomSearchTuner
+::: periomod.tuning.RandomSearchTuner

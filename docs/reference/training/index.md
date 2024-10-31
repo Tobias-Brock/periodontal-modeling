@@ -1,6 +1,6 @@
-# pamod.training Overview
+# periomod.training Overview
 
-The `pamod.training` module covers model training functions and includes methods for computing metrics and probability calculations.
+The `periomod.training` module covers model training functions and includes methods for computing metrics and probability calculations.
 
 ## Available Components
 

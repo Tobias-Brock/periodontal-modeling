@@ -1,4 +1,4 @@
-# pamod.inference
+# periomod.inference
 
 This module provides inference-related classes for model evaluation and prediction.
 

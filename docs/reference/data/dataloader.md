@@ -1,1 +1,1 @@
-::: pamod.data.ProcessedDataLoader
+::: periomod.data.ProcessedDataLoader

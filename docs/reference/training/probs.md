@@ -1,1 +1,1 @@
-::: pamod.training.get_probs
+::: periomod.training.get_probs

@@ -1,1 +1,1 @@
-::: pamod.data.BaseLoader
+::: periomod.data.BaseLoader

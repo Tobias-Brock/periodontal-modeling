@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "pamod"
+name = "periomod"
 version = "0.0.1"
 description = "Package for short term periodontal modeling"
 authors = [
@@ -58,7 +58,7 @@ lint.ignore = [
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["pamod"]
+known-first-party = ["periomod"]
 force-sort-within-sections = true
 
 # [tool.docformatter]

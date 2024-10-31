@@ -1,1 +1,1 @@
-::: pamod.training.final_metrics
+::: periomod.training.final_metrics

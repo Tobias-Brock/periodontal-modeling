@@ -1,1 +1,1 @@
-::: pamod.base.Patient
+::: periomod.base.Patient

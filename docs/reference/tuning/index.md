@@ -1,6 +1,6 @@
-# pamod.tuning Overview
+# periomod.tuning Overview
 
-The `pamod.tuning` module provides classes for model tuning and hyperparameter optimization.
+The `periomod.tuning` module provides classes for model tuning and hyperparameter optimization.
 
 ## Available Components
 
