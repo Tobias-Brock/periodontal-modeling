@@ -685,43 +685,47 @@ def _update_side_state(
 
 def _collect_data(
     age: Union[int, float],
-    gender: int,
+    gender: str,
     bmi: float,
-    perio_history: int,
-    diabetes: int,
-    smokingtype: int,
+    perio_history: str,
+    diabetes: str,
+    smokingtype: str,
     cigarettenumber: int,
-    antibiotics: int,
-    stresslvl: int,
+    antibiotics: str,
+    stresslvl: str,
     tooth_states_value: Dict[str, Any],
 ) -> Tuple[str, pd.DataFrame]:
     """Collect data from the inputs and construct a Patient object and DataFrame.
 
     Args:
-        age: The age of the patient.
-        gender: The gender of the patient.
-        bmi: The body mass index of the patient.
-        perio_history: The periodontal family history.
-        diabetes: The diabetes status.
-        smokingtype: The smoking type.
-        cigarettenumber: The number of cigarettes.
-        antibiotics: The antibiotic treatment status.
-        stresslvl: The stress level.
-        tooth_states_value: A dictionary storing the state of each tooth.
+        age (Union[int, float]): The age of the patient.
+        gender (str): The gender of the patient.
+        bmi (float): The body mass index of the patient.
+        perio_history (str): The periodontal family history.
+        diabetes (str): The diabetes status.
+        smokingtype (str): The smoking type.
+        cigarettenumber (int): The number of cigarettes.
+        antibiotics (str): The antibiotic treatment status.
+        stresslvl (str): The stress level.
+        tooth_states_value (Dict[str, Any]): Dictionary storing the state of each tooth.
 
     Returns:
         A tuple containing a success message and the patient data as a DataFrame.
     """
     patient = Patient(
         age=int(age),
-        gender=int(gender),
+        gender=int(InputProcessor.process_gender(gender=gender)),
         bodymassindex=float(bmi),
-        periofamilyhistory=int(perio_history),
-        diabetes=int(diabetes),
-        smokingtype=int(smokingtype),
+        periofamilyhistory=int(
+            InputProcessor.process_periohistory(periohistory=perio_history)
+        ),
+        diabetes=int(InputProcessor.process_diabetes(diabetes=diabetes)),
+        smokingtype=int(InputProcessor.process_smokingtype(smokingtype=smokingtype)),
         cigarettenumber=int(cigarettenumber),
-        antibiotictreatment=int(antibiotics),
-        stresslvl=int(stresslvl),
+        antibiotictreatment=int(
+            InputProcessor.process_antibotics(antibiotics=antibiotics)
+        ),
+        stresslvl=int(InputProcessor.process_stresslvl(stresslvl=stresslvl)),
         teeth=[],
     )
     for tooth_str, tooth_data in tooth_states_value.items():
@@ -755,12 +759,16 @@ def _collect_data(
             )
             if side_has_data:
                 side_obj = Side(
-                    furcationbaseline=int(side_data.get("furcationbaseline")),
+                    furcationbaseline=int(
+                        InputProcessor.process_furcation(
+                            side_data.get("furcationbaseline")
+                        )
+                    ),
                     side=int(side_num_str),
                     pdbaseline=int(side_data.get("pdbaseline")),
                     recbaseline=int(side_data.get("recbaseline")),
-                    plaque=int(side_data.get("plaque")),
-                    bop=int(side_data.get("bop")),
+                    plaque=int(InputProcessor.process_plaque(side_data.get("plaque"))),
+                    bop=int(InputProcessor.process_bop(side_data.get("bop"))),
                 )
                 sides.append(side_obj)
 
@@ -770,22 +778,30 @@ def _collect_data(
                 toothtype=toothtype,
                 rootnumber=rootnumber,
                 mobility=(
-                    int(tooth_data.get("mobility"))
+                    int(InputProcessor.process_mobility(tooth_data.get("mobility")))
                     if tooth_data.get("mobility") is not None
                     else None
                 ),
                 restoration=(
-                    int(tooth_data.get("restoration"))
+                    int(
+                        InputProcessor.process_restoration(
+                            tooth_data.get("restoration")
+                        )
+                    )
                     if tooth_data.get("restoration") is not None
                     else None
                 ),
                 percussion=(
-                    int(tooth_data.get("percussion"))
+                    int(InputProcessor.process_percussion(tooth_data.get("percussion")))
                     if tooth_data.get("percussion") is not None
                     else None
                 ),
                 sensitivity=(
-                    int(tooth_data.get("sensitivity"))
+                    int(
+                        InputProcessor.process_sensitivity(
+                            tooth_data.get("sensitivity")
+                        )
+                    )
                     if tooth_data.get("sensitivity") is not None
                     else None
                 ),

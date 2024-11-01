@@ -40,7 +40,7 @@ from periomod.app import (
 from periomod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
 with gr.Blocks() as app:
-    gr.Markdown("## ML Periodontal Modeling")
+    gr.Markdown("## Periodontal Modeling")
 
     models_state = gr.State()
     task_state = gr.State()
@@ -376,60 +376,135 @@ with gr.Blocks() as app:
                 ],
                 outputs=[cluster_brier_plot, cluster_heatmap_plot],
             )
+
         with gr.Tab("Inference"):
             with gr.Row():
+                gender_input = gr.Radio(
+                    label="Gender",
+                    choices=["Male", "Female"],
+                    value="Male",
+                    info="Select the patient's gender.",
+                )
                 age_input = gr.Number(
-                    label="Age", value=30, minimum=0, maximum=120, step=1
+                    label="Age",
+                    value=30,
+                    minimum=0,
+                    maximum=120,
+                    step=1,
+                    info="Enter the patient's age.",
                 )
-                gender_input = gr.Radio(label="Gender", choices=[0, 1], value=1)
-                bmi_input = gr.Number(label="Body Mass Index", value=35.0, minimum=0)
-                perio_history_input = gr.Radio(
-                    label="Perio Family History", choices=[0, 1, 2], value=2
-                )
-                diabetes_input = gr.Radio(
-                    label="Diabetes", choices=[0, 1, 2, 3], value=1
+                bmi_input = gr.Number(
+                    label="Body Mass Index",
+                    value=35.0,
+                    minimum=0,
+                    info="Enter the patient's Body Mass Index (BMI).",
                 )
                 smokingtype_input = gr.Radio(
-                    label="Smoking Type", choices=[0, 1, 2, 3, 4], value=1
+                    label="Smoking Type",
+                    choices=["no", "Cigarette", "Pipe", "Cigarillo", "all"],
+                    value="no",
+                    info="Specify the type of smoking habit, if any.",
+                )
+                cigarettenumber_input = gr.Number(
+                    label="Cigarette Number",
+                    value=0,
+                    minimum=0,
+                    step=1,
+                    info="Enter the average number of cigarettes smoked per day.",
                 )
             with gr.Row():
-                cigarettenumber_input = gr.Number(
-                    label="Cigarette Number", value=0, minimum=0, step=1
+                perio_history_input = gr.Radio(
+                    label="Perio Family History",
+                    choices=["yes", "no", "unknown"],
+                    value="no",
+                    info="Is there a family history of periodontal disease?",
+                )
+                diabetes_input = gr.Radio(
+                    label="Diabetes",
+                    choices=["no", "Type I", "Type II", "Type II med."],
+                    value="no",
+                    info="Select the type of diabetes, if diagnosed.",
                 )
                 antibiotics_input = gr.Radio(
-                    label="Antibiotic Treatment", choices=[0, 1], value=1
+                    label="Antibiotic Treatment",
+                    choices=["yes", "no"],
+                    value="no",
+                    info="Patient recieved adjunct antibiotic treatment.",
                 )
                 stresslvl_input = gr.Radio(
-                    label="Stress Level", choices=[0, 1, 2], value=2
+                    label="Stress Level",
+                    choices=["low", "mid", "high"],
+                    value="low",
+                    info="Specify the patient's perceived stress level.",
                 )
 
             tooth_features = [
-                ("Mobility", "mobility", "radio", [0, 1]),
-                ("Restoration", "restoration", "radio", [0, 1, 2]),
-                ("Percussion", "percussion", "radio", [0, 1]),
-                ("Sensitivity", "sensitivity", "radio", [0, 1]),
+                (
+                    "Mobility",
+                    "mobility",
+                    "radio",
+                    ["yes", "no"],
+                    "Can the tooth be moved?",
+                ),
+                (
+                    "Restoration",
+                    "restoration",
+                    "radio",
+                    ["no", "Filling", "Crown"],
+                    "Is a type of restoration present?",
+                ),
+                (
+                    "Percussion",
+                    "percussion",
+                    "radio",
+                    ["yes", "no"],
+                    "Is the tooth percussion sensitive?",
+                ),
+                (
+                    "Sensitivity",
+                    "sensitivity",
+                    "radio",
+                    ["yes", "no"],
+                    "Has the tooth vitality/sensitivity",
+                ),
             ]
 
             side_features = [
                 (
-                    "Furcation",
+                    "Furcation:\n\n What furcation involvement does the tooth exhibit?",
                     "furcationbaseline",
                     "radio",
-                    [0, 1, 2],
+                    ["no", "Palpable", "1-3 mm", ">3 mm"],
                 ),
-                ("PD Baseline", "pdbaseline", "textbox", None),
-                ("REC Baseline", "recbaseline", "textbox", None),
-                ("Plaque", "plaque", "radio", [0, 1]),
-                ("BOP", "bop", "radio", [0, 1]),
+                (
+                    "PD Baseline:\n\n Pocket depth at baseline examination in mm.",
+                    "pdbaseline",
+                    "textbox",
+                    None,
+                ),
+                (
+                    "REC Baseline:\n\n Recession at baseline examination in mm.",
+                    "recbaseline",
+                    "textbox",
+                    None,
+                ),
+                (
+                    "Plaque:\n\n Was plaque found at the toothside?",
+                    "plaque",
+                    "radio",
+                    ["yes", "no"],
+                ),
+                ("BOP: \n\n Bleeding on Probing", "bop", "radio", ["yes", "no"]),
             ]
 
             tooth_selector = gr.Radio(
                 label="Select Tooth",
                 choices=[str(tooth) for tooth in all_teeth],
                 value=str(all_teeth[0]),
+                info="Select the tooth of interest",
             )
 
-            tooth_choices: Union[str, List[int], None]
+            tooth_choices: Union[str, List[str], None]
             tooth_states = gr.State({})
             tooth_components: Dict[str, gr.components.Component] = {}
             with gr.Row():
@@ -438,18 +513,21 @@ with gr.Blocks() as app:
                     feature_key,
                     input_type,
                     tooth_choices,
+                    info,
                 ) in tooth_features:
                     if input_type == "radio":
                         input_component = gr.Radio(
                             label=feature_label,
                             choices=tooth_choices,
                             value=None,
+                            info=info,
                         )
                     else:
                         input_component = gr.Dropdown(
                             label=feature_label,
                             choices=tooth_choices,
                             value=None,
+                            info=info,
                         )
                     tooth_components[feature_key] = input_component
 
@@ -460,7 +538,7 @@ with gr.Blocks() as app:
                 for side_num in range(1, 7):
                     gr.Markdown(f"**Side {side_num}**")
 
-            side_choices: Union[List[int], None]
+            side_choices: Union[str, List[str], None]
             for feature_label, feature_key, input_type, side_choices in side_features:
                 with gr.Row():
                     gr.Markdown(f"{feature_label}")

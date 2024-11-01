@@ -88,7 +88,15 @@ class Baseline(BaseConfig):
             models (List[Tuple[str, object]], optional): List of models to use for
                 benchmarking. If not provided, default models are initialized.
         """
-        self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
+        if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
+            self.classification = "binary"
+        elif task == "pdgrouprevaluation":
+            self.classification = "multiclass"
+        else:
+            raise ValueError(
+                f"Unknown task: {task}. Unable to determine classification."
+            )
+
         self.resampler = Resampler(
             classification=self.classification, encoding=encoding
         )
@@ -96,6 +104,7 @@ class Baseline(BaseConfig):
         self.dummy_strategy = dummy_strategy
         self.lr_solver = lr_solver
         self.random_state = random_state
+        self.default_models: Union[list[str], None]
 
         if models is None:
             self.models = [
@@ -114,8 +123,10 @@ class Baseline(BaseConfig):
                     DummyClassifier(strategy=self.dummy_strategy),
                 ),
             ]
+            self.default_models = [name for name, _ in self.models]
         else:
             self.models = models
+            self.default_models = None
 
     def baseline(self) -> pd.DataFrame:
         """Trains and evaluates each model in the models list on the given dataset.
@@ -159,11 +170,19 @@ class Baseline(BaseConfig):
             trained_models[(model_name, "Baseline")] = model
 
         results_df = pd.DataFrame(results)
-        baseline_order = ["Dummy Classifier", "Logistic Regression", "Random Forest"]
-        results_df["Model"] = pd.Categorical(
-            results_df["Model"], categories=baseline_order, ordered=True
-        )
-        results_df = results_df.sort_values("Model").reset_index(drop=True)
+        if self.default_models is not None:
+            baseline_order = [
+                "Dummy Classifier",
+                "Logistic Regression",
+                "Random Forest",
+            ]
+            results_df["Model"] = pd.Categorical(
+                results_df["Model"], categories=baseline_order, ordered=True
+            )
+            results_df = results_df.sort_values("Model").reset_index(drop=True)
+
+        else:
+            results_df = results_df.reset_index(drop=True)
         pd.set_option("display.max_columns", None, "display.width", 1000)
 
         return results_df
