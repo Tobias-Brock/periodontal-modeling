@@ -73,6 +73,7 @@ class StaticProcessEngine(BaseProcessor):
         Returns:
             pd.DataFrame: The DataFrame with imputed missing values.
         """
+        pd.set_option("future.no_silent_downcasting", True)
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
             warnings.warn(
@@ -89,7 +90,7 @@ class StaticProcessEngine(BaseProcessor):
             "percussion-sensitivity": lambda x: x.fillna(1).astype(float),
             "sensitivity": lambda x: x.fillna(1).astype(float),
             "bodymassindex": lambda x: pd.to_numeric(x, errors="coerce")
-            .fillna(x.mean())
+            .fillna(pd.to_numeric(x, errors="coerce").mean())
             .astype(float),
             "periofamilyhistory": lambda x: x.fillna(2).astype(int),
             "smokingtype": lambda x: x.fillna(1).astype(int),
