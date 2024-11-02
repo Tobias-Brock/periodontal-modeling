@@ -224,7 +224,7 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 
 ### Evaluation Module
 
-`ModelEvaluator` contains method for model evaluation after training. It includes prediction analysis and feature importance.
+`ModelEvaluator` contains method for model evaluation after training, including prediction analysis and feature importance.
 
 ```python
 from periomod.evaluation import ModelEvaluator
@@ -245,7 +245,7 @@ brier_plot, heatmap_plot, clustered_data = evaluator.analyze_brier_within_cluste
 
 ### Inference Module
 
-The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also included.
+The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also available.
 
 ```python
 from periomod.inference import ModelInference
@@ -324,7 +324,7 @@ final_metrics = experiment.perform_evaluation()
 print(final_metrics)
 ```
 
-For running multiple experiments, the `Benchmarker`class can be used. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.
+For multiple experiments, the `Benchmarker` class provides a streamlined benchmarking process. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.
 
 ```python
 from periomod.benchmarking import Benchmarker
@@ -356,7 +356,9 @@ print(top_models)
 
 ### Wrapper Module
 
-The wrapper module wraps benchmark and evaluation methods to provide a streamlined setup that requires a minimal amount of code while making use of all the submodules contained in the `periomod` package.
+The wrapper module wraps benchmark and evaluation methods to provide a straightforward setup that requires a minimal amount of code while making use of all the submodules contained in the `periomod` package.
+
+The `BenchmarkWrapper` includes the functionality of the `Benchmarker` while also wrapping methods for baseline benchmarking and saving.
 
 ```python
 from periomod.wrapper import BenchmarkWrapper
@@ -390,7 +392,7 @@ benchmarker.save_benchmark(baseline_df, path=Path("reports"))
 # Save the trained learners
 benchmarker.save_learners(learners_dict=learners_used, path=Path("models"))
 ```
-
+The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomod.inference` modules.
 ```python
 # Initialize the evaluator with required parameters
 evaluator = EvaluatorWrapper(
