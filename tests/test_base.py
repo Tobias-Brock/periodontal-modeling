@@ -18,7 +18,6 @@ from periomod.base import (
 
 def test_validate_classification_valid():
     """Test _validate_classification with valid inputs."""
-    # Should not raise an exception
     _validate_classification("binary")
     _validate_classification("multiclass")
     _validate_classification(" Binary ")  # Test with extra spaces and different cases
@@ -26,7 +25,6 @@ def test_validate_classification_valid():
 
 def test_validate_classification_invalid():
     """Test _validate_classification with invalid inputs."""
-    # Should raise ValueError
     with pytest.raises(ValueError):
         _validate_classification("invalid_classification")
     with pytest.raises(ValueError):
@@ -193,7 +191,6 @@ def test_patient_to_df():
 
 def test_base_validator_valid():
     """Test BaseValidator with valid inputs."""
-    # Mock BaseConfig.__init__ to bypass Hydra dependency
     with patch("periomod.base.BaseConfig.__init__", return_value=None):
         validator = BaseValidator(classification="binary", criterion="f1")
         assert validator.classification == "binary"

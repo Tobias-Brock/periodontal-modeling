@@ -15,7 +15,6 @@ from periomod.data._basedata import (
     BaseProcessor,
 )
 
-# Mocking the config paths for testing purposes
 RAW_DATA_DIR = Path("/tmp/raw_data")
 PROCESSED_BASE_DIR = Path("/tmp/processed_data")
 TRAINING_DATA_DIR = Path("/tmp/training_data")
@@ -42,7 +41,6 @@ def test_base_data_loader_abstract_methods():
 def test_base_loader_save_data_empty_df():
     """Test that save_data raises ValueError when provided with an empty DataFrame."""
 
-    # Create a concrete subclass of BaseLoader for testing
     class ConcreteLoader(BaseLoader):
         def load_data(self, path: Path, name: str):
             pass  # Implement abstract method with pass
@@ -72,22 +70,18 @@ def test_base_loader_save_data():
     path = Path("/tmp/test_save_data")
     name = "test.csv"
 
-    # Ensure the directory is removed before the test
     if path.exists():
         shutil.rmtree(path)
 
     loader.save_data(df, path, name)
     saved_file = path / name
     assert saved_file.exists()
-
-    # Clean up
     shutil.rmtree(path)
 
 
 def test_base_processor_load_data_missing_columns():
     """Test that load_data warns when required columns are missing."""
 
-    # Mocking the read_excel function to return a controlled DataFrame
     class ConcreteProcessor(BaseProcessor):
         def impute_missing_values(self, df: pd.DataFrame):
             pass
@@ -110,11 +104,9 @@ def test_base_processor_load_data_missing_columns():
             }
         )
         mock_read_excel.return_value = mock_df
-
         processor = ConcreteProcessor()
         with warnings.catch_warnings(record=True) as w:
             df = processor.load_data(path=Path("/tmp"), name="test.xlsx")
-            # Check that a warning was raised
             assert len(w) == 1
             assert issubclass(w[-1].category, UserWarning)
             assert "Missing columns" in str(w[-1].message)
@@ -134,7 +126,6 @@ def test_base_data_loader_check_encoded_columns():
         def transform_data(self, df: pd.DataFrame):
             pass
 
-    # Mock BaseConfig to provide all_cat_vars
     with patch.object(BaseConfig, "__init__", lambda x: None):
         loader = ConcreteDataLoader(
             task="task_col", encoding="one_hot", encode=True, scale=False
@@ -196,7 +187,7 @@ def test_base_data_loader_check_scaled_columns():
 
     df_improper = pd.DataFrame(
         {
-            "age": [-10.0, 100.0],  # Values outside expected range
+            "age": [-10.0, 100.0],
             "bmi": [-1.0, 0.5],
         }
     )

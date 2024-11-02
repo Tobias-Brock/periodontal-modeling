@@ -1,15 +1,16 @@
 # periodontal-modeling
 
-A Python package for comprehensive periodontal data processing and modeling. This package provides tools for preprocessing, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. It was developed for Python 3.11.
+`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. `peridontal-modeling` or in short `periomod` is specifically tailerod to hierarchical-grouped periodontal patient data and was developed for Python 3.11.
 
 ## Features
 
-- **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, and transformation.
+- **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, data imputation and transformation.
 - **Descriptive Analysis**: Generate descriptive statistics and plots such as confusion matrices and bar plots.
 - **Automatic Model Tuning**: Supports multiple learners and tuning strategies for optimized model training.
-- **Resampling and Handling Class Imbalance**: Resampling strategies such as SMOTE and upsampling/downsampling to balance dataset classes.
-- **Model Evaluation**: Cross-validation and holdout evaluation with support for criteria such as F1, Brier score, and Macro-F1.
-- **Inference and Descriptive Statistics**: Patient-level inference, jackknife resampling, and 2D histogram generation.
+- **Resampling**: Allows the use of grouped holdout and cross-validation resampling.
+- **Imbalanced Data Handling**: Enables the application of SMOTE and upsampling/downsampling to balance dataset classes.
+- **Model Evaluation**: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.
+- **Inference**: Patient-level inference, jackknife resampling and confidence intervals.
 - **Interactive Frontend with Gradio**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
 
 ## Installation
@@ -24,7 +25,7 @@ pip install periodontal-modeling
 
 ### App Module
 
-The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference. The app can be launched in a straighforward manner.
+The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference.
 
 ```python
 from periomod.app import app
@@ -55,14 +56,14 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 # do not include behavior columns for processing data
-# activate verbose logging during processing
+# activate verbose outputs during processing
 engine = StaticProcessEngine(behavior=False, verbose=True)
 df = engine.load_data(path="data/raw", name="Periodontitis_ML_Dataset.xlsx")
 df = engine.process_data(df)
 engine.save_data(df=df, path="data/processed", name="processed_data.csv")
 ```
 
-The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of three periodontal task can be selected, either "pocketclosure", "pdgrouprevaluation" or "improvement".
+The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement".
 
 ```python
 from periomod.data import ProcessedDataLoader
@@ -112,7 +113,7 @@ outer_splits, cv_folds_indices = resampler.cv_folds(
 
 ### Training Module
 
-`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning.
+`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning in the case of binary classification and when the criterion "f1" is selected.
 
 ```python
 from periomod.training import Trainer
@@ -155,6 +156,15 @@ The tuning module contains the `HEBOTuner`and `RandomSearchTuner` classes that c
 from periomod.training import Trainer
 from periomod.tuning import HEBOTuner
 
+trainer = Trainer(
+    classification="binary",
+    criterion="f1",
+    tuning="holdout",
+    hpo="hebo",
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
 tuner = HEBOTuner(
     classification="binary",
     criterion="f1",
@@ -163,14 +173,7 @@ tuner = HEBOTuner(
     n_configs=10,
     n_jobs=-1,
     verbose=True,
-    trainer=Trainer(
-        classification="binary",
-        criterion="f1",
-        tuning="holdout",
-        hpo="hebo",
-        mlp_training=True,
-        threshold_tuning=True,
-    ),
+    trainer=trainer,
     mlp_training=True,
     threshold_tuning=True,
 )
@@ -188,6 +191,15 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 from periomod.training import Trainer
 from periomod.tuning import RandomSearchTuner
 
+trainer = Trainer(
+    classification="binary",
+    criterion="f1",
+    tuning="cv",
+    hpo="rs",
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
 tuner = RandomSearchTuner(
     classification="binary",
     criterion="f1",
@@ -196,14 +208,7 @@ tuner = RandomSearchTuner(
     n_configs=15,
     n_jobs=4,
     verbose=True,
-    trainer=Trainer(
-        classification="binary",
-        criterion="f1",
-        tuning="cv",
-        hpo="rs",
-        mlp_training=True,
-        threshold_tuning=True,
-    ),
+    trainer=trainer,
     mlp_training=True,
     threshold_tuning=True,
 )

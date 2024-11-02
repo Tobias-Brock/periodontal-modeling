@@ -22,17 +22,15 @@ def test_processed_data_loader_initialization():
 
 def test_encode_categorical_columns_one_hot():
     """Test one-hot encoding of categorical columns."""
-    # Mock BaseConfig to provide all_cat_vars
     with patch.object(BaseConfig, "__init__", lambda x: None):
         loader = ProcessedDataLoader(
             task="pocketclosure", encoding="one_hot", encode=True, scale=False
         )
-        loader.all_cat_vars = ["gender", "smoking_status"]
+        loader.all_cat_vars = ["smokingtype", "tooth", "side"]
 
     df = pd.DataFrame(
         {
-            "gender": [0, 1],
-            "smoking_status": [1, 0],
+            "smokingtype": [1, 0],
             "age": [25, 30],
             "tooth": [11, 12],
             "side": [1, 2],
@@ -40,20 +38,18 @@ def test_encode_categorical_columns_one_hot():
     )
 
     df_encoded = loader.encode_categorical_columns(df)
+    assert "smokingtype" not in df_encoded.columns
+    assert "tooth" not in df_encoded.columns
+    assert "side" not in df_encoded.columns
 
-    # Check that original categorical columns are removed
-    assert "gender" not in df_encoded.columns
-    assert "smoking_status" not in df_encoded.columns
-
-    # Check that new one-hot encoded columns are present
     expected_columns = [
         "age",
-        "tooth",
-        "side",
-        "gender_0",
-        "gender_1",
-        "smoking_status_0",
-        "smoking_status_1",
+        "smokingtype_0",
+        "smokingtype_1",
+        "tooth_11",
+        "tooth_12",
+        "side_1",
+        "side_2",
     ]
     assert all(col in df_encoded.columns for col in expected_columns)
 
@@ -64,12 +60,11 @@ def test_encode_categorical_columns_target():
         loader = ProcessedDataLoader(
             task="pocketclosure", encoding="target", encode=True, scale=False
         )
-        loader.all_cat_vars = ["gender", "smoking_status"]
+        loader.all_cat_vars = ["smokingtype", "tooth", "side"]
 
     df = pd.DataFrame(
         {
-            "gender": [0, 1],
-            "smoking_status": [1, 0],
+            "smokingtype": [1, 0],
             "age": [25, 30],
             "tooth": [11, 12],
             "side": [1, 2],
@@ -77,8 +72,7 @@ def test_encode_categorical_columns_target():
     )
 
     df_encoded = loader.encode_categorical_columns(df)
-
-    # Check that 'tooth' and 'side' are removed and 'toothside' is added
+    assert "smokingtype" in df_encoded.columns
     assert "tooth" not in df_encoded.columns
     assert "side" not in df_encoded.columns
     assert "toothside" in df_encoded.columns
@@ -119,8 +113,6 @@ def test_scale_numeric_columns():
     )
 
     df_scaled = loader.scale_numeric_columns(df)
-
-    # Check that 'age' is scaled
     assert df_scaled["age"].mean() == pytest.approx(0.0, abs=1e-6)
     assert df_scaled["age"].std(ddof=0) == pytest.approx(1.0, abs=1e-6)
 
@@ -131,7 +123,7 @@ def test_transform_data():
         loader = ProcessedDataLoader(
             task="pocketclosure", encoding="one_hot", encode=True, scale=True
         )
-        loader.all_cat_vars = ["gender"]
+        loader.all_cat_vars = ["tooth", "side"]
         loader.scale_vars = ["age"]
         loader.task_cols = ["pocketclosure", "improvement"]
         loader.no_train_cols = []
@@ -148,21 +140,16 @@ def test_transform_data():
     )
 
     df_transformed = loader.transform_data(df)
-
-    # Check that 'gender' is one-hot encoded
-    assert "gender_0" in df_transformed.columns
-    assert "gender_1" in df_transformed.columns
-    assert "gender" not in df_transformed.columns
-
-    # Check that 'age' is scaled
+    assert "tooth_11" in df_transformed.columns
+    assert "tooth_12" in df_transformed.columns
+    assert "side_1" in df_transformed.columns
+    assert "side_2" in df_transformed.columns
+    assert "tooth" not in df_transformed.columns
+    assert "side" not in df_transformed.columns
     assert df_transformed["age"].mean() == pytest.approx(0.0, abs=1e-6)
     assert df_transformed["age"].std(ddof=0) == pytest.approx(1.0, abs=1e-6)
-
-    # Check that task column is renamed to 'y'
     assert "y" in df_transformed.columns
     assert "pocketclosure" not in df_transformed.columns
-
-    # Check that other task columns are dropped
     assert "improvement" not in df_transformed.columns
 
 

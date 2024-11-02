@@ -1,4 +1,4 @@
-# tests/tuning/test_randomsearchtuner.py # noqa: D100
+"""Tests for RandomSearchTuner."""
 
 import pandas as pd
 import pytest
@@ -135,7 +135,6 @@ def test_randomsearch_invalid_tuning_strategy():
             mlp_training=False,
             threshold_tuning=True,
         )
-        # Error is raised during Trainer initialization
 
 
 def test_randomsearch_cv_with_racing(sample_data):
@@ -174,7 +173,7 @@ def test_randomsearch_cv_with_racing(sample_data):
     best_params, best_threshold = tuner.cv(
         learner="rf",
         outer_splits=outer_splits,
-        racing_folds=2,  # Testing the racing strategy with 2 folds
+        racing_folds=2,
     )
 
     assert isinstance(best_params, dict)

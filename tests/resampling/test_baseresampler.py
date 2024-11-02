@@ -39,13 +39,9 @@ def test_split_train_test_df():
     resampler.y = "y"
     resampler.group_col = "group"
     train_df, test_df = resampler.split_train_test_df(df, seed=42, test_size=0.2)
-
-    # Ensure no overlap in groups
     train_groups = set(train_df["group"])
     test_groups = set(test_df["group"])
     assert train_groups.isdisjoint(test_groups)
-
-    # Check that the split proportions are roughly correct
     assert len(train_df) > len(test_df)
 
 
@@ -55,14 +51,12 @@ def test_split_x_y():
     resampler = Resampler(classification="binary", encoding="one_hot")
     resampler.y = "y"
     resampler.group_col = "group"
-    resampler.all_cat_vars = []  # Assuming no categorical variables for simplicity
+    resampler.all_cat_vars = []
 
     train_df, test_df = resampler.split_train_test_df(df, seed=42, test_size=0.2)
     X_train, y_train, X_test, y_test = resampler.split_x_y(
         train_df, test_df, sampling="upsampling", factor=1.5
     )
-
-    # Check that the lengths match
     assert len(X_train) == len(y_train)
     assert len(X_test) == len(y_test)
 
@@ -74,17 +68,15 @@ def test_cv_folds():
     resampler.y = "y"
     resampler.group_col = "group"
     resampler.n_folds = 5
-    resampler.all_cat_vars = []  # Assuming no categorical variables for simplicity
+    resampler.all_cat_vars = []
 
     outer_splits, cv_folds_indices = resampler.cv_folds(
         df, sampling="upsampling", factor=1.5, seed=42, n_folds=5
     )
 
-    # Check that the number of folds is correct
     assert len(outer_splits) == 5
     assert len(cv_folds_indices) == 5
 
-    # Ensure no overlapping groups in folds
     for (X_train, _), (X_val, _) in outer_splits:
         train_groups = set(X_train["group"])
         val_groups = set(X_val["group"])

@@ -1,9 +1,8 @@
-# tests/evaluation/test_evaluation.py  # noqa: D100
-# Check the implementations of the one hot aggregation functions
+"""Tests for evaluation module."""
 
 import matplotlib
 
-matplotlib.use("Agg")  # Use non-interactive backend to prevent plots from displaying
+matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,20 +38,12 @@ def test_evaluate_feature_importance():
     evaluator = ModelEvaluator(
         X=X, y=y, model=model, encoding="one_hot", aggregate=True
     )
-
-    # Test with SHAP importance
     evaluator.evaluate_feature_importance(fi_types=["shap"])
-    plt.close("all")  # Close plots to prevent resource warning
-
-    # Test with permutation importance
+    plt.close("all")
     evaluator.evaluate_feature_importance(fi_types=["permutation"])
     plt.close("all")
-
-    # Test with standard importance
     evaluator.evaluate_feature_importance(fi_types=["standard"])
     plt.close("all")
-
-    # Test with invalid fi_type
     with pytest.raises(ValueError, match="Invalid fi_type: invalid_type"):
         evaluator.evaluate_feature_importance(fi_types=["invalid_type"])
 
@@ -65,11 +56,7 @@ def test_analyze_brier_within_clusters():
     evaluator = ModelEvaluator(
         X=X, y=y, model=model, encoding="one_hot", aggregate=True
     )
-
-    # Test clustering analysis
-    brier_plot, heatmap_plot, X_clustered = evaluator.analyze_brier_within_clusters(
-        n_clusters=3
-    )
+    _, _, X_clustered = evaluator.analyze_brier_within_clusters(n_clusters=3)
     assert isinstance(X_clustered, pd.DataFrame)
     assert "Cluster" in X_clustered.columns
     assert "Brier_Score" in X_clustered.columns
@@ -82,8 +69,6 @@ def test_brier_score_groups():
     model = LogisticRegression()
     model.fit(X, y)
     evaluator = ModelEvaluator(X=X, y=y, model=model)
-
-    # Since the method prints and plots, we just ensure it runs without error
     evaluator.brier_score_groups(group_by="y")
     plt.close("all")
 
@@ -94,15 +79,10 @@ def test_plot_confusion_matrix():
     model = RandomForestClassifier()
     model.fit(X, y)
     evaluator = ModelEvaluator(X=X, y=y, model=model)
-
     evaluator.plot_confusion_matrix()
     plt.close("all")
-
-    # Test with normalization options
     evaluator.plot_confusion_matrix(normalize="columns")
     plt.close("all")
-
-    # Test with invalid normalization option
     with pytest.raises(
         ValueError, match="Invalid value for 'normalize'. Use 'rows' or 'columns'."
     ):
@@ -134,7 +114,7 @@ def test_model_evaluator_initialization():
     assert evaluator.X.equals(X)
     assert evaluator.y.equals(y)
     assert evaluator.model == model
-    assert evaluator.models == []  # Updated assertion
+    assert evaluator.models == []
 
 
 def test_aggregate_one_hot_importances():
