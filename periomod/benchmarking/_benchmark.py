@@ -218,6 +218,7 @@ class Experiment(BaseExperiment):
         best_params, best_threshold = self.tuner.cv(
             learner=self.learner,
             outer_splits=outer_splits,
+            racing_folds=self.racing_folds,
         )
         final_model = (self.learner, best_params, best_threshold)
 

@@ -9,7 +9,6 @@ from periomod.data._helpers import ProcessDataHelper
 def test_check_infection():
     """Test the check_infection static method."""
     helper = ProcessDataHelper()
-    # Test various combinations
     assert helper.check_infection(depth=5, boprevaluation=1) == 1
     assert helper.check_infection(depth=4, boprevaluation=2) == 1
     assert helper.check_infection(depth=4, boprevaluation=1) == 0
@@ -56,7 +55,6 @@ def test_plaque_imputation():
     )
     helper.group_col = "id_patient"
     df_imputed = helper.plaque_imputation(df)
-    # Since all 'plaque' values are NaN, they should be imputed to 1
     assert all(df_imputed["plaque"] == 1)
 
 

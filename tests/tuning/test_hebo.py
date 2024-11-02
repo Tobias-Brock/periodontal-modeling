@@ -1,4 +1,4 @@
-# tests/tuning/test_hebotuner.py  # noqa: D100
+"""Tests for HEBOTUner."""
 
 import pandas as pd
 import pytest
@@ -132,4 +132,3 @@ def test_hebotuner_invalid_tuning_strategy(sample_data):
             mlp_training=False,
             threshold_tuning=True,
         )
-        # Error is raised during Trainer initialization

@@ -9,14 +9,24 @@ from periomod.training._metrics import brier_loss_multi, final_metrics, get_prob
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
     """Creates a sample dataset for testing."""
-    X, y = make_classification(
-        n_samples=n_samples,
-        n_features=n_features,
-        n_informative=3,
-        n_classes=n_classes,
-        random_state=random_state,
-        weights=[0.7, 0.3],
-    )
+    if n_classes > 2:
+        X, y = make_classification(
+            n_samples=n_samples,
+            n_features=n_features,
+            n_informative=3,
+            n_classes=n_classes,
+            n_clusters_per_class=1,  # Ensures that each class forms a distinct cluster
+            random_state=random_state,
+        )
+    else:
+        X, y = make_classification(
+            n_samples=n_samples,
+            n_features=n_features,
+            n_informative=3,
+            n_classes=n_classes,
+            weights=[0.7, 0.3],
+            random_state=random_state,
+        )
     return X, y
 
 
@@ -27,7 +37,7 @@ def test_get_probs_binary():
     model.fit(X, y)
     probs = get_probs(model, classification="binary", X=X)
     assert probs.shape[0] == X.shape[0]
-    assert probs.ndim == 1  # Should be a 1D array for binary classification
+    assert probs.ndim == 1
 
 
 def test_get_probs_multiclass():
@@ -36,7 +46,7 @@ def test_get_probs_multiclass():
     model = LogisticRegression(solver="lbfgs")
     model.fit(X, y)
     probs = get_probs(model, classification="multiclass", X=X)
-    assert probs.shape == (X.shape[0], 2)  # 3 classes
+    assert probs.shape == (X.shape[0], 3)  # 3 classes
     assert probs.ndim == 2
 
 
@@ -92,4 +102,4 @@ def test_final_metrics_multiclass():
     ]
     assert all(key in metrics for key in expected_keys)
     assert isinstance(metrics["Class F1 Scores"], np.ndarray)
-    assert len(metrics["Class F1 Scores"]) == 2  # Number of classes
+    assert len(metrics["Class F1 Scores"]) == 3

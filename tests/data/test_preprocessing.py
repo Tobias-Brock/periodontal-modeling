@@ -30,8 +30,6 @@ def test_impute_missing_values():
     )
     engine = StaticProcessEngine(behavior=False, verbose=False)
     df_imputed = engine.impute_missing_values(df)
-
-    # Test that missing values are imputed correctly
     assert df_imputed["boprevaluation"].tolist() == [1.0, 1.0, 1.0, 1.0]
     assert df_imputed["recbaseline"].tolist() == [1.0, 1.0, 2.0, 3.0]
     assert df_imputed["bop"].tolist() == [1.0, 1.0, 2.0, 1.0]
@@ -40,7 +38,7 @@ def test_impute_missing_values():
         27.5,
         27.5,
         30.0,
-    ]  # Mean of valid BMIs
+    ]
     assert df_imputed["periofamilyhistory"].tolist() == [2, 1, 2, 2]
     assert df_imputed["smokingtype"].tolist() == [1, 1, 2, 1]
     assert df_imputed["cigarettenumber"].tolist() == [0.0, 5.0, 10.0, 0.0]
@@ -61,12 +59,8 @@ def test_create_tooth_features():
     )
     engine = StaticProcessEngine(behavior=False, verbose=False)
     df_features = engine.create_tooth_features(df)
-
-    # Check that 'side_infected' and 'tooth_infected' are created
     assert "side_infected" in df_features.columns
     assert "tooth_infected" in df_features.columns
-
-    # Check values
     assert df_features["side_infected"].tolist() == [1, 0]
     assert df_features["tooth_infected"].tolist() == [1, 0]
 
@@ -82,13 +76,10 @@ def test_create_outcome_variables():
     )
     df = StaticProcessEngine.create_outcome_variables(df)
 
-    # Check that outcome variables are created
     assert "pocketclosure" in df.columns
     assert "pdgroupbase" in df.columns
     assert "pdgrouprevaluation" in df.columns
     assert "improvement" in df.columns
-
-    # Check values
     assert df["pocketclosure"].tolist() == [0, 0, 1]
     assert df["pdgroupbase"].tolist() == [1, 1, 0]
     assert df["pdgrouprevaluation"].tolist() == [1, 1, 0]
@@ -115,11 +106,7 @@ def test_process_data():
     )
     engine = StaticProcessEngine(behavior=False, verbose=False)
     df_processed = engine.process_data(df)
-
-    # Check that patients under 18 or pregnant are removed
     assert df_processed["age"].min() >= 18
-
-    # Check that required columns are present
     expected_columns = [
         "id_patient",
         "age",
@@ -139,6 +126,4 @@ def test_process_data():
         "furcationbaseline",
     ]
     assert all(col in df_processed.columns for col in expected_columns)
-
-    # Check that missing values are handled
     assert not df_processed.isnull().values.any()
