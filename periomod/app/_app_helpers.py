@@ -1,3 +1,5 @@
+import contextlib
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -15,6 +17,7 @@ from ..resampling import Resampler
 from ._inputprocessor import InputProcessor
 
 plotter = None
+data_df = None
 
 all_teeth = [
     18,
@@ -52,31 +55,145 @@ all_teeth = [
 ]
 
 
-def _load_and_initialize_plotter(path: str) -> str:
-    """Loads the data and initializes the DescriptivesPlotter.
-
-    Args:
-        path (str): The full path to the data file.
+def _load_data_engine(
+    path: str,
+) -> Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict, dict]:
+    """Loads the data and returns updates for dropdowns.
 
     Returns:
-        str: A message indicating that the data has been loaded and that the
-        user can proceed with creating plots.
+        Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict]: A status message and
+        updates for each dropdown component.
     """
-    global plotter
+    global data_df
     data_path = Path(path)
     engine = StaticProcessEngine(behavior=False)
-    df = engine.load_data(path=data_path.parent, name=data_path.name)
-    df = engine.process_data(df=df)
-    plotter = DescriptivesPlotter(df=df)
-    return "Data loaded successfully. You can now create plots."
+    data_df = engine.load_data(path=data_path.parent, name=data_path.name)
+    columns = data_df.columns.tolist()
+    dropdown_update = gr.update(choices=columns)
+    return (
+        "Data loaded successfully. You can now display, process, or save the data.",
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+    )
 
 
-def _plot_histogram_2d(col_before: str, col_after: str) -> Union[plt.Figure, str]:
+def _display_data() -> gr.DataFrame:
+    """Displays a preview of the loaded data.
+
+    Returns:
+        gr.DataFrame: The first few rows of the loaded data if available, or a message
+        indicating that no data has been loaded.
+    """
+    if data_df is None:
+        return "No data loaded. Please load data first."
+    return data_df.head(10)
+
+
+def _process_data() -> Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict, dict]:
+    global plotter, data_df
+    if data_df is None:
+        return ("No data loaded. Please load data first.",) + (gr.update(),) * 9
+
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        engine = StaticProcessEngine(behavior=False)
+        data_df = engine.process_data(df=data_df)
+        plotter = DescriptivesPlotter(df=data_df)
+
+    process_output = output.getvalue()
+    process_output += "\nData processed successfully. Ready for plotting."
+    output.close()
+    columns = data_df.columns.tolist()
+    default_column_before = "pdbaseline" if "pdbaseline" in columns else columns[0]
+    default_column_after = "pdrevaluation" if "pdrevaluation" in columns else columns[0]
+    default_column1 = "pdbaseline" if "pdbaseline" in columns else columns[0]
+    default_column2 = "pdrevaluation" if "pdrevaluation" in columns else columns[0]
+    default_group_column_before = (
+        "pdgroupbase" if "pdgroupbase" in columns else columns[0]
+    )
+    default_group_column_after = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+    default_vertical = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+    default_horizontal = "pdgroupbase" if "pdgroupbase" in columns else columns[0]
+    default_outcome = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+
+    dropdown_update_column_before = gr.update(
+        choices=columns, value=default_column_before
+    )
+    dropdown_update_column_after = gr.update(
+        choices=columns, value=default_column_after
+    )
+    dropdown_update_column1 = gr.update(choices=columns, value=default_column1)
+    dropdown_update_column2 = gr.update(choices=columns, value=default_column2)
+    dropdown_update_group_column_before = gr.update(
+        choices=columns, value=default_group_column_before
+    )
+    dropdown_update_group_column_after = gr.update(
+        choices=columns, value=default_group_column_after
+    )
+    dropdown_update_vertical = gr.update(choices=columns, value=default_vertical)
+    dropdown_update_horizontal = gr.update(choices=columns, value=default_horizontal)
+    dropdown_update_outcome = gr.update(choices=columns, value=default_outcome)
+
+    return (
+        process_output,
+        dropdown_update_column_before,
+        dropdown_update_column_after,
+        dropdown_update_column1,
+        dropdown_update_column2,
+        dropdown_update_group_column_before,
+        dropdown_update_group_column_after,
+        dropdown_update_vertical,
+        dropdown_update_horizontal,
+        dropdown_update_outcome,
+    )
+
+
+def _save_data(save_path: Union[str, Path]) -> str:
+    """Saves the processed data to the specified file path.
+
+    Args:
+        save_path (Union[str, Path]): The full path where the processed data should
+        be saved, including the file name.
+
+    Returns:
+        str: A message indicating that the data was successfully saved to the specified
+        path. If no data is loaded, returns an error message.
+    """
+    global data_df
+    if data_df is None:
+        return "No data loaded. Please load data first."
+
+    engine = StaticProcessEngine(behavior=False)
+    if isinstance(save_path, str):
+        save_path = Path(save_path)
+
+    engine.save_data(data_df, path=save_path.parent, name=save_path.name)
+    return f"Data saved successfully to {save_path}"
+
+
+def _plot_histogram_2d(
+    col_before: str, col_after: str, x_label: str, y_label: str
+) -> Union[plt.Figure, str]:
     """Plots a 2D histogram.
 
     Args:
         col_before (str): Name of the column representing values before therapy.
         col_after (str): Name of the column representing values after therapy.
+        x_label (str): Label for x-axis.
+        y_label (str): Label for y-axis.
 
     Returns:
         Union[plt.Figure, str]: The 2D histogram plot if successful, or a message
@@ -85,16 +202,22 @@ def _plot_histogram_2d(col_before: str, col_after: str) -> Union[plt.Figure, str
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.histogram_2d(col_before=col_before, col_after=col_after)
+    plotter.histogram_2d(
+        col_before=col_before, col_after=col_after, x_label=x_label, y_label=y_label
+    )
     return plt.gcf()
 
 
-def _plot_pocket_comparison(col1: str, col2: str) -> Union[plt.Figure, str]:
+def _plot_pocket_comparison(
+    col1: str, col2: str, title_1: str, title_2: str
+) -> Union[plt.Figure, str]:
     """Plots a pocket depth comparison before and after therapy.
 
     Args:
         col1 (str): Name of column representing pocket depth before therapy.
         col2 (str): Name of column representing pocket depth after therapy.
+        title_1 (str): Title of first plot.
+        title_2 (str): Title of second plot.
 
     Returns:
         Union[plt.Figure, str]: The pocket comparison plot if successful, or
@@ -103,18 +226,20 @@ def _plot_pocket_comparison(col1: str, col2: str) -> Union[plt.Figure, str]:
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_comparison(col1=col1, col2=col2)
+    plotter.pocket_comparison(col1=col1, col2=col2, title_1=title_1, title_2=title_2)
     return plt.gcf()
 
 
 def _plot_pocket_group_comparison(
-    col_before: str, col_after: str
+    col_before: str, col_after: str, title_1: str, title_2: str
 ) -> Union[plt.Figure, str]:
     """Plots a pocket group comparison before and after therapy.
 
     Args:
         col_before (str): Name of column representing pocket group before therapy.
         col_after (str): Name of column representing pocket group after therapy.
+        title_1 (str): Title of first plot.
+        title_2 (str): Title of second plot.
 
     Returns:
         Union[plt.Figure, str]: Pocket group comparison plot if successful,
@@ -123,16 +248,22 @@ def _plot_pocket_group_comparison(
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_group_comparison(col_before=col_before, col_after=col_after)
+    plotter.pocket_group_comparison(
+        col_before=col_before, col_after=col_after, title_1=title_1, title_2=title_2
+    )
     return plt.gcf()
 
 
-def _plot_matrix(vertical: str, horizontal: str) -> Union[plt.Figure, str]:
+def _plot_matrix(
+    vertical: str, horizontal: str, x_label: str, y_label: str
+) -> Union[plt.Figure, str]:
     """Plots confusion matrix or heatmap based on given vertical and horizontal columns.
 
     Args:
         vertical (str): The name of the column used for the vertical axis.
         horizontal (str): The name of the column used for the horizontal axis.
+        x_label (str): Label for x-axis.
+        y_label (str): Label for y-axis.
 
     Returns:
         Union[plt.Figure, str]: The matrix plot if successful, or a message
@@ -141,7 +272,9 @@ def _plot_matrix(vertical: str, horizontal: str) -> Union[plt.Figure, str]:
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.plt_matrix(vertical=vertical, horizontal=horizontal)
+    plotter.plt_matrix(
+        vertical=vertical, horizontal=horizontal, x_label=x_label, y_label=y_label
+    )
     return plt.gcf()
 
 

@@ -152,17 +152,18 @@ class BaseValidator(BaseConfig):
     criteria, and tuning methods.
 
     Args:
-        classification (str): Type of classification ('binary' or 'multiclass').
+        classification (str): Type of classification, either 'binary' or 'multiclass'.
         criterion (str): Evaluation criterion (e.g., 'f1', 'macro_f1').
-        tuning (Optional[str], optional): Tuning method. Defaults to None.
-        hpo (Optional[str], optional): Hyperparameter optimization type.
+        tuning (Optional[str], optional): Tuning method, either 'holdout' or 'cv'.
             Defaults to None.
+        hpo (Optional[str], optional): Hyperparameter optimization type, either 'rs' or
+            'hebo'. Defaults to None.
 
     Attributes:
-        classification (str): Type of classification ('binary' or 'multiclass').
+        classification (str): Type of classification, either 'binary' or 'multiclass'.
         criterion (str): Evaluation criterion for model performance.
-        hpo (Optional[str]): Type of hyperparameter optimization ('rs' or 'hebo').
         tuning (Optional[str]): Tuning method ('holdout' or 'cv').
+        hpo (Optional[str]): Type of hyperparameter optimization ('rs' or 'hebo').
 
     Raises:
         ValueError: If the classification, criterion, or tuning method is invalid.

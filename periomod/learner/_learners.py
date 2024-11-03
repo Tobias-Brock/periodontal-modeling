@@ -35,21 +35,22 @@ class Model(BaseConfig):
             state and model parameters.
 
     Args:
-        learner (str): The machine learning algorithm to use, such as 'rf'
-            (random forest), 'mlp' (multi-layer perceptron), 'xgb' (XGBoost),
+        learner (str): The machine learning algorithm to use. Options include:
+            'rf' (random forest), 'mlp' (multi-layer perceptron), 'xgb' (XGBoost),
             or 'lr' (logistic regression).
-        classification (str): Specifies the classification type, either
+        classification (str): Specifies the classification type. Can be either
             'binary' or 'multiclass'.
-        hpo (str, optional): The hyperparameter optimization (HPO) method to
-            use, such as 'hebo' or 'rs' (random search). Defaults to None,
-            which requires specifying HPO in relevant methods.
+        hpo (Optional[str]): The hyperparameter optimization (HPO) method to
+            use. Options are 'hebo' or 'rs'. Defaults to None, which requires
+            specifying HPO in relevant methods.
 
     Attributes:
         learner (str): The specified machine learning algorithm for the model.
-        classification (str): Defines the type of classification task
-            ('binary' or 'multiclass').
+            Options include 'rf', 'mlp', 'xgb', and 'lr'.
+        classification (str): Defines the type of classification task.
+            Options are 'binary' or 'multiclass'.
         hpo (Optional[str]): Hyperparameter optimization method for tuning, if
-            specified.
+            specified. Options are 'hebo' or 'rs'.
 
     Methods:
         get: Class method returning a model and hyperparameter search space

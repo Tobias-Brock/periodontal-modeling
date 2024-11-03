@@ -24,12 +24,12 @@ class DescriptivesPlotter:
 
     Methods:
         plt_matrix: Plots a heatmap/confusion matrix based on two columns.
-        pocket_comparison: Creates bar plots to compare pocket depth before
+        pocket_comparison: Creates bar plots to compare values before
             and after therapy.
         pocket_group_comparison: Generates side-by-side bar plots for pocket
             depth categories before and after therapy.
         histogram_2d: Creates a 2D histogram plot based on two columns, visualizing
-            pocket depth before and after therapy.
+            values before and after therapy.
         outcome_descriptive: Creates a bar plot for an outcome variable, useful
             for examining therapy outcomes.
 
@@ -54,6 +54,8 @@ class DescriptivesPlotter:
         self,
         vertical: str,
         horizontal: str,
+        x_label: str = "Pocket depth before therapy",
+        y_label: str = "Pocket depth after therapy",
         name: Optional[str] = None,
         normalize: str = "rows",
         save: bool = False,
@@ -63,6 +65,8 @@ class DescriptivesPlotter:
         Args:
             vertical (str): Column name for the vertical axis.
             horizontal (str): Column name for the horizontal axis.
+            x_label (str): Label for x-axis. Defaults to "Pocket depth before therapy".
+            y_label (str): Label for y-axis. Defaults to "Pocket depth after therapy".
             name (str): Title of the plot and name for saving the plot.
             normalize (str, optional): Normalization method ('rows' or 'columns').
                 Defaults to 'rows'.
@@ -127,8 +131,8 @@ class DescriptivesPlotter:
         )
 
         plt.tick_params(axis="both", which="major", labelsize=12)
-        plt.xlabel("Pocket depth before therapy", fontsize=12)
-        plt.ylabel("Pocket depth after therapy", fontsize=12)
+        plt.xlabel(x_label, fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
 
         if save:
             if name is None:
@@ -138,13 +142,21 @@ class DescriptivesPlotter:
         plt.show()
 
     def pocket_comparison(
-        self, col1: str, col2: str, name: Optional[str] = None, save: bool = False
+        self,
+        col1: str,
+        col2: str,
+        title_1: str = "Pocket depth before therapy",
+        title_2: str = "Pocket depth after therapy",
+        name: Optional[str] = None,
+        save: bool = False,
     ) -> None:
         """Creates two bar plots for comparing pocket depth before and after therapy.
 
         Args:
             col1 (str): Column name for the first plot (before therapy).
             col2 (str): Column name for the second plot (after therapy).
+            title_1 (str): Label for x-axis. Defaults to "Pocket depth before therapy".
+            title_2 (str): Label for y-axis. Defaults to "Pocket depth after therapy".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
@@ -162,7 +174,7 @@ class DescriptivesPlotter:
 
         ax1.bar(x_values_1, heights_1, edgecolor="black", color="#078294", linewidth=1)
         ax1.set_ylabel("Number of sites", fontsize=12)
-        ax1.set_title("Pocket depth before therapy", fontsize=12, pad=10)
+        ax1.set_title(title_1, fontsize=12, pad=10)
         ax1.set_yticks(np.arange(0, 90001, 10000))
         ax1.set_xticks(np.arange(1, 12.5, 1))
         ax1.tick_params(axis="both", labelsize=12)
@@ -179,7 +191,7 @@ class DescriptivesPlotter:
             spine.set_linewidth(1)
 
         ax2.bar(x_values_2, heights_2, edgecolor="black", color="#078294", linewidth=1)
-        ax2.set_title("Pocket depth after therapy", fontsize=12, pad=10)
+        ax2.set_title(title_2, fontsize=12, pad=10)
         ax2.tick_params(axis="both", labelsize=12)
 
         ax2.axvline(x=3.5, color="red", linestyle="--", linewidth=1, alpha=0.3)
@@ -209,6 +221,8 @@ class DescriptivesPlotter:
         self,
         col_before: str,
         col_after: str,
+        title_1: str = "Pocket depth before therapy",
+        title_2: str = "Pocket depth after therapy",
         name: Optional[str] = None,
         save: bool = False,
     ) -> None:
@@ -217,6 +231,8 @@ class DescriptivesPlotter:
         Args:
             col_before (str): Column name for the first plot (before therapy).
             col_after (str): Column name for the second plot (after therapy).
+            title_1 (str): Label for x-axis. Defaults to "Pocket depth before therapy".
+            title_2 (str): Label for y-axis. Defaults to "Pocket depth after therapy".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
@@ -238,9 +254,7 @@ class DescriptivesPlotter:
             x_values, heights, edgecolor="black", color="#078294", linewidth=1
         )
         ax1.set_ylabel("Number of sites", fontsize=12)
-        ax1.set_title(
-            f"Pocket depth before therapy (n={total_values})", fontsize=12, pad=10
-        )
+        ax1.set_title(f"{title_1} (n={total_values})", fontsize=12, pad=10)
         ax1.set_yticks(np.arange(0, 100001, 10000))
         ax1.set_xticks(np.arange(0, 2.1, 1))
 
@@ -265,9 +279,7 @@ class DescriptivesPlotter:
         bars2 = ax2.bar(
             x_values2, heights2, edgecolor="black", color="#078294", linewidth=1
         )
-        ax2.set_title(
-            f"Pocket depth after therapy (n={total_values2})", fontsize=12, pad=10
-        )
+        ax2.set_title(f"{title_2} (n={total_values2})", fontsize=12, pad=10)
         ax2.spines["top"].set_visible(False)
         ax2.spines["right"].set_visible(False)
         for spine in ax2.spines.values():
@@ -301,6 +313,8 @@ class DescriptivesPlotter:
         self,
         col_before: str,
         col_after: str,
+        x_label: str = "Pocket depth before therapy [mm]",
+        y_label: str = "Pocket depth after therapy [mm]",
         name: Optional[str] = None,
         save: bool = False,
     ) -> None:
@@ -309,6 +323,10 @@ class DescriptivesPlotter:
         Args:
             col_before (str): Column name for pocket depth before therapy.
             col_after (str): Column name for pocket depth after therapy.
+            x_label (str): Label for x-axis. Defaults to
+                "Pocket depth before therapy [mm]".
+            y_label (str): Label for y-axis. Defaults to
+                "Pocket depth after therapy [mm]".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
@@ -323,8 +341,8 @@ class DescriptivesPlotter:
         cbar.set_label("Frequency", fontsize=12)
         cbar.outline.set_linewidth(1)
 
-        plt.xlabel("Pocket depth before therapy [mm]", fontsize=12)
-        plt.ylabel("Pocket depth after therapy [mm]", fontsize=12)
+        plt.xlabel(xlabel=x_label, fontsize=12)
+        plt.ylabel(ylabel=y_label, fontsize=12)
         plt.xticks(np.arange(12), np.arange(1, 13), fontsize=12)
         plt.yticks(np.arange(12), np.arange(1, 13), fontsize=12)
 

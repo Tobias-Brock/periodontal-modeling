@@ -86,7 +86,8 @@ class BaseResampler(BaseConfig, ABC):
             y (pd.Series): The target variable containing class labels.
             sampling (str): The type of sampling to apply. Options are 'smote',
                 'upsampling', 'downsampling', or None.
-            sampling_factor (float): The factor by which to upsample or downsample.
+            sampling_factor (Optional[float]): The factor by which to upsample or
+                downsample.
 
         Returns:
             tuple: Resampled feature set (X_resampled) and target labels (y_resampled).

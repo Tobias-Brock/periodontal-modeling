@@ -19,6 +19,17 @@ class Baseline(BaseConfig):
     Regression, and a Dummy Classifier, which are trained and evaluated on
     split data, returning a summary of performance metrics for each model.
 
+    Args:
+        task (str): Task name used to determine the classification type.
+        encoding (str): Encoding type for categorical columns.
+        random_state (int, optional): Random seed for reproducibility. Defaults to 0.
+        lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
+            'saga'.
+        dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
+            'prior'.
+        models (List[Tuple[str, object]], optional): List of models to benchmark.
+            If not provided, default models are initialized.
+
     Attributes:
         classification (str): Specifies classification type ('binary' or
             'multiclass') based on the task.
@@ -32,17 +43,6 @@ class Baseline(BaseConfig):
         models (List[Tuple[str, object]]): List of models to benchmark, each
             represented as a tuple containing the model's name and the initialized
             model object.
-
-    Args:
-        task (str): Task name used to determine the classification type.
-        encoding (str): Encoding type for categorical columns.
-        random_state (int, optional): Random seed for reproducibility. Defaults to 0.
-        lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
-            'saga'.
-        dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
-            'prior'.
-        models (List[Tuple[str, object]], optional): List of models to benchmark.
-            If not provided, default models are initialized.
 
     Methods:
         baseline: Trains and evaluates each model in the models list, returning

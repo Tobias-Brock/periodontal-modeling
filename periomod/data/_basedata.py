@@ -79,7 +79,6 @@ class BaseProcessor(BaseLoader, ABC):
 
     Args:
         behavior (bool): If True, includes behavior columns in the data processing.
-            Defaults to False.
 
     Attributes:
         behavior (bool): Flag indicating whether to include behavior columns
@@ -96,7 +95,7 @@ class BaseProcessor(BaseLoader, ABC):
         - `process_data`: Clean, impute, and scale the data.
     """
 
-    def __init__(self, behavior: bool = False) -> None:
+    def __init__(self, behavior: bool) -> None:
         """Initializes the BaseProcessor with behavior flag."""
         super().__init__()
         self.behavior = behavior
@@ -269,17 +268,17 @@ class BaseDataLoader(BaseLoader, ABC):
     def load_data(
         path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
     ) -> pd.DataFrame:
-        """Loads the processed data from the specified path.
+        """Loads the processed data from the specified path, with lowercasing.
 
         Args:
             path (str): Directory path for the processed data.
             name (str): File name for the processed data.
 
         Returns:
-            pd.DataFrame: Loaded DataFrame.
+            pd.DataFrame: Loaded DataFrame with lowercase column names.
         """
         input_file = os.path.join(path, name)
-        return pd.read_csv(input_file)
+        return pd.read_csv(input_file).rename(columns=str.lower)
 
     def save_data(
         self,

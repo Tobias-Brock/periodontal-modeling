@@ -25,16 +25,17 @@ class BaseModelInference(BaseConfig, ABC):
         - ABC: Specifies abstract methods for subclasses to implement.
 
     Args:
-        classification (str): Specifies the type of classification task
-            ('binary' or 'multiclass').
-        model: A trained model that includes a `predict_proba` method for
-            generating class probabilities.
-        verbose (bool): Enables detailed logging if set to True.
+        classification (str): The type of classification task, either 'binary'
+            or 'multiclass', used to configure the inference process.
+        model: A trained model instance that implements a `predict_proba` method
+            for generating class probabilities.
+        verbose (bool): If True, enables detailed logging of inference steps.
 
     Attributes:
-        classification (str): Defines the type of classification task for the model.
-        model: The trained model used for predictions and inference.
-        verbose (bool): Controls the level of detail in log output during inference.
+        classification (str): Stores the classification type ('binary' or 'multiclass')
+            for model compatibility.
+        model: The trained model used to make predictions during inference.
+        verbose (bool): Indicates if verbose logging is enabled during inference.
 
     Methods:
         predict: Run predictions on a batch of input data, returning

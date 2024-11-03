@@ -18,6 +18,8 @@ class ProcessedDataLoader(BaseDataLoader):
 
     Args:
         task (str): The task column name, used to guide specific transformations.
+            Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
+            'pdgrouprevaluation'.
         encoding (Optional[str]): Specifies the encoding method for categorical columns.
             Options include 'one_hot', 'target', or None. Defaults to None.
         encode (bool, optional): If True, applies encoding to categorical columns.
@@ -26,22 +28,23 @@ class ProcessedDataLoader(BaseDataLoader):
             Defaults to True.
 
     Attributes:
-        task (str): Task column name used during data transformations.
-        encoding (str): Encoding method specified for categorical columns.
+        task (str): Task column name used during data transformations. Can be
+            'pocketclosure', 'pocketclosureinf', 'improvement', or 'pdgrouprevaluation'.
+        encoding (str): Encoding method specified for categorical columns. Options
+            include 'one_hot' or 'target'.
         encode (bool): Flag to enable encoding of categorical columns.
         scale (bool): Flag to enable scaling of numeric columns.
 
     Methods:
         encode_categorical_columns: Encodes categorical columns based on
             the specified encoding method.
-        scale_numeric_columns: Scales numeric columns to normalize
-            data.
+        scale_numeric_columns: Scales numeric columns to normalize data.
         transform_data: Executes the complete data processing pipeline,
             including encoding and scaling.
 
     Inherited Methods:
-        load_data: Load processed data from the specified path and file.
-        save_data: Save processed data to the specified path and file.
+        - `load_data`: Load processed data from the specified path and file.
+        - `save_data`: Save processed data to the specified path and file.
 
     Example:
         ```
@@ -119,7 +122,7 @@ class ProcessedDataLoader(BaseDataLoader):
         return df
 
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Select task column, rename to 'y', and delete remaining tasks.
+        """Select task column and optionally, scale and encode.
 
         Args:
             df (pd.DataFrame): The DataFrame to transform.
