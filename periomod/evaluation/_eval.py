@@ -25,32 +25,32 @@ class ModelEvaluator(BaseModelEvaluator):
 
     Inherits:
         - BaseModelEvaluator: Provides methods for model evaluation, calculating
-            Brier scores, plotting confusion matrices, and aggregating feature
-            importance for one-hot encoded features.
+          Brier scores, plotting confusion matrices, and aggregating feature
+          importance for one-hot encoded features.
 
     Args:
-        X (pd.DataFrame): Dataset features used for testing.
-        y (pd.Series): True labels for the test dataset.
-        model (Union[sklearn estimators, None], optional): A single trained
-            model instance, such as `RandomForestClassifier` or `LogisticRegression`.
-            Defaults to None.
-        models (Union[List[sklearn estimators], None], optional): List of trained
-            models to evaluate. Defaults to None.
-        encoding (Optional[str], optional): Encoding type for plot titles
-            ('one_hot' or 'target'). Defaults to None.
-        aggregate (bool, optional): If True, aggregates one-hot feature
-            importance scores. Defaults to True.
+        X (pd.DataFrame): The dataset features used for testing the model's
+            performance.
+        y (pd.Series): The true labels for the test dataset.
+        model (Optional[sklearn.base.BaseEstimator]): A single trained model instance
+            (e.g., `RandomForestClassifier` or `LogisticRegression`) for evaluation.
+        models (Optional[List[sklearn.base.BaseEstimator]]): A list of trained model
+            instances for evaluation, enabling multi-model analysis.
+        encoding (Optional[str]): Encoding type for categorical variables used in plot
+            titles and feature grouping (e.g., 'one_hot' or 'target').
+        aggregate (bool): Determines if one-hot feature importance values should be
+            aggregated to improve interpretability.
 
     Attributes:
-        X (pd.DataFrame): Stores the test dataset features for evaluation.
-        y (pd.Series): Stores the test dataset labels for evaluation.
-        model (Union[sklearn estimators, None]): The primary model for evaluation.
-        models (List[sklearn estimators]): List of trained models for multi-model
-            evaluation.
-        encoding (Optional[str]): The encoding type used, impacting plot titles
+        X (pd.DataFrame): Stores the test dataset features for model evaluation.
+        y (pd.Series): Stores the test dataset labels for model evaluation.
+        model (Optional[sklearn.base.BaseEstimator]): Primary model used for evaluation.
+        models (List[sklearn.base.BaseEstimator]): Collection of models for multi-model
+            evaluations.
+        encoding (Optional[str]): Indicates encoding type used, affecting plot titles
             and feature grouping.
-        aggregate (bool): Determines if importance values of one-hot encoded
-            features are aggregated for interpretability.
+        aggregate (bool): Specifies whether to aggregate one-hot feature importance
+            values to improve interpretability.
 
     Methods:
         evaluate_feature_importance: Calculates feature importance scores using
@@ -122,8 +122,7 @@ class ModelEvaluator(BaseModelEvaluator):
                 'shap', 'permutation', 'standard'.
 
         Returns:
-            Dict[str, pd.DataFrame]: A dictionary containing DataFrames of features and
-            their importance scores for each model.
+            A feature importance plot for the specified method.
         """
         if self.models and self.model is None:
             return None
@@ -291,7 +290,7 @@ class ModelEvaluator(BaseModelEvaluator):
             for true, proba in zip(self.y, probas, strict=False)
         ]
 
-        if self.aggregate and self.encoding == "one_hot":
+        if self.aggregate:  # and self.encoding == "one_hot":
             X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
         else:
             X_cluster_input = self.X

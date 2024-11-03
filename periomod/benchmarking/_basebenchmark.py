@@ -26,58 +26,85 @@ class BaseExperiment(BaseValidator, ABC):
 
     Args:
         df (pd.DataFrame): The preloaded dataset used for training and evaluation.
-        task (str): Task name, used to determine classification type.
-        learner (str): Specifies the model or algorithm for evaluation.
-        criterion (str): Criterion for performance evaluation ('macro_f1' or
-            'brier_score').
-        encoding (str): Encoding type for categorical features ('one_hot' or 'binary').
-        tuning (Optional[str]): Method of tuning to apply ('holdout' or 'cv').
-        hpo (Optional[str]): Hyperparameter optimization strategy ('rs', 'hebo').
-        sampling (Optional[str]): Resampling strategy to handle class imbalance.
-        factor (Optional[float]): Factor applied during resampling.
-        n_configs (int): Number of configurations for hyperparameter tuning.
-        racing_folds (Optional[int]): Number of racing folds for random search.
-        n_jobs (Optional[int]): Number of parallel jobs for processing.
-        cv_folds (Optional[int]): Number of folds for cross-validation; defaults to
-            the value set in `self.n_folds` if None.
-        test_seed (Optional[int]): Seed for random train-test split; defaults to
-            `self.random_state_split` if None.
-        test_size (Optional[float]): Proportion of data used for testing; defaults to
-            `self.test_set_size` if None.
-        val_size (Optional[float]): Proportion of data used for validation in holdout;
-            defaults to `self.val_set_size` if None.
-        cv_seed (Optional[int]): Seed for cross-validation; defaults to
-            `self.random_state_cv` if None.
-        mlp_flag (Optional[bool]): Whether to enable MLP training with early stopping;
-            defaults to `self.mlp_training`.
-        threshold_tuning (bool): If True, tunes the decision threshold for binary
-            classification when optimizing `f1`.
-        verbose (bool): If True, enables detailed logging of model and tuning
-            processes.
+        task (str): Task name, used to determine the classification type based on the
+            Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
+            'pdgrouprevaluation'.
+        learner (str): Specifies the machine learning model or algorithm to use for
+            evaluation, including 'xgb', 'rf', 'lr' or 'mlp'.
+        criterion (str): Evaluation criterion for model performance. Options are
+            'f1' and 'macro_f1' for F1 score and 'brier_score' for Brier Score.
+        encoding (str): Encoding type for categorical features. Choose between
+            'one_hot' or 'target' encoding based on model requirements.
+        tuning (Optional[str]): The tuning method to apply during model training,
+            either 'holdout' or 'cv' for cross-validation.
+        hpo (Optional[str]): Hyperparameter optimization strategy. Options include
+            'rs' (Random Search) and 'hebo'.
+        sampling (Optional[str]): Sampling strategy to address class imbalance in
+            the dataset. Includes None, 'upsampling', 'downsampling', and 'smote'.
+        factor (Optional[float]): Factor used during resampling, specifying the
+            amount of class balancing to apply.
+        n_configs (int): Number of configurations to evaluate during hyperparameter
+            tuning, used to limit the search space.
+        racing_folds (Optional[int]): Number of racing folds used during random
+            search for efficient hyperparameter optimization.
+        n_jobs (Optional[int]): Number of parallel jobs to use for processing.
+            Set to -1 to use all available cores.
+        cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to
+            the value in `self.n_folds` if None.
+        test_seed (Optional[int]): Seed for random train-test split for reproducibility.
+            Defaults to `self.random_state_split` if None.
+        test_size (Optional[float]): Proportion of data to use for testing. Defaults
+            to `self.test_set_size` if None.
+        val_size (Optional[float]): Proportion of data to use for validation in a
+            holdout strategy. Defaults to `self.val_set_size` if None.
+        cv_seed (Optional[int]): Seed for cross-validation splits for reproducibility.
+            Defaults to `self.random_state_cv` if None.
+        mlp_flag (Optional[bool]): If True, enables training with a Multi-Layer
+            Perceptron (MLP) with early stopping. Defaults to `self.mlp_training`.
+        threshold_tuning (bool): If True, tunes the decision threshold in binary
+            classification to optimize for `f1` score.
+        verbose (bool): If True, enables detailed logging of the model training,
+            tuning, and evaluation processes for better traceability.
 
     Attributes:
-        task (str): Name of the task used for model evaluation.
-        classification (str): Classification type ('binary' or 'multiclass') based on
-            task.
-        df (pd.DataFrame): Loaded dataset for training, validation, and testing.
-        learner (str): Model or algorithm used for evaluation.
-        encoding (str): Encoding type for categorical features.
-        sampling (str): Resampling strategy for handling class imbalance.
-        factor (float): Factor for applying the specified resampling strategy.
-        n_configs (int): Number of configurations for hyperparameter tuning.
-        racing_folds (int): Number of racing folds for random search.
-        n_jobs (int): Number of parallel jobs for processing.
-        cv_folds (int): Number of cross-validation folds for training.
-        test_seed (int): Seed for random train-test split for reproducibility.
-        test_size (float): Proportion of data for test split.
-        val_size (float): Proportion of data for validation split in holdout.
-        cv_seed (int): Seed for cross-validation for reproducibility.
-        mlp_flag (bool): Enables MLP training with early stopping.
-        threshold_tuning (bool): Enables threshold tuning for binary classification.
-        verbose (bool): Enables verbose logging during model tuning and evaluation.
-        resampler (Resampler): Resampler instance for handling data resampling.
-        trainer (Trainer): Trainer instance for managing model training.
-        tuner (Tuner): Tuner instance for hyperparameter optimization.
+        task (str): The task name, used to set the evaluation objective.
+        classification (str): Classification type derived from the task ('binary'
+            or 'multiclass') for configuring the evaluation.
+        df (pd.DataFrame): DataFrame containing the dataset for training, validation,
+            and testing purposes.
+        learner (str): The chosen machine learning model or algorithm for evaluation.
+        encoding (str): Encoding type applied to categorical features, either
+            'one_hot' or 'target'.
+        sampling (str): Resampling strategy used to address class imbalance in
+            the dataset.
+        factor (float): Resampling factor applied to balance classes as per
+            the chosen sampling strategy.
+        n_configs (int): Number of configurations evaluated during hyperparameter
+            tuning.
+        racing_folds (int): Number of racing folds applied during random search for
+            efficient tuning.
+        n_jobs (int): Number of parallel jobs used for model training and evaluation.
+        cv_folds (int): Number of folds used for cross-validation.
+        test_seed (int): Seed for splitting data into training and test sets,
+            ensuring reproducibility.
+        test_size (float): Proportion of the dataset assigned to the test split.
+        val_size (float): Proportion of the dataset assigned to validation split in
+            holdout validation.
+        cv_seed (int): Seed for cross-validation splits to ensure consistency across
+            runs.
+        mlp_flag (bool): Enables training with a Multi-Layer Perceptron (MLP) and
+            early stopping.
+        threshold_tuning (bool): Enables tuning of the classification threshold
+            in binary classification for optimizing the F1 score.
+        verbose (bool): Controls the verbosity level of the output for detailed
+            logs during training and evaluation.
+        resampler (Resampler): Instance of the `Resampler` class for handling
+            dataset resampling based on the specified strategy.
+        trainer (Trainer): Instance of the `Trainer` class for managing the model
+            training process.
+        tuner (Tuner): Instance of the `Tuner` class used for performing
+            hyperparameter optimization.
+
 
     Abstract Method:
         - `perform_evaluation`: Abstract method to handle the model evaluation process.
@@ -237,50 +264,73 @@ class BaseBenchmark(BaseConfig):
         BaseConfig: Base configuration class providing configuration loading.
 
     Args:
-        task (str): Task for evaluation, defining classification type.
-        learners (List[str]): List of learners (models) for benchmarking.
-        tuning_methods (List[str]): List of tuning methods for learners.
-        hpo_methods (List[str]): Hyperparameter optimization methods.
-        criteria (List[str]): Evaluation criteria (e.g., 'f1', 'brier_score').
-        encodings (List[str]): Encoding types for categorical features.
-        sampling (Optional[List[Union[str, None]]]): Sampling strategy to use.
-        factor (Optional[float]): Factor for resampling.
-        n_configs (int): Number of configurations for hyperparameter tuning.
-        n_jobs (Optional[int]): Number of parallel jobs.
-        cv_folds (Optional[int]): Number of folds for cross-validation.
-        racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-        test_seed (Optional[int]): Random seed for test set splitting.
-        test_size (Optional[float]): Size of the test set as a fraction.
-        val_size (Optional[float]): Size of validation set as a fraction for holdout.
+        task (str): Task for evaluation, determining the classification type
+            (e.g., 'binary' or 'multiclass').
+        learners (List[str]): List of models or algorithms to benchmark,
+            including 'xgb', 'rf', 'lr' or 'mlp'.
+        tuning_methods (List[str]): List of tuning methods for model training,
+            such as 'holdout' or 'cv'.
+        hpo_methods (List[str]): Hyperparameter optimization strategies to apply,
+            including 'rs' and 'hebo'.
+        criteria (List[str]): Evaluation criteria for assessing model performance,
+            such as 'f1' for F1 Score or 'brier_score' for Brier Score.
+        encodings (List[str]): Encoding types to transform categorical features,
+            can either be 'one_hot' or 'target' encoding.
+        sampling (Optional[List[Union[str, None]]]): Sampling strategies to handle
+            class imbalance, options include None, 'upsampling', 'downsampling', or
+            'smote'.
+        factor (Optional[float]): Factor specifying the amount of sampling to apply
+            during resampling, if applicable.
+        n_configs (int): Number of configurations to evaluate in hyperparameter tuning.
+        n_jobs (Optional[int]): Number of parallel jobs to use for processing; set
+            to -1 to utilize all available cores.
+        cv_folds (Optional[int]): Number of cross-validation folds for model
+            training. Defaults to None.
+        racing_folds (Optional[int]): Number of racing folds to use in Random Search
+            (rs) for optimized tuning.
+        test_seed (Optional[int]): Random seed for reproducible train-test splits.
+        test_size (Optional[float]): Fraction of the dataset to allocate to test set.
+        val_size (Optional[float]): Fraction of the dataset to allocate to validation
+            in a holdout setup.
         cv_seed (Optional[int]): Seed for cross-validation splitting.
-        mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
-        threshold_tuning (bool): Enables threshold tuning if criterion is 'f1'.
-        verbose (bool): Enables verbose logging if set to True.
-        path (Path): Directory path for storing processed data.
+        mlp_flag (Optional[bool]): If True, enables Multi-Layer Perceptron (MLP)
+            training with early stopping.
+        threshold_tuning (bool): Enables decision threshold tuning for binary
+            classification when optimizing for 'f1'.
+        verbose (bool): Enables detailed logging of processes if set to True.
+        path (Path): Directory path where processed data will be stored.
         name (str): Filename for the processed data file.
 
     Attributes:
-        task (str): Task for classification or regression.
-        learners (List[str]): Selected models to benchmark.
-        tuning_methods (List[str]): Tuning methods for optimization.
-        hpo_methods (List[str]): Hyperparameter optimization strategies.
-        criteria (List[str]): Criteria for evaluating model performance.
-        encodings (List[str]): Encoding schemes for data transformation.
-        sampling (Optional[List[Union[str, None]]]): Sampling strategies.
-        factor (Optional[float]): Factor used in sampling strategy.
-        n_configs (int): Number of HPO configurations to test.
-        n_jobs (Optional[int]): Parallel jobs for model training and evaluation.
-        cv_folds (Optional[int]): Number of cross-validation folds.
-        racing_folds (Optional[int]): Racing folds for optimization.
-        test_seed (Optional[int]): Seed for test-train splits.
-        test_size (Optional[float]): Test set fraction.
-        val_size (Optional[float]): Validation set fraction for holdout tuning.
+        task (str): Task used for model classification or regression evaluation.
+        learners (List[str]): Selected models or algorithms for benchmarking.
+        tuning_methods (List[str]): List of model tuning approaches.
+        hpo_methods (List[str]): Hyperparameter optimization techniques to apply.
+        criteria (List[str]): Criteria used to evaluate model performance.
+        encodings (List[str]): Encoding methods applied to categorical features.
+        sampling (Optional[List[Union[str, None]]]): Sampling strategies employed
+            to address class imbalance.
+        factor (Optional[float]): Specifies the degree of sampling applied
+            within the chosen strategy.
+        n_configs (int): Number of configurations assessed during hyperparameter
+        optimization.
+        n_jobs (Optional[int]): Number of parallel processes for model training
+            and evaluation.
+        cv_folds (Optional[int]): Number of cross-validation folds for model training.
+        racing_folds (Optional[int]): Racing folds used in tuning with cross-validation
+            and random search..
+        test_seed (Optional[int]): Seed for consistent test-train splitting.
+        test_size (Optional[float]): Proportion of the data set aside for testing.
+        val_size (Optional[float]): Proportion of data allocated to validation
+            in holdout tuning.
         cv_seed (Optional[int]): Seed for cross-validation splitting.
-        mlp_flag (Optional[bool]): Flag indicating MLP usage with early stopping.
-        threshold_tuning (bool): Enables threshold tuning for 'f1' optimization.
-        verbose (bool): Enables verbose logging.
-        path (Path): Directory path for processed data storage.
-        name (str): Name of processed data file.
+        mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold adjustment for optimizing F1
+            in binary classification tasks.
+        verbose (bool): Flag to enable detailed logging during training and evaluation.
+        path (Path): Path where processed data is saved.
+        name (str): Name assigned to the saved processed data file.
+
     """
 
     def __init__(

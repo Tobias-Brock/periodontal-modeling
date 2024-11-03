@@ -1,6 +1,13 @@
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
+![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
+![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
+![Ruff](https://img.shields.io/badge/style-ruff-000000.svg)
+![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
+
+
 # periodontal-modeling
 
-`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. `peridontal-modeling` or in short `periomod` is specifically tailerod to hierarchical-grouped periodontal patient data and was developed for Python 3.11.
+`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `peridontal-modeling`, or in short `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11.
 
 ## Features
 
@@ -15,6 +22,24 @@
 
 ## Installation
 
+### Dependencies
+
+- `gradio==4.44.1`
+- `HEBO==0.3.5`
+- `hydra-core==1.3.2`
+- `imbalanced-learn==0.12.3`
+- `jackknife==0.1.0`
+- `matplotlib==3.9.2`
+- `numpy==1.24.4`
+- `openpyxl==3.1.5`
+- `pandas==2.2.2`
+- `scikit-learn==1.5.1`
+- `seaborn==0.13.2`
+- `shap==0.46.0`
+- `xgboost==2.1.1`
+- `python-dotenv==1.0.1`
+
+
 Ensure you have Python 3.11 installed. Install the package via pip:
 
 ```bash
@@ -28,9 +53,9 @@ pip install periodontal-modeling
 The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference.
 
 ```python
-from periomod.app import app
+from periomod.app import perioapp
 
-app.launch()
+perioapp.launch()
 ```
 
 The app can also be launched using docker. Run the following commands in the root of the repository:
@@ -39,9 +64,9 @@ The app can also be launched using docker. Run the following commands in the roo
 docker build -f docker/app.dockerfile -t periomod-image .
 docker run -p 7880:7880 periomod-image
 ```
-By default the app will be launched on port 7880 and can be accessed via `http://localhost:7880`.
+By default, the app will be launched on port 7880 and can be accessed at `http://localhost:7880`.
 
-Alternatively, the `make` commands can be used to build and run the docker image:
+Alternatively, the following `make` commands are available to build and run the docker image:
 
 ```bash
 make docker-build
@@ -419,7 +444,11 @@ jackknife_results, ci_plots = evaluator.wrapped_jackknife(
 
 ## License
 
-This project is licensed under the MIT License.
+© 2024 Tobias Brock
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+See the [LICENSE](./LICENSE) file for more details or read the full license at
+[Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 
 ## Contributing
 

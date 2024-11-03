@@ -54,25 +54,29 @@ class BaseModelEvaluator(ABC):
         - ABC: Specifies abstract methods for subclasses to implement.
 
     Args:
-        X (pd.DataFrame): Test dataset features.
-        y (pd.Series): Test dataset labels.
-        model (Union[sklearn estimators, None]): A trained sklearn model instance.
-        models (Union[List[sklearn estimators], None]): List of trained models.
-        encoding (Optional[str]): Encoding type for plot titles (e.g., 'one_hot'
-            or 'target').
-        aggregate (bool): If True, aggregates importance values of one-hot encoded
-            features.
+        X (pd.DataFrame): The test dataset features.
+        y (pd.Series): The test dataset labels.
+        model (Optional[sklearn.base.BaseEstimator]): A trained sklearn model instance
+            for single-model evaluation.
+        models (Optional[List[sklearn.base.BaseEstimator]]): A list of trained models
+            for evaluation.
+        encoding (Optional[str]): Encoding type for categorical features, e.g.,
+            'one_hot' or 'target', used for labeling and grouping in plots.
+        aggregate (bool): If True, aggregates the importance values of one-hot encoded
+            features for interpretability.
 
     Attributes:
-        X (pd.DataFrame): Stores the test dataset features for evaluation.
-        y (pd.Series): Stores the test dataset labels for evaluation.
-        model (Union[sklearn estimators, None]): The primary model for evaluation.
-        models (List[sklearn estimators]): List of trained models for multi-model
-            evaluation.
-        encoding (Optional[str]): The encoding type used, impacting plot titles
-            and feature grouping.
-        aggregate (bool): Determines if importance values of one-hot encoded
-            features are aggregated for interpretability.
+        X (pd.DataFrame): Holds the test dataset features for evaluation.
+        y (pd.Series): Holds the test dataset labels for evaluation.
+        model (Optional[sklearn.base.BaseEstimator]): The primary model instance used
+            for evaluation, if single-model evaluation is performed.
+        models (List[sklearn.base.BaseEstimator]): List of trained models for
+            evaluation, if applicable.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            one-hot encoded features, enhancing interpretability in feature
+            importance plots.
 
     Methods:
         brier_score_groups: Calculates Brier score within specified groups.

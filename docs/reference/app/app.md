@@ -1,1 +1,1 @@
-::: periomod.app.app
+::: periomod.app.perioapp

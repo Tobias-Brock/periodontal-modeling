@@ -67,6 +67,9 @@ class StaticProcessEngine(BaseProcessor):
     def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
 
+        Imputation rules exist for a predefined set of variables.
+        The method will only impute the columns present in the dataframe.
+
         Args:
             df (pd.DataFrame): The DataFrame with missing values.
 
@@ -193,13 +196,13 @@ class StaticProcessEngine(BaseProcessor):
         return df
 
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Processes dataset with data cleaning, imputations and scaling.
+        """Processes dataset with data cleaning, imputation and transformation.
 
         Args:
             df (pd.DataFrame): The input DataFrame.
 
         Returns:
-            pd.DataFrame: The processed DataFrame.
+            pd.DataFrame: The imputed Dataframe with added feature and target columns.
         """
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]

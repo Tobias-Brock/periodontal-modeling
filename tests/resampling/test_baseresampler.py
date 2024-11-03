@@ -119,7 +119,6 @@ def test_validate_dataframe():
     df = create_sample_data()
     resampler = Resampler(classification="binary", encoding="one_hot")
 
-    # Remove 'y' column to simulate the missing column
     df = df.drop(columns=["y"])
 
     with pytest.raises(

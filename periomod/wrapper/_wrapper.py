@@ -87,29 +87,35 @@ class BenchmarkWrapper(BaseBenchmark):
           configuration for task, learners, tuning methods, HPO, and criteria.
 
     Args:
-        task (str): Task for evaluation, defining classification type.
-        encodings (List[str]): List of encoding types for categorical features.
-        learners (List[str]): List of learners (models) to benchmark.
-        tuning_methods (List[str]): List of tuning methods for learners.
-        hpo_methods (List[str]): Hyperparameter optimization methods.
-        criteria (List[str]): Evaluation criteria for benchmarking.
-        sampling (Optional[List[Union[str, None]]]): Sampling strategy for data.
-        factor (Optional[float]): Resampling factor (if applicable).
+        task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
+            'improvement', or 'pdgrouprevaluation'.).
+        learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
+            'mlp').
+        tuning_methods (List[str]): Tuning methods for each learner ('holdout', 'cv').
+        hpo_methods (List[str]): HPO methods ('hebo' or 'rs').
+        criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
+            'brier_score').
+        encodings (List[str]): List of encodings ('one_hot' or 'target').
+        sampling (Optional[List[str]]): Sampling strategies to handle class imbalance.
+            Includes None, 'upsampling', 'downsampling', and 'smote'.
+        factor (Optional[float]): Factor to apply during resampling.
         n_configs (int): Number of configurations for hyperparameter tuning.
-        n_jobs (Optional[int]): Number of parallel jobs.
-        cv_folds (Optional[int]): Number of cross-validation folds.
-        racing_folds (Optional[int]): Number of racing folds for RS.
-        test_seed (Optional[int]): Random seed for test splits.
-        test_size (Optional[float]): Fraction of data allocated to test set.
-        val_size (Optional[float]): Fraction of data allocated to validation set.
-        cv_seed (Optional[int]): Seed for cross-validation splitting.
-        mlp_flag (Optional[bool]): Flag for enabling MLP with early stopping.
-        threshold_tuning (bool): Enable threshold tuning for binary classification
-            if criterion is 'f1'.
-        verbose (bool): Enable verbose output if set to True.
-        path (Path): Directory path for processed data storage.
-        name (str): Filename for processed data.
-
+            Defaults to 10.
+        n_jobs (Optional[int]): Number of parallel jobs for processing.
+        cv_folds (Optional[int]): Number of folds for cross-validation.
+        racing_folds (Optional[int]): Number of racing folds for random search cv.
+        test_seed (Optional[int]): Seed for random train-test split.
+        test_size (Optional[float]): Proportion of data used for testing.
+        val_size (Optional[float]): Proportion of data for validation in holdout.
+        cv_seed (Optional[int]): Seed for cross-validation splits.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): If True, enables detailed logging during benchmarking.
+            Defaults to False.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file. Defaults to
+            "processed_data.csv".
+    s
     Attributes:
         classification (str): 'binary' or 'multiclass' based on the task.
 
@@ -275,7 +281,11 @@ class BenchmarkWrapper(BaseBenchmark):
         """
         save_path = path / (folder_name if folder_name else self.task)
         os.makedirs(save_path, exist_ok=True)
-        csv_file_name = file_name if file_name else "benchmark.csv"
+        csv_file_name = (
+            file_name
+            if file_name and file_name.endswith(".csv")
+            else f"{file_name or 'benchmark'}.csv"
+        )
         csv_file_path = save_path / csv_file_name
         benchmark_df.to_csv(csv_file_path, index=False)
         print(f"Saved benchmark report to {csv_file_path}")
@@ -317,7 +327,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
 
     Args:
         learners_dict (dict): Dictionary containing trained models and their metadata.
-        criterion (str): The criterion used to select the best model (e.g., 'f1').
+        criterion (str): The criterion used to select the best model ('f1', 'macro_f1',
+            'brier_score').
         aggregate (bool, optional): Whether to aggregate one-hot encoding. Defaults
             to True.
         verbose (bool, optional): If True, enables verbose logging during evaluation
@@ -457,11 +468,12 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         metrics_list = Parallel(n_jobs=n_jobs)(
             delayed(self._train_and_get_metrics)(seed, self.learner) for seed in seeds
         )
-        avg_metrics = {
-            metric: sum(d[metric] for d in metrics_list) / num_splits
-            for metric in metrics_list[0]
-            if metric != "Confusion Matrix"
-        }
+        avg_metrics = {}
+        for metric in metrics_list[0]:
+            if metric == "Confusion Matrix":
+                continue
+            values = [d[metric] for d in metrics_list if d[metric] is not None]
+            avg_metrics[metric] = sum(values) / len(values) if values else None
 
         avg_confusion_matrix = None
         if self.classification == "binary" and "Confusion Matrix" in metrics_list[0]:

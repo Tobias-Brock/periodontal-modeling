@@ -25,13 +25,17 @@ class Experiment(BaseExperiment):
     Args:
         df (pd.DataFrame): The preloaded data for the experiment.
         task (str): The task name used to determine classification type.
+            Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
+            'pdgrouprevaluation'.
         learner (str): Specifies the model or algorithm to evaluate.
-        criterion (str): Criterion for optimization ('macro_f1' or 'brier_score').
+            Includes 'xgb', 'rf', 'lr' or 'mlp'.
+        criterion (str): Criterion for optimization ('f1', 'macro_f1' or 'brier_score').
         encoding (str): Encoding type for categorical features ('one_hot' or 'binary').
         tuning (Optional[str]): Tuning method to apply ('holdout' or 'cv'). Can be None.
-        hpo (Optional[str]): Hyperparameter optimization method (e.g., 'rs', 'hebo').
+        hpo (Optional[str]): Hyperparameter optimization method ('rs' or 'hebo').
             Can be None.
         sampling (Optional[str]): Resampling strategy to apply. Defaults to None.
+            Includes None, 'upsampling', 'downsampling', and 'smote'.
         factor (Optional[float]): Resampling factor. Defaults to None.
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
@@ -239,18 +243,23 @@ class Benchmarker(BaseBenchmark):
         - BaseBenchmark: Provides common benchmarking attributes.
 
     Args:
-        task (str): Task for evaluation (e.g., 'pocketclosure', 'improve').
-        learners (List[str]): List of learners to benchmark (e.g., 'xgb', 'rf').
+        task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
+            'improvement', or 'pdgrouprevaluation'.).
+        learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
+            'mlp').
         tuning_methods (List[str]): Tuning methods for each learner ('holdout', 'cv').
-        hpo_methods (List[str]): HPO methods (e.g., 'hebo', 'rs').
-        criteria (List[str]): List of evaluation criteria ('f1', 'brier_score').
+        hpo_methods (List[str]): HPO methods ('hebo' or 'rs').
+        criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
+            'brier_score').
         encodings (List[str]): List of encodings ('one_hot' or 'target').
         sampling (Optional[List[str]]): Sampling strategies to handle class imbalance.
+            Includes None, 'upsampling', 'downsampling', and 'smote'.
         factor (Optional[float]): Factor to apply during resampling.
         n_configs (int): Number of configurations for hyperparameter tuning.
+            Defaults to 10.
         n_jobs (Optional[int]): Number of parallel jobs for processing.
         cv_folds (Optional[int]): Number of folds for cross-validation.
-        racing_folds (Optional[int]): Number of racing folds for random search.
+        racing_folds (Optional[int]): Number of racing folds for random search cv.
         test_seed (Optional[int]): Seed for random train-test split.
         test_size (Optional[float]): Proportion of data used for testing.
         val_size (Optional[float]): Proportion of data for validation in holdout.
@@ -258,8 +267,10 @@ class Benchmarker(BaseBenchmark):
         mlp_flag (Optional[bool]): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         verbose (bool): If True, enables detailed logging during benchmarking.
+            Defaults to True.
         path (Path): Path to the directory containing processed data files.
-        name (str): File name for the processed data file.
+        name (str): File name for the processed data file. Defaults to
+            "processed_data.csv".
 
     Attributes:
         task (str): The specified task for evaluation.
@@ -404,9 +415,14 @@ class Benchmarker(BaseBenchmark):
         top_models_per_criterion: Dict[
             str, List[Tuple[float, object, str, str, str, str]]
         ] = {criterion: [] for criterion in self.criteria}
+
         metric_map = {
             "f1": "F1 Score",
-            "brier_score": "Brier Score",
+            "brier_score": (
+                "Multiclass Brier Score"
+                if self.task == "pdgrouprevaluation"
+                else "Brier Score"
+            ),
             "macro_f1": "Macro F1",
         }
 
@@ -418,6 +434,9 @@ class Benchmarker(BaseBenchmark):
             self.encodings,
             self.sampling or ["no_sampling"],
         ):
+            if sampling is None:
+                self.factor = None
+
             if (criterion == "macro_f1" and self.task != "pdgrouprevaluation") or (
                 criterion == "f1" and self.task == "pdgrouprevaluation"
             ):
@@ -517,16 +536,23 @@ class Benchmarker(BaseBenchmark):
                         ] = current_model_data
 
             except Exception as e:
+                error_message = str(e)
                 if (
                     "Matrix not positive definite after repeatedly adding jitter"
-                    in str(e)
+                    in error_message
+                    or "elements of the" in error_message
+                    and "are NaN" in error_message
+                    or "cholesky_cpu" in error_message
                 ):
                     print(
                         f"Suppressed NotPSDError for {self.task}, {learner} due to"
                         f"convergence issue \n"
                     )
                 else:
-                    print(f"Error running benchmark for {self.task}, {learner}: {e}\n")
+                    print(
+                        f"Error running benchmark for {self.task}, {learner}: "
+                        f"{error_message}\n"
+                    )
                     traceback.print_exc()
 
         for criterion, models in top_models_per_criterion.items():

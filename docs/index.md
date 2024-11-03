@@ -32,9 +32,9 @@ The `Makefile` provides key entry points for common tasks, making project setup 
 Launch the Gradio app for interactive model evaluation and benchmarking either directly or through Docker:
 
 ```python
-from periomod.app import app
+from periomod.app import perioapp
 
-app.launch()
+perioapp.launch()
 ```
 
 For Docker:
