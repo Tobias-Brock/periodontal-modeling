@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Tuple, Union
 
 import pandas as pd
@@ -6,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 from ..base import BaseConfig
+from ..config import PROCESSED_BASE_DIR
 from ..data import ProcessedDataLoader
 from ..resampling import Resampler
 from ..training import final_metrics, get_probs
@@ -29,6 +31,9 @@ class Baseline(BaseConfig):
             'prior'.
         models (List[Tuple[str, object]], optional): List of models to benchmark.
             If not provided, default models are initialized.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file. Defaults to
+            "processed_data.csv".
 
     Attributes:
         classification (str): Specifies classification type ('binary' or
@@ -43,6 +48,8 @@ class Baseline(BaseConfig):
         models (List[Tuple[str, object]]): List of models to benchmark, each
             represented as a tuple containing the model's name and the initialized
             model object.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file.
 
     Methods:
         baseline: Trains and evaluates each model in the models list, returning
@@ -73,21 +80,10 @@ class Baseline(BaseConfig):
         lr_solver: str = "saga",
         dummy_strategy: str = "prior",
         models: Union[List[Tuple[str, object]], None] = None,
+        path: Path = PROCESSED_BASE_DIR,
+        name: str = "processed_data.csv",
     ) -> None:
-        """Initializes the Baseline class with default or user-specified models.
-
-        Args:
-            task (str): Task name that determines the classification type.
-            encoding (str): Encoding type used in data processing.
-            random_state (int, optional): Random state for reproducibility. Defaults
-                to 0.
-            lr_solver (str, optional): Solver for Logistic Regression. Defaults to
-                'saga'.
-            dummy_strategy (str, optional): Strategy for the DummyClassifier.
-                Defaults to 'prior'.
-            models (List[Tuple[str, object]], optional): List of models to use for
-                benchmarking. If not provided, default models are initialized.
-        """
+        """Initializes the Baseline class with default or user-specified models."""
         if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
             self.classification = "binary"
         elif task == "pdgrouprevaluation":
@@ -104,6 +100,8 @@ class Baseline(BaseConfig):
         self.dummy_strategy = dummy_strategy
         self.lr_solver = lr_solver
         self.random_state = random_state
+        self.path = path
+        self.name = name
         self.default_models: Union[list[str], None]
 
         if models is None:
@@ -139,7 +137,7 @@ class Baseline(BaseConfig):
             pd.DataFrame: A DataFrame containing the evaluation metrics for each
             baseline model, with model names as row indices.
         """
-        df = self.dataloader.load_data()
+        df = self.dataloader.load_data(path=self.path, name=self.name)
         df = self.dataloader.transform_data(df=df)
         train_df, test_df = self.resampler.split_train_test_df(df=df)
         X_train, y_train, X_test, y_test = self.resampler.split_x_y(

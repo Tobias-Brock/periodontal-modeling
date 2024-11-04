@@ -7,31 +7,6 @@ import hydra
 import pandas as pd
 
 
-def _validate_classification(classification: str) -> None:
-    """Validates the classification type.
-
-    Args:
-        classification (str): The type of classification ('binary' or 'multiclass').
-    """
-    if classification.lower().strip() not in ["binary", "multiclass"]:
-        raise ValueError(
-            f"{classification} is an invalid classification type."
-            f"Choose 'binary' or 'multiclass'."
-        )
-
-
-def _validate_hpo(hpo: Optional[str]) -> None:
-    """Validates the hpo.
-
-    Args:
-        hpo (Optional[str]): The type of hpo ('rs' or 'hebo').
-    """
-    if hpo not in [None, "rs", "hebo"]:
-        raise ValueError(
-            f" {hpo} is an unsupported HPO type." f"Choose either 'rs' or 'hebo'."
-        )
-
-
 class BaseConfig:
     """Base class to initialize Hydra configuration.
 
@@ -184,20 +159,57 @@ class BaseValidator(BaseConfig):
     ) -> None:
         """Initializes BaseValidator method for with validation functions for inputs."""
         super().__init__()
-        _validate_classification(classification)
-        _validate_hpo(hpo)
         self.classification = classification
         self.criterion = criterion
         self.hpo = hpo
         self.tuning = tuning
+        self._validate_classification()
+        self._validate_hpo()
         self._validate_criterion()
         self._validate_tuning()
 
-    def _validate_criterion(self) -> None:
-        """Validates the evaluation criterion.
+    def _validate_classification(self) -> None:
+        """Validates the classification type for the model.
 
         Raises:
-            ValueError: If the criterion is unsupported.
+            ValueError: If `self.classification` is not 'binary' or 'multiclass'.
+
+        Expected classification types:
+            - 'binary'
+            - 'multiclass'
+        """
+        if self.classification.lower().strip() not in ["binary", "multiclass"]:
+            raise ValueError(
+                f"{self.classification} is an invalid classification type. "
+                f"Choose 'binary' or 'multiclass'."
+            )
+
+    def _validate_hpo(self) -> None:
+        """Validates the hyperparameter optimization (HPO) type.
+
+        Raises:
+            ValueError: If `self.hpo` is not None, 'rs', or 'hebo'.
+
+        Supported HPO types:
+            - None
+            - 'rs' (Random Search)
+            - 'hebo' (Heteroscedastic Bayesian Optimization)
+        """
+        if self.hpo not in [None, "rs", "hebo"]:
+            raise ValueError(
+                f"{self.hpo} is an unsupported HPO type. Choose 'rs' or 'hebo'."
+            )
+
+    def _validate_criterion(self) -> None:
+        """Validates the evaluation criterion for model performance.
+
+        Raises:
+            ValueError: If `self.criterion` is not a supported evaluation metrics.
+
+        Supported evaluation criteria:
+            - 'f1'
+            - 'macro_f1'
+            - 'brier_score'
         """
         if self.criterion not in ["f1", "macro_f1", "brier_score"]:
             raise ValueError(
@@ -206,10 +218,15 @@ class BaseValidator(BaseConfig):
             )
 
     def _validate_tuning(self) -> None:
-        """Validates the tuning method.
+        """Validates the tuning method for hyperparameter optimization.
 
         Raises:
-            ValueError: If the tuning method is unsupported.
+            ValueError: If `self.tuning` is not None, 'holdout', or 'cv'.
+
+        Supported tuning methods:
+            - None
+            - 'holdout'
+            - 'cv' (Cross-Validation)
         """
         if self.tuning not in [None, "holdout", "cv"]:
             raise ValueError(

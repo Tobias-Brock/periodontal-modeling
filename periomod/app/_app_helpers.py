@@ -403,9 +403,7 @@ def _run_benchmarks(
         return "No results to display", None, None
 
     df_results = df_results.round(4)
-
     classification = "multiclass" if "pdgrouprevaluation" in task else "binary"
-
     available_metrics = df_results.columns.tolist()
 
     if classification == "binary":
@@ -597,6 +595,7 @@ def _plot_fi(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> plt.Figure:
     """Generates a feature importance plot using FeatureImportanceEngine.
 
@@ -606,6 +605,7 @@ def _plot_fi(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         plt.Figure: Feature importance plot.
@@ -614,7 +614,7 @@ def _plot_fi(
         return "No model available."
 
     ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
     ).evaluate_feature_importance(fi_types=fi_types)
     return plt.gcf()
 
@@ -624,6 +624,7 @@ def _plot_cluster(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
 ) -> Tuple[plt.Figure, plt.Figure]:
     """Performs clustering on Brier score and returns related plots.
@@ -633,6 +634,7 @@ def _plot_cluster(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters for Brier score analysis.
 
     Returns:
@@ -643,7 +645,7 @@ def _plot_cluster(
         return "No model available."
 
     return ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
     ).analyze_brier_within_clusters(n_clusters=n_clusters)
 
 
@@ -669,9 +671,10 @@ def _plot_fi_wrapper(
     models: dict,
     selected_model: str,
     fi_types: List[str],
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> Any:
     """Wrapper function to call plot_fi.
 
@@ -679,9 +682,10 @@ def _plot_fi_wrapper(
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
         fi_types (List[str]): List of importance types.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         Any: The result from the plot_fi function.
@@ -692,15 +696,17 @@ def _plot_fi_wrapper(
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
     )
 
 
 def _plot_cluster_wrapper(
     models: dict,
     selected_model: str,
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
 ) -> Tuple[Any, Any]:
     """Wrapper function to call plot_cluster.
@@ -708,9 +714,10 @@ def _plot_cluster_wrapper(
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters.
 
     Returns:
@@ -721,6 +728,7 @@ def _plot_cluster_wrapper(
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
         n_clusters=n_clusters,
     )
 

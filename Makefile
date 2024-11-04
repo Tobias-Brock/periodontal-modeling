@@ -72,7 +72,7 @@ benchmark:
 
 .PHONY: app
 app:
-	$(PYTHON_INTERPRETER) periomod/app/app.py
+	$(PYTHON_INTERPRETER) periomod/app/_app.py
 
 ## Build Docker image
 .PHONY: docker-build

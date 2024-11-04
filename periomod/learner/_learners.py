@@ -74,8 +74,8 @@ class Model(BaseConfig):
             learner (str): The machine learning algorithm to use
                 (e.g., 'rf', 'mlp', 'xgb', 'lr').
             classification (str): The type of classification ('binary' or 'multiclass').
-            hpo (str, optional): The hyperparameter optimization method to use
-                (default None).
+            hpo (str, optional): The hyperparameter optimization method to use.
+                Defaults to None.
         """
         super().__init__()
         self.classification = classification

@@ -47,20 +47,21 @@ class BaseLoader(BaseConfig, ABC):
         """
 
     @abstractmethod
-    def save_data(self, df: pd.DataFrame, path: Path, name: str):
-        """Loads the processed data from the specified path.
+    def save_data(self, df: pd.DataFrame, path: Path, name: str) -> None:
+        """Saves the processed data to the specified path as a CSV file.
 
         Args:
-            df (pd.DataFrame): Pandas DataFrame.
-            path (Path): Directory path for the processed data.
-            name (str): File name for the processed data.
+            df (pd.DataFrame): The processed DataFrame.
+            path (Path): Directory path where the processed data will be saved.
+            name (str): File name for the processed data. If the file name does
+                not include a `.csv` extension, it will be added automatically.
         """
         if df.empty:
             raise ValueError("Data must be processed before saving.")
-
+        if not name.endswith(".csv"):
+            name += ".csv"
         processed_file_path = os.path.join(path, name)
         os.makedirs(path, exist_ok=True)
-
         df.to_csv(processed_file_path, index=False)
         print(f"Data saved to {processed_file_path}")
 

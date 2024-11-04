@@ -62,8 +62,8 @@ class BaseModelEvaluator(ABC):
             for evaluation.
         encoding (Optional[str]): Encoding type for categorical features, e.g.,
             'one_hot' or 'target', used for labeling and grouping in plots.
-        aggregate (bool): If True, aggregates the importance values of one-hot encoded
-            features for interpretability.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
         X (pd.DataFrame): Holds the test dataset features for evaluation.
@@ -75,7 +75,7 @@ class BaseModelEvaluator(ABC):
         encoding (Optional[str]): Indicates the encoding type used, which impacts
             plot titles and feature grouping in evaluations.
         aggregate (bool): Indicates whether to aggregate importance values of
-            one-hot encoded features, enhancing interpretability in feature
+            multi-category encoded features, enhancing interpretability in feature
             importance plots.
 
     Methods:

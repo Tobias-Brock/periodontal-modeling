@@ -56,6 +56,12 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         inference_engine (ModelInference): Model inference manager.
         trainer (Trainer): Trainer for model evaluation and optimization.
 
+    Properties:
+        criterion (str): Retrieves or sets the current evaluation criterion for model
+            selection. Supports 'f1', 'brier_score', and 'macro_f1'.
+        model (object): Retrieves the best-ranked model dynamically based on the current
+            criterion. Recalculates when criterion is updated.
+
     Abstract Methods:
         - `wrapped_evaluation`: Performs model evaluation and generates specified plots.
         - `evaluate_feature_importance`: Computes feature importance using specified
@@ -87,14 +93,8 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         self.criterion = criterion
         self.aggregate = aggregate
         self.verbose = verbose
-        (
-            self.model,
-            self.encoding,
-            self.learner,
-            self.task,
-            self.factor,
-            self.sampling,
-        ) = self._get_best()
+        self._update_best_model()
+
         self.classification = (
             "multiclass" if self.task == "pdgrouprevaluation" else "binary"
         )
@@ -130,6 +130,60 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
             tuning=None,
             hpo=None,
         )
+
+    @property
+    def criterion(self) -> str:
+        """The current evaluation criterion used to select the best model.
+
+        Returns:
+            str: The current criterion for model selection (e.g., 'f1', 'brier_score').
+
+        Raises:
+            ValueError: If an unsupported criterion is assigned.
+        """
+        return self._criterion
+
+    @criterion.setter
+    def criterion(self, value: str) -> None:
+        """Sets the evaluation criterion and updates related attributes accordingly.
+
+        Args:
+            value (str): The criterion for selecting the model ('f1', 'brier_score',
+                or 'macro_f1').
+
+        Raises:
+            ValueError: If the provided criterion is unsupported.
+        """
+        if value not in ["f1", "brier_score", "macro_f1"]:
+            raise ValueError(
+                "Unsupported criterion. Choose 'f1', 'macro_f1', or 'brier_score'."
+            )
+        self._criterion = value
+        self._update_best_model()
+
+    @property
+    def model(self) -> Any:
+        """Retrieves the best model based on the current criterion.
+
+        Returns:
+            Any: The model object selected according to the current criterion.
+
+        Raises:
+            ValueError: If no model matching the criterion and rank is found.
+        """
+        return self._model
+
+    def _update_best_model(self) -> None:
+        """Retrieves and updates the best model based on the current criterion."""
+        (
+            best_model,
+            self.encoding,
+            self.learner,
+            self.task,
+            self.factor,
+            self.sampling,
+        ) = self._get_best()
+        self._model = best_model
 
     def _get_best(self) -> Tuple[Any, str, str, str, Optional[float], Optional[str]]:
         """Retrieves best model entities.

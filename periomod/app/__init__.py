@@ -1,6 +1,6 @@
 """App module."""
 
-from periomod.app._app_helpers import (
+from periomod.app._app_helpers import (  # noqa: I001
     _app_inference,
     _benchmarks_wrapper,
     _brier_score_wrapper,
@@ -29,7 +29,7 @@ from periomod.app._app_helpers import (
     all_teeth,
 )
 from periomod.app._inputprocessor import InputProcessor
-from periomod.app.app import perioapp
+from periomod.app._app import perioapp
 
 __all__ = [
     "perioapp",
