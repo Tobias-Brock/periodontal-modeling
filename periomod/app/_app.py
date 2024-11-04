@@ -516,21 +516,34 @@ with gr.Blocks() as perioapp:
             generate_brier_scores_button = gr.Button("Generate Brier Scores")
             brier_score_plot = gr.Plot()
 
-            importance_type_input = gr.CheckboxGroup(
-                label="Importance Types",
-                choices=["shap", "permutation", "standard"],
-                value=["shap"],
-            )
+            with gr.Row():
+                importance_type_input = gr.CheckboxGroup(
+                    label="Importance Types",
+                    choices=["shap", "permutation", "standard"],
+                    value=["shap"],
+                )
+                aggregate_fi_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
 
             generate_feature_importance_button = gr.Button(
                 "Generate Feature Importance"
             )
             fi_plot = gr.Plot()
 
+            with gr.Row():
+                n_clusters_input = gr.Slider(
+                    label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
+                )
+                aggregate_cluster_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
+
             cluster_button = gr.Button("Perform Brier Score Clustering")
-            n_clusters_input = gr.Slider(
-                label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
-            )
             cluster_brier_plot = gr.Plot()
             cluster_heatmap_plot = gr.Plot()
 
@@ -582,6 +595,7 @@ with gr.Blocks() as perioapp:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_fi_input,
                 ],
                 outputs=fi_plot,
             )
@@ -594,6 +608,7 @@ with gr.Blocks() as perioapp:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_cluster_input,
                     n_clusters_input,
                 ],
                 outputs=[cluster_brier_plot, cluster_heatmap_plot],

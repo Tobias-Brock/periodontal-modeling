@@ -264,16 +264,16 @@ class BaseBenchmark(BaseConfig):
         BaseConfig: Base configuration class providing configuration loading.
 
     Args:
-        task (str): Task for evaluation, determining the classification type
-            (e.g., 'binary' or 'multiclass').
+        task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
+            'improvement', or 'pdgrouprevaluation'.).
         learners (List[str]): List of models or algorithms to benchmark,
             including 'xgb', 'rf', 'lr' or 'mlp'.
         tuning_methods (List[str]): List of tuning methods for model training,
             such as 'holdout' or 'cv'.
         hpo_methods (List[str]): Hyperparameter optimization strategies to apply,
-            including 'rs' and 'hebo'.
-        criteria (List[str]): Evaluation criteria for assessing model performance,
-            such as 'f1' for F1 Score or 'brier_score' for Brier Score.
+            includes 'rs' and 'hebo'.
+        criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
+            'brier_score').
         encodings (List[str]): Encoding types to transform categorical features,
             can either be 'one_hot' or 'target' encoding.
         sampling (Optional[List[Union[str, None]]]): Sampling strategies to handle
@@ -313,7 +313,7 @@ class BaseBenchmark(BaseConfig):
         factor (Optional[float]): Specifies the degree of sampling applied
             within the chosen strategy.
         n_configs (int): Number of configurations assessed during hyperparameter
-        optimization.
+            optimization.
         n_jobs (Optional[int]): Number of parallel processes for model training
             and evaluation.
         cv_folds (Optional[int]): Number of cross-validation folds for model training.
@@ -380,3 +380,26 @@ class BaseBenchmark(BaseConfig):
         self.threshold_tuning = threshold_tuning
         self.path = path
         self.name = name
+        self._validate_task()
+
+    def _validate_task(self) -> None:
+        """Validates the task type for the model.
+
+        Raises:
+            ValueError: If `self.task` is not one of the recognized task types.
+
+        Supported task types:
+            - "pocketclosure"
+            - "pocketclosureinf"
+            - "improvement"
+            - "pdgrouprevaluation"
+        """
+        if self.task not in {
+            "pocketclosure",
+            "pocketclosureinf",
+            "improvement",
+            "pdgrouprevaluation",
+        }:
+            raise ValueError(
+                f"Unknown task: {self.task}. Unable to determine classification."
+            )

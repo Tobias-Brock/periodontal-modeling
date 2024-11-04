@@ -58,13 +58,20 @@ from periomod.app import perioapp
 perioapp.launch()
 ```
 
+If you download the repository and install the package in editable mode, the following `make` command starts the app:
+
+```bash
+pip install -e .
+make app
+```
+
 The app can also be launched using docker. Run the following commands in the root of the repository:
 
 ```bash
 docker build -f docker/app.dockerfile -t periomod-image .
-docker run -p 7880:7880 periomod-image
+docker run -p 7890:7890 periomod-image
 ```
-By default, the app will be launched on port 7880 and can be accessed at `http://localhost:7880`.
+By default, the app will be launched on port 7890 and can be accessed at `http://localhost:7890`.
 
 Alternatively, the following `make` commands are available to build and run the docker image:
 

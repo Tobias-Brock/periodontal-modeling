@@ -38,8 +38,8 @@ class ModelEvaluator(BaseModelEvaluator):
             instances for evaluation, enabling multi-model analysis.
         encoding (Optional[str]): Encoding type for categorical variables used in plot
             titles and feature grouping (e.g., 'one_hot' or 'target').
-        aggregate (bool): Determines if one-hot feature importance values should be
-            aggregated to improve interpretability.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
         X (pd.DataFrame): Stores the test dataset features for model evaluation.
@@ -47,10 +47,11 @@ class ModelEvaluator(BaseModelEvaluator):
         model (Optional[sklearn.base.BaseEstimator]): Primary model used for evaluation.
         models (List[sklearn.base.BaseEstimator]): Collection of models for multi-model
             evaluations.
-        encoding (Optional[str]): Indicates encoding type used, affecting plot titles
-            and feature grouping.
-        aggregate (bool): Specifies whether to aggregate one-hot feature importance
-            values to improve interpretability.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            multi-category encoded features, enhancing interpretability in feature
+            importance plots.
 
     Methods:
         evaluate_feature_importance: Calculates feature importance scores using

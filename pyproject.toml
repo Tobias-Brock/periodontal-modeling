@@ -15,7 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "License :: Other/Proprietary License",
 ]
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.12"
 
 # Core dependencies required to run the package
 dependencies = [
@@ -38,6 +38,9 @@ dependencies = [
 # Dependencies for documentation
 docs = [
   "mkdocs==1.6.1",
+  "mkdocs-material==9.5.43",
+  "mkdocstrings==0.26.2",
+  "mkdocstrings-python==1.12.2"
 ]
 
 # Dependencies for testing

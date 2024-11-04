@@ -115,7 +115,7 @@ class BenchmarkWrapper(BaseBenchmark):
         path (Path): Path to the directory containing processed data files.
         name (str): File name for the processed data file. Defaults to
             "processed_data.csv".
-    s
+
     Attributes:
         classification (str): 'binary' or 'multiclass' based on the task.
 
@@ -218,7 +218,9 @@ class BenchmarkWrapper(BaseBenchmark):
         baseline_dfs = []
 
         for encoding in self.encodings:
-            baseline_df = Baseline(task=self.task, encoding=encoding).baseline()
+            baseline_df = Baseline(
+                task=self.task, encoding=encoding, path=self.path, name=self.name
+            ).baseline()
             baseline_df["Encoding"] = encoding
             baseline_dfs.append(baseline_df)
 
@@ -309,7 +311,6 @@ class BenchmarkWrapper(BaseBenchmark):
         for model_name, model in learners_dict.items():
             model_file_name = f"{model_name}.pkl"
             model_path = save_path / model_file_name
-
             joblib.dump(model, model_path)
             print(f"Saved model {model_name} to {model_path}")
 
@@ -370,6 +371,12 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         wrapped_patient_inference: Conducts inference on individual patient data.
         wrapped_jackknife: Executes jackknife resampling on patient data to
             estimate confidence intervals.
+
+    Properties:
+        criterion (str): Retrieves or sets the current evaluation criterion for model
+            selection. Supports 'f1', 'brier_score', and 'macro_f1'.
+        model (object): Retrieves the best-ranked model dynamically based on the current
+            criterion. Recalculates when criterion is updated.
 
     Examples:
         ```
@@ -464,7 +471,6 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             pd.DataFrame: DataFrame containing average performance metrics.
         """
         seeds = range(num_splits)
-
         metrics_list = Parallel(n_jobs=n_jobs)(
             delayed(self._train_and_get_metrics)(seed, self.learner) for seed in seeds
         )
