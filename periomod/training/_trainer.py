@@ -189,6 +189,8 @@ class Trainer(BaseTrainer):
         X_val: pd.DataFrame,
         y_val: pd.Series,
         final: bool = False,
+        tol: float = 0.0001,
+        n_iter_no_change: int = 5,
     ) -> Tuple:
         """Trains MLPClassifier with early stopping and evaluates performance.
 
@@ -201,6 +203,9 @@ class Trainer(BaseTrainer):
             X_val (pd.DataFrame): Validation features.
             y_val (pd.Series): Validation labels.
             final (bool): Flag for final model training.
+            tol (float): Tolerance for improvement. Defaults to 0.0001.
+            n_iter_no_change (int): Iterations without improvement in criterion for
+                early stopping. Defaults to 5.
 
         Returns:
             tuple (Tuple): The best validation score, trained MLPClassifier, and the
@@ -227,9 +232,9 @@ class Trainer(BaseTrainer):
                 )
 
             if self.criterion in ["f1", "macro_f1"]:
-                improvement = score > best_val_score + self.tol
+                improvement = score > best_val_score + tol
             else:
-                improvement = score < best_val_score - self.tol
+                improvement = score < best_val_score - tol
 
             if improvement:
                 best_val_score = score
@@ -237,7 +242,7 @@ class Trainer(BaseTrainer):
             else:
                 no_improvement_count += 1
 
-            if no_improvement_count >= self.n_iter_no_change:
+            if no_improvement_count >= n_iter_no_change:
                 break
 
         return best_val_score, mlp_model, best_threshold

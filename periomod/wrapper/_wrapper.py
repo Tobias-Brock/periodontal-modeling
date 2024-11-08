@@ -102,13 +102,15 @@ class BenchmarkWrapper(BaseBenchmark):
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
         n_jobs (Optional[int]): Number of parallel jobs for processing.
-        cv_folds (Optional[int]): Number of folds for cross-validation.
-        racing_folds (Optional[int]): Number of racing folds for random search cv.
-        test_seed (Optional[int]): Seed for random train-test split.
-        test_size (Optional[float]): Proportion of data used for testing.
-        val_size (Optional[float]): Proportion of data for validation in holdout.
-        cv_seed (Optional[int]): Seed for cross-validation splits.
-        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to 10.
+        racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+            Defaults to 5.
+        test_seed (int): Random seed for test splitting. Defaults to 0.
+        test_size (float): Proportion of data used for testing. Defaults to
+            0.2.
+        val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+        cv_seed (int): Random seed for cross-validation. Defaults to 0
+        mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         verbose (bool): If True, enables detailed logging during benchmarking.
             Defaults to False.
@@ -172,13 +174,13 @@ class BenchmarkWrapper(BaseBenchmark):
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
         verbose: bool = False,
-        cv_folds: Optional[int] = None,
-        racing_folds: Optional[int] = None,
-        test_seed: Optional[int] = None,
-        test_size: Optional[float] = None,
-        val_size: Optional[float] = None,
-        cv_seed: Optional[int] = None,
-        mlp_flag: Optional[bool] = None,
+        cv_folds: int = 10,
+        racing_folds: Optional[int] = 5,
+        test_seed: int = 0,
+        test_size: float = 0.2,
+        val_size: float = 0.2,
+        cv_seed: int = 0,
+        mlp_flag: bool = True,
         threshold_tuning: bool = True,
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
@@ -364,18 +366,21 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
     Methods:
         wrapped_evaluation: Runs comprehensive evaluation with optional
             plots for metrics such as confusion matrix and Brier scores.
+        evaluate_cluster: Performs clustering and calculates Brier scores.
+            Allows subsetting of test set.
         evaluate_feature_importance: Computes feature importance using
-            specified methods (e.g., SHAP, permutation importance).
+            specified methods (e.g., SHAP, permutation importance). Allows subsetting
+            of test set.
         average_over_splits: Aggregates metrics across multiple data
             splits for robust evaluation.
         wrapped_patient_inference: Conducts inference on individual patient data.
         wrapped_jackknife: Executes jackknife resampling on patient data to
             estimate confidence intervals.
 
-    Properties:
-        criterion (str): Retrieves or sets the current evaluation criterion for model
+    Inherited Properties:
+        - `criterion (str):` Retrieves or sets current evaluation criterion for model
             selection. Supports 'f1', 'brier_score', and 'macro_f1'.
-        model (object): Retrieves the best-ranked model dynamically based on the current
+        - `model (object):` Retrieves best-ranked model dynamically based on the current
             criterion. Recalculates when criterion is updated.
 
     Examples:
@@ -416,6 +421,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         criterion: str,
         aggregate: bool = True,
         verbose: bool = False,
+        random_state: int = 0,
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup."""
         super().__init__(
@@ -423,6 +429,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             criterion=criterion,
             aggregate=aggregate,
             verbose=verbose,
+            random_state=random_state,
         )
 
     def wrapped_evaluation(
@@ -430,10 +437,18 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         cm: bool = True,
         cm_base: bool = True,
         brier_groups: bool = True,
-        cluster: bool = True,
-        n_cluster: int = 3,
     ) -> None:
-        """Runs evaluation on best-ranked model based on criterion."""
+        """Runs evaluation on the best-ranked model.
+
+        Args:
+            cm (bool): Plot the confusion matrix. Defaults to True.
+            cm_base (bool): Plot confusion matrix vs value before treatment.
+                Defaults to True.
+            brier_groups (bool): Calculate Brier score groups. Defaults to True.
+
+        Returns:
+            None
+        """
         if cm:
             self.evaluator.plot_confusion_matrix()
         if cm_base:
@@ -447,15 +462,57 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 )
         if brier_groups:
             self.evaluator.brier_score_groups()
-        if cluster:
-            self.evaluator.analyze_brier_within_clusters(n_clusters=n_cluster)
 
-    def evaluate_feature_importance(self, fi_types: List[str]) -> None:
-        """Evaluates feature importance using the provided evaluator.
+    def evaluate_cluster(
+        self,
+        base: Optional[str] = None,
+        revaluation: Optional[str] = None,
+        n_cluster: int = 3,
+        true_preds: bool = False,
+        brier_threshold: Optional[float] = None,
+    ) -> None:
+        """Performs cluster analysis with Brier scores, optionally applying subsetting.
 
         Args:
-            fi_types (List[str]): List of feature importance types.
+            base (Optional[str]): Baseline variable for comparison. Defaults to None.
+            revaluation (Optional[str]): Revaluation variable. Defaults to None.
+            n_cluster (int): Number of clusters for Brier score clustering analysis.
+                Defaults to 3.
+            true_preds (bool): Whether to further subset by correct predictions.
+                Defaults to False.
+            brier_threshold (Optional[float]): Threshold for Brier score filtering.
+                Defaults to None.
         """
+        self.evaluator.X, self.evaluator.y = self._test_filters(
+            base=base,
+            revaluation=revaluation,
+            true_preds=true_preds,
+            brier_threshold=brier_threshold,
+        )
+        self.evaluator.analyze_brier_within_clusters(n_clusters=n_cluster)
+
+    def evaluate_feature_importance(
+        self,
+        fi_types: List[str],
+        base: Optional[str] = None,
+        revaluation: Optional[str] = None,
+        true_preds: bool = False,
+    ) -> None:
+        """Evaluates feature importance using the evaluator, with optional subsetting.
+
+        Args:
+            fi_types (List[str]): List of feature importance types to evaluate.
+            base (Optional[str]): Baseline variable for comparison. Defaults to None.
+            revaluation (Optional[str]): Revaluation variable. Defaults to None.
+            true_preds (bool): If True, further subsets to cases where model predictions
+                match the true labels. Defaults to False.
+        """
+        self.evaluator.X, self.evaluator.y = self._test_filters(
+            base=base,
+            revaluation=revaluation,
+            true_preds=true_preds,
+            brier_threshold=None,
+        )
         self.evaluator.evaluate_feature_importance(fi_types=fi_types)
 
     def average_over_splits(

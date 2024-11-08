@@ -1,7 +1,6 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
 ![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
 ![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
-![Ruff](https://img.shields.io/badge/style-ruff-000000.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 

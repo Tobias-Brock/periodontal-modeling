@@ -49,16 +49,12 @@ class BaseExperiment(BaseValidator, ABC):
             search for efficient hyperparameter optimization.
         n_jobs (Optional[int]): Number of parallel jobs to use for processing.
             Set to -1 to use all available cores.
-        cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to
-            the value in `self.n_folds` if None.
-        test_seed (Optional[int]): Seed for random train-test split for reproducibility.
-            Defaults to `self.random_state_split` if None.
-        test_size (Optional[float]): Proportion of data to use for testing. Defaults
-            to `self.test_set_size` if None.
-        val_size (Optional[float]): Proportion of data to use for validation in a
-            holdout strategy. Defaults to `self.val_set_size` if None.
-        cv_seed (Optional[int]): Seed for cross-validation splits for reproducibility.
-            Defaults to `self.random_state_cv` if None.
+        cv_folds (int): Number of folds for cross-validation.
+        test_seed (int): Seed for random train-test split for reproducibility.
+        test_size (float): Proportion of data to use for testing.
+        val_size (float): Proportion of data to use for validation in a
+            holdout strategy.
+        cv_seed (int): Seed for cross-validation splits for reproducibility.
         mlp_flag (Optional[bool]): If True, enables training with a Multi-Layer
             Perceptron (MLP) with early stopping. Defaults to `self.mlp_training`.
         threshold_tuning (bool): If True, tunes the decision threshold in binary
@@ -124,12 +120,12 @@ class BaseExperiment(BaseValidator, ABC):
         n_configs: int,
         racing_folds: Optional[int],
         n_jobs: Optional[int],
-        cv_folds: Optional[int],
-        test_seed: Optional[int],
-        test_size: Optional[float],
-        val_size: Optional[float],
-        cv_seed: Optional[int],
-        mlp_flag: Optional[bool],
+        cv_folds: int,
+        test_seed: int,
+        test_size: float,
+        val_size: float,
+        cv_seed: int,
+        mlp_flag: bool,
         threshold_tuning: bool,
         verbose: bool,
     ) -> None:
@@ -147,12 +143,12 @@ class BaseExperiment(BaseValidator, ABC):
         self.n_configs = n_configs
         self.racing_folds = racing_folds
         self.n_jobs = n_jobs
-        self.cv_folds = cv_folds if cv_folds is not None else self.n_folds
-        self.test_seed = test_seed if test_seed is not None else self.random_state_split
-        self.test_size = test_size if test_size is not None else self.test_set_size
-        self.val_size = val_size if val_size is not None else self.val_set_size
-        self.cv_seed = cv_seed if cv_seed is not None else self.random_state_cv
-        self.mlp_flag = mlp_flag if mlp_flag is not None else self.mlp_training
+        self.cv_folds = cv_folds
+        self.test_seed = test_seed
+        self.test_size = test_size
+        self.val_size = val_size
+        self.cv_seed = cv_seed
+        self.mlp_flag = mlp_flag
         self.threshold_tuning = threshold_tuning
         self.verbose = verbose
         self.resampler = Resampler(self.classification, self.encoding)
@@ -284,16 +280,16 @@ class BaseBenchmark(BaseConfig):
         n_configs (int): Number of configurations to evaluate in hyperparameter tuning.
         n_jobs (Optional[int]): Number of parallel jobs to use for processing; set
             to -1 to utilize all available cores.
-        cv_folds (Optional[int]): Number of cross-validation folds for model
+        cv_folds (int): Number of cross-validation folds for model
             training. Defaults to None.
         racing_folds (Optional[int]): Number of racing folds to use in Random Search
             (rs) for optimized tuning.
-        test_seed (Optional[int]): Random seed for reproducible train-test splits.
-        test_size (Optional[float]): Fraction of the dataset to allocate to test set.
-        val_size (Optional[float]): Fraction of the dataset to allocate to validation
+        test_seed (int): Random seed for reproducible train-test splits.
+        test_size (float): Fraction of the dataset to allocate to test set.
+        val_size (float): Fraction of the dataset to allocate to validation
             in a holdout setup.
-        cv_seed (Optional[int]): Seed for cross-validation splitting.
-        mlp_flag (Optional[bool]): If True, enables Multi-Layer Perceptron (MLP)
+        cv_seed (int): Seed for cross-validation splitting.
+        mlp_flag (bool): If True, enables Multi-Layer Perceptron (MLP)
             training with early stopping.
         threshold_tuning (bool): Enables decision threshold tuning for binary
             classification when optimizing for 'f1'.
@@ -316,15 +312,15 @@ class BaseBenchmark(BaseConfig):
             optimization.
         n_jobs (Optional[int]): Number of parallel processes for model training
             and evaluation.
-        cv_folds (Optional[int]): Number of cross-validation folds for model training.
+        cv_folds (int): Number of cross-validation folds for model training.
         racing_folds (Optional[int]): Racing folds used in tuning with cross-validation
             and random search..
-        test_seed (Optional[int]): Seed for consistent test-train splitting.
-        test_size (Optional[float]): Proportion of the data set aside for testing.
-        val_size (Optional[float]): Proportion of data allocated to validation
+        test_seed (int): Seed for consistent test-train splitting.
+        test_size (float): Proportion of the data set aside for testing.
+        val_size (float): Proportion of data allocated to validation
             in holdout tuning.
-        cv_seed (Optional[int]): Seed for cross-validation splitting.
-        mlp_flag (Optional[bool]): Flag for MLP training with early stopping.
+        cv_seed (int): Seed for cross-validation splitting.
+        mlp_flag (bool): Flag for MLP training with early stopping.
         threshold_tuning (bool): Enables threshold adjustment for optimizing F1
             in binary classification tasks.
         verbose (bool): Flag to enable detailed logging during training and evaluation.
@@ -345,13 +341,13 @@ class BaseBenchmark(BaseConfig):
         factor: Optional[float],
         n_configs: int,
         n_jobs: Optional[int],
-        cv_folds: Optional[int],
+        cv_folds: int,
         racing_folds: Optional[int],
-        test_seed: Optional[int],
-        test_size: Optional[float],
-        val_size: Optional[float],
-        cv_seed: Optional[int],
-        mlp_flag: Optional[bool],
+        test_seed: int,
+        test_size: float,
+        val_size: float,
+        cv_seed: int,
+        mlp_flag: bool,
         threshold_tuning: bool,
         verbose: bool,
         path: Path,

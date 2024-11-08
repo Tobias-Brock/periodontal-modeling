@@ -31,6 +31,7 @@ class Baseline(BaseConfig):
             'prior'.
         models (List[Tuple[str, object]], optional): List of models to benchmark.
             If not provided, default models are initialized.
+        n_jobs (int): Number of parallel jobs. Defaults to -1.
         path (Path): Path to the directory containing processed data files.
         name (str): File name for the processed data file. Defaults to
             "processed_data.csv".
@@ -80,6 +81,7 @@ class Baseline(BaseConfig):
         lr_solver: str = "saga",
         dummy_strategy: str = "prior",
         models: Union[List[Tuple[str, object]], None] = None,
+        n_jobs: int = -1,
         path: Path = PROCESSED_BASE_DIR,
         name: str = "processed_data.csv",
     ) -> None:
@@ -108,12 +110,16 @@ class Baseline(BaseConfig):
             self.models = [
                 (
                     "Random Forest",
-                    RandomForestClassifier(n_jobs=-1, random_state=self.random_state),
+                    RandomForestClassifier(
+                        n_jobs=n_jobs, random_state=self.random_state
+                    ),
                 ),
                 (
                     "Logistic Regression",
                     LogisticRegression(
-                        solver=self.lr_solver, random_state=self.random_state
+                        solver=self.lr_solver,
+                        random_state=self.random_state,
+                        n_jobs=n_jobs,
                     ),
                 ),
                 (
@@ -139,7 +145,9 @@ class Baseline(BaseConfig):
         """
         df = self.dataloader.load_data(path=self.path, name=self.name)
         df = self.dataloader.transform_data(df=df)
-        train_df, test_df = self.resampler.split_train_test_df(df=df)
+        train_df, test_df = self.resampler.split_train_test_df(
+            df=df, seed=self.random_state
+        )
         X_train, y_train, X_test, y_test = self.resampler.split_x_y(
             train_df=train_df, test_df=test_df
         )

@@ -306,13 +306,13 @@ def _run_benchmarks(
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
-    cv_folds: Optional[int],
+    cv_folds: int,
     racing_folds: int,
-    test_seed: Optional[int],
-    test_size: Optional[float],
-    val_size: Optional[float],
-    cv_seed: Optional[int],
-    mlp_flag: Optional[bool],
+    test_seed: int,
+    test_size: float,
+    val_size: float,
+    cv_seed: int,
+    mlp_flag: bool,
     threshold_tuning: bool,
     n_jobs: int,
     path: str,
@@ -337,11 +337,11 @@ def _run_benchmarks(
         cv_folds (int): Number of cross-validation folds.
         racing_folds (int): Number of folds to use for racing during random
             search (RS).
-        test_seed (Optional[int]): Seed for random train-test split.
-        test_size (Optional[float]): Proportion of data used for testing.
-        val_size (Optional[float]): Proportion of data for validation in holdout.
-        cv_seed (Optional[int]): Seed for cross-validation splits.
-        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        test_seed (int): Seed for random train-test split.
+        test_size (float): Proportion of data used for testing.
+        val_size (float): Proportion of data for validation in holdout.
+        cv_seed (int): Seed for cross-validation splits.
+        mlp_flag (bool): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
@@ -963,7 +963,7 @@ def _app_inference(
     encoding: str,
     X_train: pd.DataFrame,
     y_train: pd.Series,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run inference on the patient's data.
 
     Args:
@@ -976,7 +976,11 @@ def _app_inference(
         y_train (pd.Series): Training target for target encoding.
 
     Returns:
-        pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing:
+            - predict_data (pd.DataFrame): The transformed patient data for prediction.
+            - output_data (pd.DataFrame): DataFrame with columns "tooth", "side",
+              transformed "prediction", and "probability".
+            - results (pd.DataFrame): Original results from the model inference.
     """
     model = models[selected_model]
     task_processed = InputProcessor.process_task(task=task)
@@ -992,9 +996,13 @@ def _app_inference(
         y_train=y_train,
     )
 
-    return inference_engine.patient_inference(
+    prediction_data, prediction_output, results = inference_engine.patient_inference(
         predict_data=predict_data, patient_data=patient_data
     )
+    prediction_output = InputProcessor.transform_predictions(
+        task_processed, prediction_output
+    )
+    return prediction_data, prediction_output, results
 
 
 def _run_jackknife_inference(

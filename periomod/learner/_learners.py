@@ -66,7 +66,10 @@ class Model(BaseConfig):
     """
 
     def __init__(
-        self, learner: str, classification: str, hpo: Optional[str] = None
+        self,
+        learner: str,
+        classification: str,
+        hpo: Optional[str] = None,
     ) -> None:
         """Initializes the Model with the learner type and classification.
 
@@ -92,33 +95,33 @@ class Model(BaseConfig):
             ValueError: If an invalid learner or classification is provided.
         """
         if self.learner == "rf":
-            return RandomForestClassifier(random_state=self.random_state_model)
+            return RandomForestClassifier(random_state=self.learner_state)
         elif self.learner == "mlp":
-            return MLPClassifier(random_state=self.random_state_model)
+            return MLPClassifier(random_state=self.learner_state)
         elif self.learner == "xgb":
             if self.classification == "binary":
                 return xgb.XGBClassifier(
                     objective=self.xgb_obj_binary,
                     eval_metric=self.xgb_loss_binary,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
             elif self.classification == "multiclass":
                 return xgb.XGBClassifier(
                     objective=self.xgb_obj_multi,
                     eval_metric=self.xgb_loss_multi,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
         elif self.learner == "lr":
             if self.classification == "binary":
                 return LogisticRegression(
                     solver=self.lr_solver_binary,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
             elif self.classification == "multiclass":
                 return LogisticRegression(
                     multi_class=self.lr_multi_loss,
                     solver=self.lr_solver_multi,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
         else:
             raise ValueError(f"Unsupported learner type: {self.learner}")

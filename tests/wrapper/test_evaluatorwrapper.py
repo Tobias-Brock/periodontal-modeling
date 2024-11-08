@@ -8,10 +8,159 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.linear_model import LogisticRegression
 
 from periomod.base import Patient, Side, Tooth
-from periomod.wrapper import EvaluatorWrapper
+from periomod.wrapper import EvaluatorWrapper, ModelExtractor
+
+
+def test_basemodel_extractor_initialization():
+    """Test initialization of BaseModelExtractor."""
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": MagicMock()
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    assert extractor.learners_dict == learners_dict
+    assert extractor.criterion == "f1"
+    assert extractor.aggregate is True
+    assert extractor.verbose is True
+    assert extractor.random_state == 42
+    assert extractor.classification == "binary"
+
+
+def test_basemodel_extractor_criterion_setter():
+    """Test setting criterion in BaseModelExtractor."""
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": MagicMock(),
+        "pocketclosure_lr_cv_hebo_brier_score_one_hot_no_sampling_factor2_rank1_": (
+            MagicMock()
+        ),
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    assert extractor.criterion == "f1"
+
+    extractor.criterion = "brier_score"
+    assert extractor.criterion == "brier_score"
+
+    with pytest.raises(ValueError, match="Unsupported criterion"):
+        extractor.criterion = "unsupported_criterion"
+
+
+def test_basemodel_extractor_get_best():
+    """Test the _get_best method of BaseModelExtractor."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    best_model, encoding, learner, task, factor, sampling = extractor._get_best()
+
+    assert best_model == model_mock
+    assert encoding == "one_hot"
+    assert learner == "lr"
+    assert task == "pocketclosure"
+    assert factor == 2
+    assert sampling is None
+
+
+def test_basemodel_extractor_update_best_model():
+    """Test the _update_best_model method to confirm correct model assignment."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    extractor._update_best_model()
+    assert extractor.model == model_mock
+
+
+def test_basemodel_extractor_missing_model_for_criterion():
+    """Test behavior when no model with rank1 for specified criterion is found."""
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank2_": MagicMock()
+    }
+
+    with pytest.raises(
+        ValueError, match="No model with rank1 found for criterion 'f1' in dict"
+    ):
+        ModelExtractor(
+            learners_dict=learners_dict,
+            criterion="f1",
+            aggregate=True,
+            verbose=True,
+            random_state=42,
+        )
+
+
+def test_basemodel_extractor_encoding_detection():
+    """Test encoding determination in _get_best based on model key."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_target_no_sampling_factor2_rank1_": model_mock
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    best_model, encoding, learner, task, factor, sampling = extractor._get_best()
+    assert encoding == "target"
+
+
+def test_basemodel_extractor_sampling_detection():
+    """Test sampling determination in _get_best based on model key."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_upsampling_factor2_rank1_": model_mock
+    }
+
+    extractor = ModelExtractor(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+
+    best_model, encoding, learner, task, factor, sampling = extractor._get_best()
+    assert sampling == "upsampling"
 
 
 def test_evaluator_wrapper_initialization():
@@ -66,6 +215,91 @@ def test_evaluator_wrapper_get_best():
     assert task == "pocketclosure"
     assert factor == 2
     assert sampling is None
+
+
+@pytest.fixture
+def mock_evaluator_wrapper():
+    """Fixture for a BaseEvaluatorWrapper instance with mocked dependencies."""
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": MagicMock()
+    }
+    wrapper = EvaluatorWrapper(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+        random_state=42,
+    )
+    wrapper.evaluator = MagicMock()
+    wrapper.dataloader = MagicMock()
+    wrapper.resampler = MagicMock()
+    wrapper.trainer = MagicMock()
+    wrapper.inference_engine = MagicMock()
+    return wrapper
+
+
+def test_initialization(mock_evaluator_wrapper):
+    """Tests that BaseEvaluatorWrapper initializes with correct attributes."""
+    wrapper = mock_evaluator_wrapper
+    assert wrapper.criterion == "f1"
+    assert wrapper.aggregate is True
+    assert wrapper.verbose is True
+    assert wrapper.random_state == 42
+    assert wrapper.model is not None
+
+
+def test_subset_test_set(mock_evaluator_wrapper):
+    """Tests the _subset_test_set method for correct subsetting."""
+    wrapper = mock_evaluator_wrapper
+    wrapper.df = pd.DataFrame(
+        {
+            "pdgroupbase": [1, 2, 1, 1],
+            "pdgrouprevaluation": [2, 2, 1, 3],
+            "feature": [5, 6, 7, 8],
+        }
+    )
+    wrapper.X_test = pd.DataFrame({"feature": [5, 6, 7, 8]})
+    wrapper.y_test = pd.Series([0, 1, 0, 1])
+
+    X_subset, y_subset = wrapper._subset_test_set(
+        base="pdgroupbase", revaluation="pdgrouprevaluation"
+    )
+    assert len(X_subset) == 2  # Ensure only rows with differences are included
+    assert len(y_subset) == 2
+    assert all(
+        wrapper.df.loc[X_subset.index, "pdgroupbase"]
+        != wrapper.df.loc[X_subset.index, "pdgrouprevaluation"]
+    )
+
+
+def test_test_filters(mock_evaluator_wrapper):
+    """Test filtering of test data."""
+    wrapper = mock_evaluator_wrapper
+    wrapper.evaluator.X = pd.DataFrame({"feature": [5, 6, 7, 8]})
+    wrapper.evaluator.y = pd.Series([1, 0, 1, 0])
+
+    wrapper.evaluator.model_predictions = MagicMock(
+        return_value=pd.Series([1, 0, 1, 1], index=wrapper.evaluator.y.index)
+    )
+    wrapper.evaluator.brier_scores = MagicMock(
+        return_value=pd.Series([0.01, 0.2, 0.05, 0.3], index=wrapper.evaluator.y.index)
+    )
+
+    X_filtered, y_filtered = wrapper._test_filters(
+        base=None, revaluation=None, true_preds=True, brier_threshold=None
+    )
+    assert len(X_filtered) == 3
+    assert all(y_filtered == wrapper.evaluator.y.loc[X_filtered.index])
+
+    X_filtered, y_filtered = wrapper._test_filters(
+        base=None, revaluation=None, true_preds=False, brier_threshold=0.1
+    )
+    assert len(X_filtered) == 2
+
+    X_filtered, y_filtered = wrapper._test_filters(
+        base=None, revaluation=None, true_preds=True, brier_threshold=0.05
+    )
+    assert len(X_filtered) == 1
 
 
 @patch("periomod.data.ProcessedDataLoader")
@@ -130,9 +364,7 @@ def test_evaluator_wrapper_wrapped_evaluation(mock_get_probs):
     wrapper.evaluator.X = pd.DataFrame({"feature1": [1, 2, 3]})
     wrapper.evaluator.y = pd.Series([1, 0, 1])
 
-    wrapper.wrapped_evaluation(
-        cm=True, cm_base=False, brier_groups=False, cluster=False
-    )
+    wrapper.wrapped_evaluation(cm=True, cm_base=False, brier_groups=False)
 
 
 def test_evaluator_wrapper_evaluate_feature_importance():

@@ -76,6 +76,7 @@ class BaseResampler(BaseConfig, ABC):
         y: pd.Series,
         sampling: str,
         sampling_factor: Optional[float] = None,
+        random_state: int = 0,
     ) -> Tuple[pd.DataFrame, pd.Series]:
         """Applies resampling strategies to the dataset.
 
@@ -88,6 +89,7 @@ class BaseResampler(BaseConfig, ABC):
                 'upsampling', 'downsampling', or None.
             sampling_factor (Optional[float]): The factor by which to upsample or
                 downsample.
+            random_state (int): Random state for sampling. Defaults to 0.
 
         Returns:
             tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
@@ -106,7 +108,7 @@ class BaseResampler(BaseConfig, ABC):
                 smote_strategy = {1: int(sum(y == 1) * sampling_factor)}
             smote_sampler = SMOTE(
                 sampling_strategy=smote_strategy,
-                random_state=self.random_state_sampling,
+                random_state=random_state,
             )
             return smote_sampler.fit_resample(X=X, y=y)
 
@@ -119,7 +121,7 @@ class BaseResampler(BaseConfig, ABC):
             elif self.classification == "binary":
                 up_strategy = {0: int(sum(y == 0) * sampling_factor)}
             up_sampler = RandomOverSampler(
-                sampling_strategy=up_strategy, random_state=self.random_state_sampling
+                sampling_strategy=up_strategy, random_state=random_state
             )
             return up_sampler.fit_resample(X=X, y=y)
 
@@ -127,7 +129,7 @@ class BaseResampler(BaseConfig, ABC):
             if self.classification in ["binary", "multiclass"]:
                 down_strategy = {1: int(sum(y == 1) // sampling_factor)}
             down_sampler = RandomUnderSampler(
-                sampling_strategy=down_strategy, random_state=self.random_state_sampling
+                sampling_strategy=down_strategy, random_state=random_state
             )
             return down_sampler.fit_resample(X=X, y=y)
 
@@ -248,15 +250,15 @@ class BaseResampler(BaseConfig, ABC):
     def split_train_test_df(
         self,
         df: pd.DataFrame,
-        seed: Optional[int] = None,
-        test_size: Optional[float] = None,
+        seed: int,
+        test_size: float,
     ):
         """Splits the dataset into train_df and test_df based on group identifiers.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
-            seed (Optional[int], optional): Random seed for splitting. Defaults to None.
-            test_size (Optional[float]): Size of grouped train test split.
+            seed (int): Random seed for splitting.
+            test_size (float): Size of grouped train test split.
         """
 
     @abstractmethod
@@ -283,10 +285,10 @@ class BaseResampler(BaseConfig, ABC):
     def cv_folds(
         self,
         df: pd.DataFrame,
+        seed: int,
+        n_folds: int,
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
-        seed: Optional[int] = None,
-        n_folds: Optional[int] = None,
     ):
         """Performs cross-validation with group constraints.
 
@@ -294,12 +296,10 @@ class BaseResampler(BaseConfig, ABC):
 
         Args:
             df (pd.DataFrame): Input DataFrame.
+            seed (Optional[int], optional): Random seed for reproducibility.
+            n_folds (Optional[int], optional): Number of folds for cross-validation.
             sampling (str, optional): Sampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
-            seed (Optional[int], optional): Random seed for reproducibility. Defaults
-                to None.
-            n_folds (Optional[int], optional): Number of folds for cross-validation.
-                Defaults to None, in which case the class's `n_folds` will be used.
         """

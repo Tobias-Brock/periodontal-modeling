@@ -40,18 +40,17 @@ class Experiment(BaseExperiment):
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
         racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            Defaults to None.
+            Defaults to 5.
         n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
             Defaults to None.
-        cv_folds (Optional[int]): Number of folds for cross-validation; defaults to
-            the class's `n_folds` if None.
-        test_seed (Optional[int]): Random seed for test splitting. Defaults to None.
-        test_size (Optional[float]): Proportion of data used for testing. Defaults to
-            None.
-        val_size (Optional[float]): Size of validation set in holdout tuning.
-        cv_seed (int): Random seed for cross-validation.
+        cv_folds (int): Number of folds for cross-validation; Defaults to 10.
+        test_seed (int): Random seed for test splitting. Defaults to 0.
+        test_size (float): Proportion of data used for testing. Defaults to
+            0.2.
+        val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+        cv_seed (int): Random seed for cross-validation. Defaults to 0
         mlp_flag (bool): Flag to enable MLP training with early stopping. Defaults to
-            None.
+            True.
         threshold_tuning (bool): If True, performs threshold tuning for binary
             classification if the criterion is "f1". Defaults to True.
         verbose (bool): Enables verbose output if set to True.
@@ -125,14 +124,14 @@ class Experiment(BaseExperiment):
         sampling: Optional[str] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
-        racing_folds: Optional[int] = None,
+        racing_folds: Optional[int] = 5,
         n_jobs: Optional[int] = None,
-        cv_folds: Optional[int] = None,
-        test_seed: Optional[int] = None,
-        test_size: Optional[float] = None,
-        val_size: Optional[float] = None,
-        cv_seed: Optional[int] = None,
-        mlp_flag: Optional[bool] = None,
+        cv_folds: int = 10,
+        test_seed: int = 0,
+        test_size: float = 0.2,
+        val_size: float = 0.2,
+        cv_seed: int = 0,
+        mlp_flag: bool = True,
         threshold_tuning: bool = True,
         verbose: bool = True,
     ) -> None:
@@ -258,13 +257,15 @@ class Benchmarker(BaseBenchmark):
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
         n_jobs (Optional[int]): Number of parallel jobs for processing.
-        cv_folds (Optional[int]): Number of folds for cross-validation.
-        racing_folds (Optional[int]): Number of racing folds for random search cv.
-        test_seed (Optional[int]): Seed for random train-test split.
-        test_size (Optional[float]): Proportion of data used for testing.
-        val_size (Optional[float]): Proportion of data for validation in holdout.
-        cv_seed (Optional[int]): Seed for cross-validation splits.
-        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to 10.
+        racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+            Defaults to 5.
+        test_seed (int): Random seed for test splitting. Defaults to 0.
+        test_size (float): Proportion of data used for testing. Defaults to
+            0.2.
+        val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+        cv_seed (int): Random seed for cross-validation. Defaults to 0
+        mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         verbose (bool): If True, enables detailed logging during benchmarking.
             Defaults to True.
@@ -341,13 +342,13 @@ class Benchmarker(BaseBenchmark):
         factor: Optional[float] = None,
         n_configs: int = 10,
         n_jobs: Optional[int] = None,
-        cv_folds: Optional[int] = None,
-        racing_folds: Optional[int] = None,
-        test_seed: Optional[int] = None,
-        test_size: Optional[float] = None,
-        val_size: Optional[float] = None,
-        cv_seed: Optional[int] = None,
-        mlp_flag: Optional[bool] = None,
+        cv_folds: int = 10,
+        racing_folds: Optional[int] = 5,
+        test_seed: int = 0,
+        test_size: float = 0.2,
+        val_size: float = 0.2,
+        cv_seed: int = 0,
+        mlp_flag: bool = True,
         threshold_tuning: bool = True,
         verbose: bool = True,
         path: Path = PROCESSED_BASE_DIR,
