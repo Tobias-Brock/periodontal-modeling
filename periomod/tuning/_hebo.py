@@ -61,6 +61,15 @@ class HEBOTuner(BaseTuner):
 
     Example:
         ```
+        trainer = Trainer(
+            classification="binary",
+            criterion="f1",
+            tuning="holdout",
+            hpo="hebo",
+            mlp_training=True,
+            threshold_tuning=True,
+        )
+
         tuner = HEBOTuner(
             classification="binary",
             criterion="f1",
@@ -69,14 +78,7 @@ class HEBOTuner(BaseTuner):
             n_configs=10,
             n_jobs=-1,
             verbose=True,
-            trainer=Trainer(
-                classification="binary",
-                criterion="f1",
-                tuning="holdout",
-                hpo="hebo",
-                mlp_training=True,
-                threshold_tuning=True,
-            ),
+            trainer=trainer,
             mlp_training=True,
             threshold_tuning=True,
         )

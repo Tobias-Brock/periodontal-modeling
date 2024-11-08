@@ -58,6 +58,15 @@ class RandomSearchTuner(BaseTuner):
 
     Example:
         ```
+        trainer = Trainer(
+            classification="binary",
+            criterion="f1",
+            tuning="cv",
+            hpo="rs",
+            mlp_training=True,
+            threshold_tuning=True,
+        )
+
         tuner = RandomSearchTuner(
             classification="binary",
             criterion="f1",
@@ -66,14 +75,7 @@ class RandomSearchTuner(BaseTuner):
             n_configs=15,
             n_jobs=4,
             verbose=True,
-            trainer=Trainer(
-                classification="binary",
-                criterion="f1",
-                tuning="cv",
-                hpo="rs",
-                mlp_training=True,
-                threshold_tuning=True,
-            ),
+            trainer=trainer,
             mlp_training=True,
             threshold_tuning=True,
         )
@@ -151,10 +153,12 @@ class RandomSearchTuner(BaseTuner):
             best_params,
             param_grid,
             model,
-        ) = self._initialize_search(learner=learner)
+        ) = self._initialize_search(learner=learner, random_state=self.rs_state)
 
         for i in range(self.n_configs):
-            params = self._sample_params(param_grid=param_grid, iteration=i)
+            params = self._sample_params(
+                param_grid=param_grid, iteration=i, random_state=self.rs_state
+            )
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=self.n_jobs)
@@ -201,11 +205,11 @@ class RandomSearchTuner(BaseTuner):
                 Best hyperparameters, and optimal threshold (if applicable).
         """
         best_score, _, best_params, param_grid, model = self._initialize_search(
-            learner=learner
+            learner=learner, random_state=self.rs_state
         )
 
         for i in range(self.n_configs):
-            params = self._sample_params(param_grid)
+            params = self._sample_params(param_grid, random_state=self.rs_state)
             model_clone = clone(model).set_params(**params)
             if "n_jobs" in model_clone.get_params():
                 model_clone.set_params(n_jobs=self.n_jobs)
@@ -296,12 +300,13 @@ class RandomSearchTuner(BaseTuner):
         return scores
 
     def _initialize_search(
-        self, learner: str
+        self, learner: str, random_state: int
     ) -> Tuple[float, Union[float, None], Dict[str, Union[float, int]], dict, object]:
         """Initialize search with random seed, best score, parameters, and model.
 
         Args:
             learner (str): The learner type to be used for training the model.
+            random_state (int): Random state.
 
         Returns:
             Tuple:
@@ -311,7 +316,7 @@ class RandomSearchTuner(BaseTuner):
                 - param_grid: The parameter grid for the specified model.
                 - model: The model instance.
         """
-        random.seed(self.random_state_val)
+        random.seed(random_state)
         best_score = (
             -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
         )
@@ -358,6 +363,7 @@ class RandomSearchTuner(BaseTuner):
         self,
         param_grid: Dict[str, Union[list, object]],
         iteration: Optional[int] = None,
+        random_state: Optional[int] = None,
     ) -> Dict[str, Union[float, int]]:
         """Sample a set of hyperparameters from the provided grid.
 
@@ -365,13 +371,14 @@ class RandomSearchTuner(BaseTuner):
             param_grid (dict): Hyperparameter grid.
             iteration (Optional[int]): Current iteration index for random seed
                 adjustment. If None, the iteration seed will not be adjusted.
+            random_state (Optional[int]): Random state
 
         Returns:
             dict: Sampled hyperparameters.
         """
         iteration_seed = (
-            self.random_state_val + iteration
-            if self.random_state_val is not None and iteration is not None
+            random_state + iteration
+            if random_state is not None and iteration is not None
             else None
         )
 

@@ -19,16 +19,9 @@ class BaseConfig:
         config_name (str): Name of the configuration file (without extension).
 
     Attributes:
-        random_state_sampling (int): Random seed for sampling operations.
-        random_state_split (int): Random seed for train/test splits.
-        random_state_cv (int): Random seed for cross-validation splits.
-        random_state_val (int): Random seed for validation set splits.
-        test_set_size (float): Proportion of data to use as the test set.
-        val_set_size (float): Proportion of data to use as the validation set.
         group_col (str): Column name used for group-based splitting.
-        n_folds (int): Number of folds for cross-validation.
         y (str): Target column name in the dataset.
-        random_state_model (int): Random seed for model initialization.
+        learner_state (int): Random state of learners.
         xgb_obj_binary (str): Objective function for binary classification in XGBoost.
         xgb_loss_binary (str): Loss function for binary classification in XGBoost.
         xgb_obj_multi (str): Objective function for multiclass classification in
@@ -39,11 +32,6 @@ class BaseConfig:
         lr_solver_multi (str): Solver type for multiclass classification in logistic
             regression.
         lr_multi_loss (str): Loss function for multiclass logistic regression.
-        random_state (int): General random state.
-        tol (float): Tolerance level for MLP training convergence.
-        n_iter_no_change (int): Number of iterations with no improvement to stop
-            training.
-        mlp_training (str): Configurations related to MLP training settings.
         patient_columns (List[str]): List of column names related to patient data.
         tooth_columns (List[str]): List of column names related to tooth data.
         side_columns (List[str]): List of column names related to side data.
@@ -61,6 +49,7 @@ class BaseConfig:
         all_cat_vars (List[str]): Combined list of categorical variables for encoding.
         required_columns (List[str]): Combined list of columns required in the dataset
             for analysis.
+        rs_state (int): State for random search parameter selection.
 
     Example:
         ```
@@ -81,16 +70,9 @@ class BaseConfig:
         with hydra.initialize(config_path=config_path, version_base="1.2"):
             cfg = hydra.compose(config_name=config_name)
 
-        self.random_state_sampling = cfg.resample.random_state_sampling
-        self.random_state_split = cfg.resample.random_state_split
-        self.random_state_cv = cfg.resample.random_state_cv
-        self.random_state_val = cfg.tuning.random_state_val
-        self.test_set_size = cfg.resample.test_set_size
-        self.val_set_size = cfg.resample.val_set_size
         self.group_col = cfg.resample.group_col
-        self.n_folds = cfg.resample.n_folds
         self.y = cfg.resample.y
-        self.random_state_model = cfg.learner.random_state_model
+        self.learner_state = cfg.learner.learner_state
         self.xgb_obj_binary = cfg.learner.xgb_obj_binary
         self.xgb_loss_binary = cfg.learner.xgb_loss_binary
         self.xgb_obj_multi = cfg.learner.xgb_obj_multi
@@ -98,10 +80,6 @@ class BaseConfig:
         self.lr_solver_binary = cfg.learner.lr_solver_binary
         self.lr_solver_multi = cfg.learner.lr_solver_multi
         self.lr_multi_loss = cfg.learner.lr_multi_loss
-        self.random_state = cfg.resample.random_state_cv
-        self.tol = cfg.mlp.mlp_tol
-        self.n_iter_no_change = cfg.mlp.mlp_no_improve
-        self.mlp_training = cfg.mlp.mlp_training
         self.patient_columns = cfg.data.patient_columns
         self.tooth_columns = cfg.data.tooth_columns
         self.side_columns = cfg.data.side_columns
@@ -118,6 +96,7 @@ class BaseConfig:
         self.required_columns = (
             self.patient_columns + self.tooth_columns + self.side_columns
         )
+        self.rs_state = cfg.tuning.rs_state
 
 
 class BaseValidator(BaseConfig):

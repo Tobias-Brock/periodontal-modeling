@@ -1,6 +1,6 @@
 """Module provides wrapper for benchmarking."""
 
-from periomod.wrapper._basewrapper import BaseEvaluatorWrapper
+from periomod.wrapper._basewrapper import BaseEvaluatorWrapper, ModelExtractor
 from periomod.wrapper._wrapper import (
     BenchmarkWrapper,
     EvaluatorWrapper,
@@ -9,6 +9,7 @@ from periomod.wrapper._wrapper import (
 )
 
 __all__ = [
+    "ModelExtractor",
     "BaseEvaluatorWrapper",
     "BenchmarkWrapper",
     "EvaluatorWrapper",

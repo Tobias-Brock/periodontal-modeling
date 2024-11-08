@@ -91,4 +91,6 @@ nav:
       - BaseEvaluatorWrapper: "reference/wrapper/baseevaluatorwrapper.md"
       - BenchmarkWrapper: "reference/wrapper/benchmarkwrapper.md"
       - EvaluatorWrapper: "reference/wrapper/evaluatorwrapper.md"
+      - load_benchmark: "reference/wrapper/loadbenchmark.md"
       - load_learners: "reference/wrapper/loadlearners.md"
+      - ModelExtractor: "reference/wrapper/modelextractor.md"

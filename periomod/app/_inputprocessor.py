@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class InputProcessor:
     """Convert input values to internal code-compatible formats.
 
@@ -48,6 +51,8 @@ class InputProcessor:
         - `process_furcation(str) -> int`: Converts furcation level to code.
         - `process_plaque(str) -> int`: Converts plaque presence to binary code.
         - `process_bop(str) -> int`: Converts BOP presence to binary code.
+        - `transform_predictions(str, pd.DataFrame) -> pd.DataFrame`: Transforms raw
+            model predictions to a more user-friendly format based on the task.
 
     Example Usage:
         ```
@@ -259,3 +264,29 @@ class InputProcessor:
     @classmethod
     def process_bop(cls, bop: str) -> int:
         return cls.bop_map.get(bop, -1)
+
+    @classmethod
+    def transform_predictions(
+        cls, task: str, prediction_output: pd.DataFrame
+    ) -> pd.DataFrame:
+        """Transforms prediction output based on the task.
+
+        Args:
+            task (str): The task name for which the model was trained.
+            prediction_output (pd.DataFrame): DataFrame containing a inference output.
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame with user-friendly display predictions.
+        """
+        if task in ["pocketclosure", "pocketclosureinf"]:
+            mapping = {1: "Pocket closed", 0: "Pocket not closed"}
+        elif task == "improvement":
+            mapping = {1: "Pocket improved", 0: "Pocket not improved"}
+        elif task == "pdgrouprevaluation":
+            mapping = {0: "Pocket < 4", 1: "Pocket 4 or 5", 2: "Pocket > 5"}
+        else:
+            return prediction_output
+
+        prediction_output["prediction"] = prediction_output["prediction"].astype(int)
+        prediction_output["prediction"] = prediction_output["prediction"].map(mapping)
+        return prediction_output

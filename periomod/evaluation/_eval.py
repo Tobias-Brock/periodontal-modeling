@@ -60,6 +60,12 @@ class ModelEvaluator(BaseModelEvaluator):
             specified clustering algorithm and provides visualizations.
 
     Inherited Methods:
+        - `brier_scores`: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        - `model_predictions`: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
         - `brier_score_groups`: Calculates Brier score within specified groups
           based on a grouping variable (e.g., target class).
         - `plot_confusion_matrix`: Generates a styled confusion matrix heatmap
@@ -100,17 +106,7 @@ class ModelEvaluator(BaseModelEvaluator):
         encoding: Optional[str] = None,
         aggregate: bool = True,
     ) -> None:
-        """Initialize the FeatureImportance class.
-
-        Args:
-            X (pd.DataFrame): Test dataset features.
-            y (pd.Series): Test dataset labels.
-            model ([sklearn estimators]): Trained sklearn models.
-            models (List[sklearn estimators]): List of trained models.
-            encoding (Optional[str]): Determines encoding for plot titles
-                ('one_hot' or 'target'). Defaults to None.
-            aggregate (bool): If True, aggregates importance values of one-hot features.
-        """
+        """Initialize the FeatureImportance class."""
         super().__init__(
             X=X, y=y, model=model, models=models, encoding=encoding, aggregate=aggregate
         )
@@ -203,7 +199,7 @@ class ModelEvaluator(BaseModelEvaluator):
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
-                        plt.figure(figsize=(3, 2), dpi=150)
+                        plt.figure(figsize=(3, 2), dpi=200)
                         shap.summary_plot(
                             aggregated_shap_values,
                             feature_names=aggregated_feature_names,
@@ -224,7 +220,7 @@ class ModelEvaluator(BaseModelEvaluator):
                         importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
                 else:
                     if fi_type == "shap":
-                        plt.figure(figsize=(3, 2), dpi=150)
+                        plt.figure(figsize=(3, 2), dpi=200)
                         shap.summary_plot(
                             shap_values,
                             self.X,
@@ -242,7 +238,7 @@ class ModelEvaluator(BaseModelEvaluator):
                         importance_dict[model_name] = fi_df
 
                 if fi_type != "shap":
-                    plt.figure(figsize=(6, 4), dpi=200)
+                    plt.figure(figsize=(6, 4), dpi=250)
                     if self.aggregate:
                         plt.bar(
                             fi_df_aggregated["Feature"],
@@ -291,7 +287,7 @@ class ModelEvaluator(BaseModelEvaluator):
             for true, proba in zip(self.y, probas, strict=False)
         ]
 
-        if self.aggregate:  # and self.encoding == "one_hot":
+        if self.aggregate:
             X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
         else:
             X_cluster_input = self.X
