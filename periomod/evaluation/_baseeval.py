@@ -51,7 +51,7 @@ class BaseModelEvaluator(ABC):
     for handling one-hot encoded features and aggregating SHAP values.
 
     Inherits:
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         X (pd.DataFrame): The test dataset features.

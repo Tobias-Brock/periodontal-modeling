@@ -21,7 +21,7 @@ class Trainer(BaseTrainer):
     tuning.
 
     Inherits:
-        - BaseTrainer: Base class that implements evaluation methods.
+        - `BaseTrainer`: Base class that implements evaluation methods.
 
     Args:
         classification (str): Specifies the type of classification ('binary'
@@ -77,10 +77,7 @@ class Trainer(BaseTrainer):
             verbose=True,
         )
         print(final_model_info["metrics"])
-        ```
 
-    Example for `train`:
-        ```
         score, trained_model, threshold = trainer.train(
             model=logistic_regression_model,
             X_train=X_train,
@@ -89,10 +86,7 @@ class Trainer(BaseTrainer):
             y_val=y_val,
         )
         print(f"Score: {score}, Optimal Threshold: {threshold}")
-        ```
 
-    Example for `train_mlp`:
-        ```
         score, trained_mlp, threshold = trainer.train_mlp(
             mlp_model=mlp_classifier,
             X_train=X_train,
@@ -114,19 +108,7 @@ class Trainer(BaseTrainer):
         mlp_training: bool = True,
         threshold_tuning: bool = True,
     ) -> None:
-        """Initializes the Trainer with classification type and criterion.
-
-        Args:
-            classification (str): The type of classification ('binary' or
-                'multiclass').
-            criterion (str): The performance criterion to optimize (e.g., 'f1',
-                'brier_score').
-            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            mlp_training (bool): Flag for separate MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1". Defaults to True.
-        """
+        """Initializes the Trainer with classification type and criterion."""
         super().__init__(
             classification=classification,
             criterion=criterion,
@@ -254,7 +236,7 @@ class Trainer(BaseTrainer):
         model: Tuple,
         sampling: Optional[str],
         factor: Optional[float],
-        n_jobs: Optional[int],
+        n_jobs: int,
         seed: int,
         test_size: float,
         verbose: bool = True,

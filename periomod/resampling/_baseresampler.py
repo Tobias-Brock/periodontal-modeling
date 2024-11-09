@@ -18,8 +18,8 @@ class BaseResampler(BaseConfig, ABC):
     data validation, and configuring cross-validation folds.
 
     Inherits:
-        - BaseConfig: Provides configuration settings for data processing.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides configuration settings for data processing.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): Specifies the classification type ('binary' or
@@ -48,24 +48,16 @@ class BaseResampler(BaseConfig, ABC):
             is valid.
 
     Abstract Methods:
-        - split_train_test_df: Splits the dataset into training and testing sets
+        - `split_train_test_df`: Splits the dataset into training and testing sets
           based on group-based identifiers.
-        - split_x_y: Divides the train and test DataFrames into feature and
+        - `split_x_y`: Divides the train and test DataFrames into feature and
           target sets, with optional resampling.
-        - cv_folds: Performs cross-validation with group-based constraints and
+        - `cv_folds`: Performs cross-validation with group-based constraints and
           optional resampling for each fold.
     """
 
     def __init__(self, classification: str, encoding: str) -> None:
-        """Base class to provide validation and error handling for other classes.
-
-        This class handles DataFrame validation, column checking, and numerical
-        input checking.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            encoding (str): Tyoe if encoding ('one_hot' or 'target').
-        """
+        """Base class to provide validation and error handling for other classes."""
         super().__init__()
         self.classification = classification
         self.encoding = encoding
@@ -266,8 +258,8 @@ class BaseResampler(BaseConfig, ABC):
         self,
         train_df: pd.DataFrame,
         test_df: pd.DataFrame,
-        sampling: Union[str, None] = None,
-        factor: Union[float, None] = None,
+        sampling: Union[str, None],
+        factor: Union[float, None],
     ):
         """Splits the train and test DataFrames into feature and label sets.
 
@@ -277,8 +269,8 @@ class BaseResampler(BaseConfig, ABC):
             train_df (pd.DataFrame): The training DataFrame.
             test_df (pd.DataFrame): The testing DataFrame.
             sampling (str, optional): Resampling method to apply (e.g.,
-                'upsampling', 'downsampling', 'smote'), defaults to None.
-            factor (float, optional): Factor for sampling, defaults to None.
+                'upsampling', 'downsampling', 'smote').
+            factor (float, optional): Factor for sampling.
         """
 
     @abstractmethod
@@ -287,8 +279,8 @@ class BaseResampler(BaseConfig, ABC):
         df: pd.DataFrame,
         seed: int,
         n_folds: int,
-        sampling: Union[str, None] = None,
-        factor: Union[float, None] = None,
+        sampling: Union[str, None],
+        factor: Union[float, None],
     ):
         """Performs cross-validation with group constraints.
 

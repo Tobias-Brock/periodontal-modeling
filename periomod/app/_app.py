@@ -40,7 +40,6 @@ from periomod.app import (
     _update_tooth_state,
     all_teeth,
 )
-from periomod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
 with gr.Blocks() as perioapp:
     gr.Markdown("## Periodontal Modeling")
@@ -59,7 +58,7 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value=str(RAW_DATA_DIR) + "/Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw" + "/Periodontitis_ML_Dataset.xlsx",
                     scale=1,
                     info="Specify the path to the raw data file for processing.",
                 )
@@ -78,7 +77,7 @@ with gr.Blocks() as perioapp:
 
             save_path_input = gr.Textbox(
                 label="Save Path",
-                value=str(PROCESSED_BASE_DIR) + "/processed_data.csv",
+                value="data/processed" + "/processed_data.csv",
                 scale=1,
             )
             save_button = gr.Button("Save Data", scale=1)
@@ -314,7 +313,7 @@ with gr.Blocks() as perioapp:
         with gr.Tab("Benchmarking"):
             path_input = gr.Textbox(
                 label="File Path",
-                value=str(PROCESSED_BASE_DIR) + "/" + "processed_data.csv",
+                value="data/processed" + "/" + "processed_data.csv",
                 info="Specify the path to the processed data file for benchmarking.",
             )
 

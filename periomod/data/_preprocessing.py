@@ -15,7 +15,7 @@ class StaticProcessEngine(BaseProcessor):
     outcome variables tailored for periodontal data analysis.
 
     Inherits:
-        - BaseProcessor: Provides core data processing methods and abstract method
+        - `BaseProcessor`: Provides core data processing methods and abstract method
             definitions for required preprocessing steps.
 
     Args:
@@ -52,13 +52,7 @@ class StaticProcessEngine(BaseProcessor):
     """
 
     def __init__(self, behavior: bool = False, verbose: bool = True) -> None:
-        """Initializes the StaticProcessEngine.
-
-        Args:
-            behavior (bool): If True, includes behavioral columns in processing.
-                Defaults to False.
-            verbose (bool): Activates verbose. Defaults to True.
-        """
+        """Initializes the StaticProcessEngine."""
         super().__init__(behavior=behavior)
         self.verbose = verbose
         self.helper = ProcessDataHelper()

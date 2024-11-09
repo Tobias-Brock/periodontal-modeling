@@ -16,7 +16,7 @@ class Resampler(BaseResampler):
     with group constraints.
 
     Inherits:
-        - BaseResampler: Base class for resampling and validation methods.
+        - `BaseResampler`: Base class for resampling and validation methods.
 
     Args:
         classification (str): Specifies the type of classification ('binary'
@@ -65,15 +65,7 @@ class Resampler(BaseResampler):
     """
 
     def __init__(self, classification: str, encoding: str) -> None:
-        """Initializes the Resampler class.
-
-        Loads Hydra config values and sets parameters for random states, test sizes,
-        and other relevant settings, including classification type.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            encoding (str): Tyoe if encoding ('one_hot' or 'target').
-        """
+        """Initializes the Resampler class."""
         super().__init__(classification=classification, encoding=encoding)
 
     def split_train_test_df(
