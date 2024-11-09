@@ -199,7 +199,8 @@ class ModelEvaluator(BaseModelEvaluator):
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
-                        plt.figure(figsize=(3, 2), dpi=200)
+                        
+                        plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             aggregated_shap_values,
                             feature_names=aggregated_feature_names,
@@ -207,8 +208,18 @@ class ModelEvaluator(BaseModelEvaluator):
                             show=False,
                         )
 
+                        ax = plt.gca()  # Get current axis
+                        for bar in ax.patches:
+                            bar.set_edgecolor("black")
+                            bar.set_linewidth(1)
+
+                        ax.spines["left"].set_visible(True)
+                        ax.spines["left"].set_color("black")
+                        ax.spines["bottom"].set_color("black")
+                        ax.tick_params(axis="y", colors="black")
+
                         plt.title(
-                            f"{model_name} SHAP Feature Importance {self.encoding}"
+                            f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
                     else:
                         fi_df_aggregated = self._aggregate_one_hot_importances(
@@ -218,9 +229,21 @@ class ModelEvaluator(BaseModelEvaluator):
                             by="Importance", ascending=False, inplace=True
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
+
+                        top10_fi_df_aggregated = fi_df_aggregated.head(10)
+                        bottom10_fi_df_aggregated = fi_df_aggregated.tail(10)
+
+                        placeholder = pd.DataFrame([["[...]", 0]], columns=["Feature", "Importance"])
+                        selected_fi_df_aggregated = pd.concat(
+                            [
+                            top10_fi_df_aggregated, placeholder, bottom10_fi_df_aggregated
+                            ],
+                            ignore_index=True
+                             )
+                                                
                 else:
                     if fi_type == "shap":
-                        plt.figure(figsize=(3, 2), dpi=200)
+                        plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             shap_values,
                             self.X,
@@ -228,8 +251,18 @@ class ModelEvaluator(BaseModelEvaluator):
                             feature_names=feature_names,
                             show=False,
                         )
+                        ax = plt.gca()  # Get current axis
+                        for bar in ax.patches:
+                            bar.set_edgecolor("black")
+                            bar.set_linewidth(1)
+
+                        ax.spines["left"].set_visible(True)
+                        ax.spines["left"].set_color("black")
+                        ax.spines["bottom"].set_color("black")
+                        
+                        ax.tick_params(axis="y", colors="black")
                         plt.title(
-                            f"{model_name} SHAP Feature Importance {self.encoding}"
+                            f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
                     else:
                         fi_df.sort_values(
@@ -238,21 +271,34 @@ class ModelEvaluator(BaseModelEvaluator):
                         importance_dict[model_name] = fi_df
 
                 if fi_type != "shap":
-                    plt.figure(figsize=(6, 4), dpi=250)
+                    plt.figure(figsize=(8, 6), dpi=300)
+                    
                     if self.aggregate:
                         plt.bar(
-                            fi_df_aggregated["Feature"],
-                            fi_df_aggregated["Importance"],
+                            selected_fi_df_aggregated["Feature"],
+                            selected_fi_df_aggregated["Importance"],
+                            edgecolor="black",
+                            linewidth=1,
+                            color="#078294"
                         )
+
                     else:
                         plt.bar(
                             fi_df["Feature"],
                             fi_df["Importance"],
                         )
 
-                    plt.title(f"{model_name} {fi_type.title()} FI {self.encoding}")
-                    plt.xticks(rotation=45, fontsize=3)
-                    plt.ylabel("Importance")
+                    plt.title(f"{model_name}: {fi_type.title()} Feature Importance; {self.encoding}")
+                    plt.xticks(rotation=90, fontsize=12)
+                    plt.yticks(fontsize=12)
+                    plt.axhline(y=0, color='black', linewidth=1)
+                    
+                    ax = plt.gca()
+                    ax.spines["top"].set_visible(False)
+                    ax.spines["right"].set_visible(False)
+                    ax.spines["bottom"].set_visible(False)
+
+                    plt.ylabel("Importance", fontsize=12)
                     plt.tight_layout()
                     plt.show()
 
@@ -313,9 +359,8 @@ class ModelEvaluator(BaseModelEvaluator):
             .mean()
         )
 
-        plt.figure(figsize=(8, 6), dpi=150)
-        sns.boxplot(x="Cluster", y="Brier_Score", data=X_clustered)
-
+        plt.figure(figsize=(6, 4), dpi=300)
+        sns.violinplot(x="Cluster", y="Brier_Score", data=X_clustered, linewidth=0.5, color="#078294", inner_kws=dict(box_width=6, whis_width=0.5))
         sns.pointplot(
             x="Cluster",
             y="Brier_Score",
@@ -325,17 +370,33 @@ class ModelEvaluator(BaseModelEvaluator):
             scale=0.75,
             ci=None,
         )
+        sns.despine(top=True, right=True)
+        plt.ylabel("Brier Score")
+        plt.title("Brier Score Distribution within Clusters", fontsize=14)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
         brier_plot = plt.gcf()
 
-        plt.figure(figsize=(12, 8), dpi=150)
+        plt.figure(figsize=(8, 3), dpi=300)
         annot_array = np.around(feature_averages.values, decimals=1)
         sns.heatmap(
             feature_averages,
             cmap="viridis",
             annot=annot_array,
             fmt=".1f",
-            annot_kws={"size": 8},
+            annot_kws={"size": 5, "rotation": 90},
         )
+
+        ax = plt.gca() 
+        for spine in ax.spines.values():
+            spine.set_visible(True)   
+            spine.set_color('black')
+            spine.set_linewidth(1)
+
+        cbar = ax.collections[0].colorbar 
+        cbar.outline.set_visible(True) 
+        cbar.outline.set_edgecolor("black")
+        cbar.outline.set_linewidth(1)      
         heatmap_plot = plt.gcf()
 
         return brier_plot, heatmap_plot, X_clustered
