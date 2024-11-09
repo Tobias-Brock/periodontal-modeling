@@ -14,7 +14,7 @@ class ProcessedDataLoader(BaseDataLoader):
     types such as 'one_hot' and 'target', with optional scaling of numeric columns.
 
     Inherits:
-        BaseDataLoader: Provides core data loading, encoding, and scaling methods.
+        `BaseDataLoader`: Provides core data loading, encoding, and scaling methods.
 
     Args:
         task (str): The task column name, used to guide specific transformations.

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ class Resampler(BaseResampler):
     with group constraints.
 
     Inherits:
-        - BaseResampler: Base class for resampling and validation methods.
+        - `BaseResampler`: Base class for resampling and validation methods.
 
     Args:
         classification (str): Specifies the type of classification ('binary'
@@ -65,29 +65,21 @@ class Resampler(BaseResampler):
     """
 
     def __init__(self, classification: str, encoding: str) -> None:
-        """Initializes the Resampler class.
-
-        Loads Hydra config values and sets parameters for random states, test sizes,
-        and other relevant settings, including classification type.
-
-        Args:
-            classification (str): The type of classification ('binary' or 'multiclass').
-            encoding (str): Tyoe if encoding ('one_hot' or 'target').
-        """
+        """Initializes the Resampler class."""
         super().__init__(classification=classification, encoding=encoding)
 
     def split_train_test_df(
         self,
         df: pd.DataFrame,
-        seed: Optional[int] = None,
-        test_size: Optional[float] = None,
+        seed: int = 0,
+        test_size: float = 0.2,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Splits the dataset into train_df and test_df based on group identifiers.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
-            seed (Optional[int], optional): Random seed for splitting. Defaults to None.
-            test_size (Optional[float]): Size of grouped train test split.
+            seed (int): Random seed for splitting. Defaults to 0.
+            test_size (float): Size of grouped train test split. Defaults to 0.2.
 
         Returns:
             tuple: Tuple containing the training and test DataFrames
@@ -101,8 +93,8 @@ class Resampler(BaseResampler):
 
         gss = GroupShuffleSplit(
             n_splits=1,
-            test_size=test_size if test_size is not None else self.test_set_size,
-            random_state=seed if seed is not None else self.random_state_split,
+            test_size=test_size,
+            random_state=seed,
         )
         train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
 
@@ -168,10 +160,10 @@ class Resampler(BaseResampler):
     def cv_folds(
         self,
         df: pd.DataFrame,
+        seed: int = 0,
+        n_folds: int = 10,
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
-        seed: Optional[int] = None,
-        n_folds: Optional[int] = None,
     ) -> Tuple[list, list]:
         """Performs cross-validation with group constraints.
 
@@ -179,14 +171,12 @@ class Resampler(BaseResampler):
 
         Args:
             df (pd.DataFrame): Input DataFrame.
+            seed (int): Random seed for reproducibility. Defaults to 0.
+            n_folds ([int): Number of folds for cross-validation. Defaults to 10.
             sampling (str, optional): Sampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for resampling, applied to upsample,
                 downsample, or SMOTE.
-            seed (Optional[int], optional): Random seed for reproducibility. Defaults
-                to None.
-            n_folds (Optional[int], optional): Number of folds for cross-validation.
-                Defaults to None, in which case the class's `n_folds` will be used.
 
 
         Returns:
@@ -196,12 +186,12 @@ class Resampler(BaseResampler):
             ValueError: If required columns are missing or folds are inconsistent.
             TypeError: If the input DataFrame is not a pandas DataFrame.
         """
-        np.random.default_rng(seed=seed if seed is not None else self.random_state_cv)
+        np.random.default_rng(seed=seed)
 
         self.validate_dataframe(df=df, required_columns=[self.y, self.group_col])
-        self.validate_n_folds(n_folds=self.n_folds)
+        self.validate_n_folds(n_folds=n_folds)
         train_df, _ = self.split_train_test_df(df=df)
-        gkf = GroupKFold(n_splits=n_folds if n_folds is not None else self.n_folds)
+        gkf = GroupKFold(n_splits=n_folds)
 
         cv_folds_indices = []
         outer_splits = []
@@ -223,6 +213,7 @@ class Resampler(BaseResampler):
                     y=y_train_fold,
                     sampling=sampling,
                     sampling_factor=factor,
+                    random_state=seed,
                 )
 
             cv_folds_indices.append((train_idx, test_idx))
@@ -245,7 +236,11 @@ class Resampler(BaseResampler):
                 X_t, X_val = self.apply_target_encoding(X=X_t, X_val=X_val, y=y_t)
                 if sampling == "smote":
                     X_t, y_t = self.apply_sampling(
-                        X=X_t, y=y_t, sampling=sampling, sampling_factor=factor
+                        X=X_t,
+                        y=y_t,
+                        sampling=sampling,
+                        sampling_factor=factor,
+                        random_state=seed,
                     )
 
                 outer_splits_t.append(((X_t, y_t), (X_val, y_val)))

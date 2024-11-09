@@ -7,7 +7,6 @@ import warnings
 import pandas as pd
 
 from ..base import BaseConfig
-from ..config import PROCESSED_BASE_DIR, RAW_DATA_DIR, TRAINING_DATA_DIR
 
 
 class BaseLoader(BaseConfig, ABC):
@@ -18,8 +17,8 @@ class BaseLoader(BaseConfig, ABC):
     for specifying data paths and filenames for loading and saving operations.
 
     Inherits:
-        - BaseConfig: Provides configuration settings for data processing.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides configuration settings for data processing.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Abstract Methods:
         - `load_data`: Load processed data from the specified path and file.
@@ -47,20 +46,21 @@ class BaseLoader(BaseConfig, ABC):
         """
 
     @abstractmethod
-    def save_data(self, df: pd.DataFrame, path: Path, name: str):
-        """Loads the processed data from the specified path.
+    def save_data(self, df: pd.DataFrame, path: Path, name: str) -> None:
+        """Saves the processed data to the specified path as a CSV file.
 
         Args:
-            df (pd.DataFrame): Pandas DataFrame.
-            path (Path): Directory path for the processed data.
-            name (str): File name for the processed data.
+            df (pd.DataFrame): The processed DataFrame.
+            path (Path): Directory path where the processed data will be saved.
+            name (str): File name for the processed data. If the file name does
+                not include a `.csv` extension, it will be added automatically.
         """
         if df.empty:
             raise ValueError("Data must be processed before saving.")
-
+        if not name.endswith(".csv"):
+            name += ".csv"
         processed_file_path = os.path.join(path, name)
         os.makedirs(path, exist_ok=True)
-
         df.to_csv(processed_file_path, index=False)
         print(f"Data saved to {processed_file_path}")
 
@@ -74,8 +74,8 @@ class BaseProcessor(BaseLoader, ABC):
     generation for specialized data processing.
 
     Inherits:
-        - BaseLoader: Provides loading and saving capabilities for processed data.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseLoader`: Provides loading and saving capabilities for processed data.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         behavior (bool): If True, includes behavior columns in the data processing.
@@ -102,7 +102,7 @@ class BaseProcessor(BaseLoader, ABC):
 
     def load_data(
         self,
-        path: Path = RAW_DATA_DIR,
+        path: Path = Path("raw/data"),
         name: str = "Periodontitis_ML_Dataset.xlsx",
     ) -> pd.DataFrame:
         """Loads the dataset and validates required columns.
@@ -173,7 +173,7 @@ class BaseProcessor(BaseLoader, ABC):
     def save_data(
         self,
         df: pd.DataFrame,
-        path: Path = PROCESSED_BASE_DIR,
+        path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
@@ -181,7 +181,7 @@ class BaseProcessor(BaseLoader, ABC):
         Args:
             df (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
-                Defaults to PROCESSED_BASE_DIR.
+                Defaults to "data/processed".
             name (str): The file path to save the CSV. Defaults to
                 "processed_data.csv" or "processed_data_b.csv".
         """
@@ -228,8 +228,8 @@ class BaseDataLoader(BaseLoader, ABC):
     that must be implemented by subclasses.
 
     Inherits:
-        - BaseLoader: Provides loading and saving capabilities for processed data.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseLoader`: Provides loading and saving capabilities for processed data.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         task (str): Specifies the task column name.
@@ -266,7 +266,7 @@ class BaseDataLoader(BaseLoader, ABC):
 
     @staticmethod
     def load_data(
-        path: Path = PROCESSED_BASE_DIR, name: str = "processed_data.csv"
+        path: Path = Path("data/processed"), name: str = "processed_data.csv"
     ) -> pd.DataFrame:
         """Loads the processed data from the specified path, with lowercasing.
 
@@ -283,7 +283,7 @@ class BaseDataLoader(BaseLoader, ABC):
     def save_data(
         self,
         df: pd.DataFrame,
-        path: Path = TRAINING_DATA_DIR,
+        path: Path = Path("data/training"),
         name: str = "training_data.csv",
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
@@ -291,7 +291,7 @@ class BaseDataLoader(BaseLoader, ABC):
         Args:
             df (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
-                Defaults to TRAINING_DATA_DIR.
+                Defaults to "data/training".
             name (str): The file path to save the CSV. Defaults to
                 "training_data"
         """

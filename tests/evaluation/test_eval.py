@@ -4,6 +4,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+from unittest.mock import MagicMock
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,6 +15,67 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 from periomod.evaluation._eval import ModelEvaluator
+
+
+def test_brier_scores():
+    """Test the brier_scores method for Brier score calculation."""
+    X = pd.DataFrame({"feature1": [0.1, 0.4, 0.35, 0.8]})
+    y = pd.Series([0, 1, 0, 1])
+
+    model = LogisticRegression()
+    model.predict_proba = MagicMock(
+        return_value=np.array([[0.9, 0.1], [0.2, 0.8], [0.8, 0.2], [0.3, 0.7]])
+    )
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    brier_scores = evaluator.brier_scores()
+    expected_brier_scores = [
+        (true - pred_proba[1]) ** 2
+        for true, pred_proba in zip(y, model.predict_proba(X), strict=False)
+    ]
+
+    assert isinstance(brier_scores, pd.Series)
+    assert len(brier_scores) == len(y)
+    assert np.allclose(brier_scores, expected_brier_scores)
+
+
+def test_model_predictions_no_threshold():
+    """Test model_predictions method without custom threshold."""
+    X = pd.DataFrame({"feature1": [0.1, 0.4, 0.35, 0.8]})
+    y = pd.Series([0, 1, 0, 1])
+
+    model = LogisticRegression()
+    model.predict = MagicMock(return_value=np.array([0, 1, 0, 1]))
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    predictions = evaluator.model_predictions()
+
+    assert isinstance(predictions, pd.Series)
+    assert len(predictions) == len(y)
+    assert (predictions == model.predict(X)).all()
+
+
+def test_model_predictions_with_threshold():
+    """Test model_predictions method with a custom threshold."""
+    X = pd.DataFrame({"feature1": [0.1, 0.4, 0.35, 0.8]})
+    y = pd.Series([0, 1, 0, 1])
+
+    model = LogisticRegression()
+    model.best_threshold = 0.5
+    model.predict_proba = MagicMock(
+        return_value=np.array([[0.6, 0.4], [0.4, 0.6], [0.8, 0.2], [0.3, 0.7]])
+    )
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    predictions = evaluator.model_predictions()
+    expected_predictions = pd.Series(
+        (model.predict_proba(X)[:, 1] >= model.best_threshold).astype(int),
+        index=y.index,
+    )
+
+    assert isinstance(predictions, pd.Series)
+    assert len(predictions) == len(y)
+    assert predictions.equals(expected_predictions)
 
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):

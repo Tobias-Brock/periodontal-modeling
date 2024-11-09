@@ -51,7 +51,7 @@ class BaseModelEvaluator(ABC):
     for handling one-hot encoded features and aggregating SHAP values.
 
     Inherits:
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         X (pd.DataFrame): The test dataset features.
@@ -62,8 +62,8 @@ class BaseModelEvaluator(ABC):
             for evaluation.
         encoding (Optional[str]): Encoding type for categorical features, e.g.,
             'one_hot' or 'target', used for labeling and grouping in plots.
-        aggregate (bool): If True, aggregates the importance values of one-hot encoded
-            features for interpretability.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
         X (pd.DataFrame): Holds the test dataset features for evaluation.
@@ -75,10 +75,16 @@ class BaseModelEvaluator(ABC):
         encoding (Optional[str]): Indicates the encoding type used, which impacts
             plot titles and feature grouping in evaluations.
         aggregate (bool): Indicates whether to aggregate importance values of
-            one-hot encoded features, enhancing interpretability in feature
+            multi-category encoded features, enhancing interpretability in feature
             importance plots.
 
     Methods:
+        brier_scores: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        model_predictions: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
         brier_score_groups: Calculates Brier score within specified groups.
         plot_confusion_matrix: Generates a styled confusion matrix heatmap
             for the test data and model predictions.
@@ -113,17 +119,7 @@ class BaseModelEvaluator(ABC):
         encoding: Optional[str],
         aggregate: bool,
     ) -> None:
-        """Initialize the FeatureImportance class.
-
-        Args:
-            X (pd.DataFrame): Test dataset features.
-            y (pd.Series): Test dataset labels.
-            model ([sklearn estimators]): Trained sklearn models.
-            models (List[sklearn estimators]): List of trained models.
-            encoding (Optional[str]): Determines encoding for plot titles
-                ('one_hot' or 'target').
-            aggregate (bool): If True, aggregates importance values of one-hot features.
-        """
+        """Initialize the FeatureImportance class."""
         self.X = X
         self.y = y
         self.model = model
@@ -131,26 +127,22 @@ class BaseModelEvaluator(ABC):
         self.encoding = encoding
         self.aggregate = aggregate
 
-    def brier_score_groups(self, group_by: str = "y") -> None:
-        """Calculates Brier score within groups.
-
-        Args:
-            group_by (str): Grouping variable. Defaults to "y".
+    def brier_scores(self) -> pd.Series:
+        """Calculates Brier scores for each instance in the evaluator's dataset.
 
         Returns:
-            pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
+            pd.Series: Brier scores for each instance.
         """
         if not hasattr(self.model, "predict_proba"):
             raise ValueError("The provided model cannot predict probabilities.")
-
         if self.model is None:
-            return None
+            raise ValueError("No model is available for predictions.")
 
         probas = self.model.predict_proba(self.X)
 
-        if len(probas[0]) == 1:
+        if probas.shape[1] == 1:
             brier_scores = [
-                brier_score_loss(y_true=[true_label], y_proba=[pred_proba[0]])
+                brier_score_loss([true_label], [pred_proba[0]])
                 for true_label, pred_proba in zip(self.y, probas, strict=False)
             ]
         else:
@@ -161,9 +153,43 @@ class BaseModelEvaluator(ABC):
                 for true_label, proba in zip(self.y, probas, strict=False)
             ]
 
-            data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
-            data_grouped = data.groupby(group_by)
+        return pd.Series(brier_scores, index=self.y.index)
 
+    def model_predictions(self) -> pd.Series:
+        """Generates model predictions for the evaluator's feature set.
+
+        Returns:
+            pd.Series: Predicted labels as a series.
+        """
+        if not self.model:
+            raise ValueError("No model available for predictions.")
+
+        if (
+            hasattr(self.model, "best_threshold")
+            and self.model.best_threshold is not None
+        ):
+            final_probs = get_probs(model=self.model, classification="binary", X=self.X)
+            if final_probs is not None:
+                pred = pd.Series(
+                    (final_probs >= self.model.best_threshold).astype(int),
+                    index=self.X.index,
+                )
+            else:
+                pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+        else:
+            pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+
+        return pred
+
+    def brier_score_groups(self, group_by: str = "y") -> None:
+        """Calculates and displays Brier score within groups.
+
+        Args:
+            group_by (str): Grouping variable. Defaults to "y".
+        """
+        brier_scores = self.brier_scores()
+        data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
+        data_grouped = data.groupby(group_by)
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
@@ -196,19 +222,7 @@ class BaseModelEvaluator(ABC):
         Returns:
         plt.Figure: Confusion matrix heatmap plot.
         """
-        if not self.model:
-            return "No model available."
-        if (
-            hasattr(self.model, "best_threshold")
-            and self.model.best_threshold is not None
-        ):
-            final_probs = get_probs(model=self.model, classification="binary", X=self.X)
-            if final_probs is not None:
-                pred = (final_probs >= self.model.best_threshold).astype(int)
-            else:
-                pred = self.model.predict(self.X)
-        else:
-            pred = self.model.predict(self.X)
+        pred = self.model_predictions()
 
         if col is not None:
             cm = confusion_matrix(y_true=col, y_pred=pred)

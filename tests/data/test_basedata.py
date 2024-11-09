@@ -43,7 +43,7 @@ def test_base_loader_save_data_empty_df():
 
     class ConcreteLoader(BaseLoader):
         def load_data(self, path: Path, name: str):
-            pass  # Implement abstract method with pass
+            pass
 
         def save_data(self, df: pd.DataFrame, path: Path, name: str):
             super().save_data(df, path, name)
@@ -104,12 +104,14 @@ def test_base_processor_load_data_missing_columns():
             }
         )
         mock_read_excel.return_value = mock_df
-        processor = ConcreteProcessor()
+        processor = ConcreteProcessor(behavior=True)
+
         with warnings.catch_warnings(record=True) as w:
             df = processor.load_data(path=Path("/tmp"), name="test.xlsx")
-            assert len(w) == 1
+            assert len(w) == 2
             assert issubclass(w[-1].category, UserWarning)
-            assert "Missing columns" in str(w[-1].message)
+            assert "Warning: Missing cols" in str(w[-1].message)
+
         assert df.shape[1] <= len(processor.required_columns)
 
 

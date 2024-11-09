@@ -1,3 +1,0 @@
-mlp_tol : 0.0001
-mlp_no_improve : 10
-mlp_training : True

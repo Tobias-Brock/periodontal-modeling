@@ -306,13 +306,13 @@ def _run_benchmarks(
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
-    cv_folds: Optional[int],
+    cv_folds: int,
     racing_folds: int,
-    test_seed: Optional[int],
-    test_size: Optional[float],
-    val_size: Optional[float],
-    cv_seed: Optional[int],
-    mlp_flag: Optional[bool],
+    test_seed: int,
+    test_size: float,
+    val_size: float,
+    cv_seed: int,
+    mlp_flag: bool,
     threshold_tuning: bool,
     n_jobs: int,
     path: str,
@@ -337,11 +337,11 @@ def _run_benchmarks(
         cv_folds (int): Number of cross-validation folds.
         racing_folds (int): Number of folds to use for racing during random
             search (RS).
-        test_seed (Optional[int]): Seed for random train-test split.
-        test_size (Optional[float]): Proportion of data used for testing.
-        val_size (Optional[float]): Proportion of data for validation in holdout.
-        cv_seed (Optional[int]): Seed for cross-validation splits.
-        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        test_seed (int): Seed for random train-test split.
+        test_size (float): Proportion of data used for testing.
+        val_size (float): Proportion of data for validation in holdout.
+        cv_seed (int): Seed for cross-validation splits.
+        mlp_flag (bool): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
@@ -403,9 +403,7 @@ def _run_benchmarks(
         return "No results to display", None, None
 
     df_results = df_results.round(4)
-
     classification = "multiclass" if "pdgrouprevaluation" in task else "binary"
-
     available_metrics = df_results.columns.tolist()
 
     if classification == "binary":
@@ -597,6 +595,7 @@ def _plot_fi(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> plt.Figure:
     """Generates a feature importance plot using FeatureImportanceEngine.
 
@@ -606,6 +605,7 @@ def _plot_fi(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         plt.Figure: Feature importance plot.
@@ -614,7 +614,7 @@ def _plot_fi(
         return "No model available."
 
     ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
     ).evaluate_feature_importance(fi_types=fi_types)
     return plt.gcf()
 
@@ -624,6 +624,7 @@ def _plot_cluster(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
 ) -> Tuple[plt.Figure, plt.Figure]:
     """Performs clustering on Brier score and returns related plots.
@@ -633,6 +634,7 @@ def _plot_cluster(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters for Brier score analysis.
 
     Returns:
@@ -643,7 +645,7 @@ def _plot_cluster(
         return "No model available."
 
     return ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
     ).analyze_brier_within_clusters(n_clusters=n_clusters)
 
 
@@ -669,9 +671,10 @@ def _plot_fi_wrapper(
     models: dict,
     selected_model: str,
     fi_types: List[str],
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> Any:
     """Wrapper function to call plot_fi.
 
@@ -679,9 +682,10 @@ def _plot_fi_wrapper(
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
         fi_types (List[str]): List of importance types.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         Any: The result from the plot_fi function.
@@ -692,15 +696,17 @@ def _plot_fi_wrapper(
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
     )
 
 
 def _plot_cluster_wrapper(
     models: dict,
     selected_model: str,
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
 ) -> Tuple[Any, Any]:
     """Wrapper function to call plot_cluster.
@@ -708,9 +714,10 @@ def _plot_cluster_wrapper(
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters.
 
     Returns:
@@ -721,6 +728,7 @@ def _plot_cluster_wrapper(
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
         n_clusters=n_clusters,
     )
 
@@ -955,7 +963,7 @@ def _app_inference(
     encoding: str,
     X_train: pd.DataFrame,
     y_train: pd.Series,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run inference on the patient's data.
 
     Args:
@@ -968,7 +976,11 @@ def _app_inference(
         y_train (pd.Series): Training target for target encoding.
 
     Returns:
-        pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing:
+            - predict_data (pd.DataFrame): The transformed patient data for prediction.
+            - output_data (pd.DataFrame): DataFrame with columns "tooth", "side",
+              transformed "prediction", and "probability".
+            - results (pd.DataFrame): Original results from the model inference.
     """
     model = models[selected_model]
     task_processed = InputProcessor.process_task(task=task)
@@ -984,9 +996,13 @@ def _app_inference(
         y_train=y_train,
     )
 
-    return inference_engine.patient_inference(
+    prediction_data, prediction_output, results = inference_engine.patient_inference(
         predict_data=predict_data, patient_data=patient_data
     )
+    prediction_output = InputProcessor.transform_predictions(
+        task_processed, prediction_output
+    )
+    return prediction_data, prediction_output, results
 
 
 def _run_jackknife_inference(
@@ -1014,7 +1030,7 @@ def _run_jackknife_inference(
         alpha (float, optional): Significance level for confidence intervals.
         sample_fraction (float, optional): Fraction of patient IDs to use in jackknife.
             Defaults to 1.0.
-        n_jobs (int, optional): Number of parallel jobs. Defaults to -1.
+        n_jobs (int): Number of parallel jobs. Defaults to -1.
 
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.

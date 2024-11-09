@@ -21,8 +21,8 @@ class BaseModelInference(BaseConfig, ABC):
     allows encoding configurations for model compatibility.
 
     Inherits:
-        - BaseConfig: Provides configuration settings for data processing.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides configuration settings for data processing.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): The type of classification task, either 'binary'
@@ -61,13 +61,7 @@ class BaseModelInference(BaseConfig, ABC):
     """
 
     def __init__(self, classification: str, model: Any, verbose: bool):
-        """Initialize the ModelInference class with a trained model.
-
-        Args:
-            classification (str): Classification type ('binary' or 'multiclass').
-            model (Any): Trained classification model with a `predict_proba` method.
-            verbose (bool): Activates verbose if set to True.
-        """
+        """Initialize the ModelInference class with a trained model."""
         super().__init__()
         self.classification = classification
         self.model = model
@@ -238,7 +232,11 @@ class BaseModelInference(BaseConfig, ABC):
             patient_data (pd.DataFrame): The patient's data as a DataFrame.
 
         Returns:
-            pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
+            Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing:
+                - predict_data (pd.DataFrame): Transformed patient data for prediction.
+                - output_data (pd.DataFrame): DataFrame with columns "tooth", "side",
+                transformed "prediction", and "probability".
+                - results (pd.DataFrame): Original results from the model inference.
         """
         results = self.predict(predict_data)
         output_data = patient_data[["tooth", "side"]].copy()
