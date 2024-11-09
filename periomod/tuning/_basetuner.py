@@ -19,8 +19,8 @@ class BaseTuner(BaseValidator, ABC):
     logging functions.
 
     Inherits:
-        - BaseValidator: Validates instance-level variables.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseValidator`: Validates instance-level variables.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): The type of classification ('binary' or 'multiclass').
@@ -28,7 +28,7 @@ class BaseTuner(BaseValidator, ABC):
         tuning (str): The tuning type ('holdout' or 'cv').
         hpo (str): The hyperparameter optimization method (e.g., 'random_search').
         n_configs (int): Number of configurations to evaluate during HPO.
-        n_jobs (Optional[int]): Number of parallel jobs for model training.
+        n_jobs (int): Number of parallel jobs for model training.
         verbose (bool): Enables detailed logs during tuning if True.
         trainer (Optional[Trainer]): Trainer instance for evaluation.
         mlp_training (bool): Enables MLP training with early stopping.
@@ -49,8 +49,8 @@ class BaseTuner(BaseValidator, ABC):
         trainer (Trainer): Trainer instance to handle model training and evaluation.
 
     Abstract Methods:
-        - cv: Defines cross-validation strategy with or without tuning.
-        - holdout: Implements holdout tuning on a validation set for selected
+        - `cv`: Defines cross-validation strategy with or without tuning.
+        - `holdout`: Implements holdout tuning on a validation set for selected
           hyperparameter configurations.
     """
 
@@ -61,7 +61,7 @@ class BaseTuner(BaseValidator, ABC):
         tuning: str,
         hpo: str,
         n_configs: int,
-        n_jobs: Optional[int],
+        n_jobs: int,
         verbose: bool,
         trainer: Optional[Trainer],
         mlp_training: bool,
@@ -72,7 +72,7 @@ class BaseTuner(BaseValidator, ABC):
             classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
         self.n_configs = n_configs
-        self.n_jobs = n_jobs if n_jobs is not None else 1
+        self.n_jobs = n_jobs
         self.verbose = verbose
         self.mlp_training = mlp_training
         self.threshold_tuning = threshold_tuning

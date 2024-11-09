@@ -1,18 +1,42 @@
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
+![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
+![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
+![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
+
+
 # periodontal-modeling
 
-A Python package for comprehensive periodontal data processing and modeling. This package provides tools for preprocessing, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis with an interactive Gradio frontend. It was developed for Python 3.11.
+`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `peridontal-modeling`, or in short `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11.
 
 ## Features
 
-- **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, and transformation.
+- **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, data imputation and transformation.
 - **Descriptive Analysis**: Generate descriptive statistics and plots such as confusion matrices and bar plots.
 - **Automatic Model Tuning**: Supports multiple learners and tuning strategies for optimized model training.
-- **Resampling and Handling Class Imbalance**: Resampling strategies such as SMOTE and upsampling/downsampling to balance dataset classes.
-- **Model Evaluation**: Cross-validation and holdout evaluation with support for criteria such as F1, Brier score, and Macro-F1.
-- **Inference and Descriptive Statistics**: Patient-level inference, jackknife resampling, and 2D histogram generation.
+- **Resampling**: Allows the use of grouped holdout and cross-validation resampling.
+- **Imbalanced Data Handling**: Enables the application of SMOTE and upsampling/downsampling to balance dataset classes.
+- **Model Evaluation**: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.
+- **Inference**: Patient-level inference, jackknife resampling and confidence intervals.
 - **Interactive Frontend with Gradio**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
 
 ## Installation
+
+### Dependencies
+
+- `gradio==4.44.1`
+- `HEBO==0.3.5`
+- `hydra-core==1.3.2`
+- `imbalanced-learn==0.12.3`
+- `jackknife==0.1.0`
+- `matplotlib==3.9.2`
+- `numpy==1.24.4`
+- `openpyxl==3.1.5`
+- `pandas==2.2.2`
+- `scikit-learn==1.5.1`
+- `seaborn==0.13.2`
+- `shap==0.46.0`
+- `xgboost==2.1.1`
+
 
 Ensure you have Python 3.11 installed. Install the package via pip:
 
@@ -24,23 +48,30 @@ pip install periodontal-modeling
 
 ### App Module
 
-The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference. The app can be launched in a straighforward manner.
+The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference.
 
 ```python
-from periomod.app import app
+from periomod.app import perioapp
 
-app.launch()
+perioapp.launch()
+```
+
+If you download the repository and install the package in editable mode, the following `make` command starts the app:
+
+```bash
+pip install -e .
+make app
 ```
 
 The app can also be launched using docker. Run the following commands in the root of the repository:
 
 ```bash
 docker build -f docker/app.dockerfile -t periomod-image .
-docker run -p 7880:7880 periomod-image
+docker run -p 7890:7890 periomod-image
 ```
-By default the app will be launched on port 7880 and can be accessed via `http://localhost:7880`.
+By default, the app will be launched on port 7890 and can be accessed at `http://localhost:7890`.
 
-Alternatively, the `make` commands can be used to build and run the docker image:
+Alternatively, the following `make` commands are available to build and run the docker image:
 
 ```bash
 make docker-build
@@ -55,14 +86,14 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 # do not include behavior columns for processing data
-# activate verbose logging during processing
+# activate verbose outputs during processing
 engine = StaticProcessEngine(behavior=False, verbose=True)
 df = engine.load_data(path="data/raw", name="Periodontitis_ML_Dataset.xlsx")
 df = engine.process_data(df)
 engine.save_data(df=df, path="data/processed", name="processed_data.csv")
 ```
 
-The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of three periodontal task can be selected, either "pocketclosure", "pdgrouprevaluation" or "improvement".
+The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement".
 
 ```python
 from periomod.data import ProcessedDataLoader
@@ -112,7 +143,7 @@ outer_splits, cv_folds_indices = resampler.cv_folds(
 
 ### Training Module
 
-`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning.
+`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning in the case of binary classification and when the criterion "f1" is selected.
 
 ```python
 from periomod.training import Trainer
@@ -155,6 +186,15 @@ The tuning module contains the `HEBOTuner`and `RandomSearchTuner` classes that c
 from periomod.training import Trainer
 from periomod.tuning import HEBOTuner
 
+trainer = Trainer(
+    classification="binary",
+    criterion="f1",
+    tuning="holdout",
+    hpo="hebo",
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
 tuner = HEBOTuner(
     classification="binary",
     criterion="f1",
@@ -163,14 +203,7 @@ tuner = HEBOTuner(
     n_configs=10,
     n_jobs=-1,
     verbose=True,
-    trainer=Trainer(
-        classification="binary",
-        criterion="f1",
-        tuning="holdout",
-        hpo="hebo",
-        mlp_training=True,
-        threshold_tuning=True,
-    ),
+    trainer=trainer,
     mlp_training=True,
     threshold_tuning=True,
 )
@@ -188,6 +221,15 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 from periomod.training import Trainer
 from periomod.tuning import RandomSearchTuner
 
+trainer = Trainer(
+    classification="binary",
+    criterion="f1",
+    tuning="cv",
+    hpo="rs",
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
 tuner = RandomSearchTuner(
     classification="binary",
     criterion="f1",
@@ -196,14 +238,7 @@ tuner = RandomSearchTuner(
     n_configs=15,
     n_jobs=4,
     verbose=True,
-    trainer=Trainer(
-        classification="binary",
-        criterion="f1",
-        tuning="cv",
-        hpo="rs",
-        mlp_training=True,
-        threshold_tuning=True,
-    ),
+    trainer=trainer,
     mlp_training=True,
     threshold_tuning=True,
 )
@@ -219,7 +254,7 @@ best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_spli
 
 ### Evaluation Module
 
-`ModelEvaluator` contains method for model evaluation after training. It includes prediction analysis and feature importance.
+`ModelEvaluator` contains method for model evaluation after training, including prediction analysis and feature importance.
 
 ```python
 from periomod.evaluation import ModelEvaluator
@@ -240,7 +275,7 @@ brier_plot, heatmap_plot, clustered_data = evaluator.analyze_brier_within_cluste
 
 ### Inference Module
 
-The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also included.
+The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also available.
 
 ```python
 from periomod.inference import ModelInference
@@ -302,16 +337,7 @@ experiment = Experiment(
     sampling="upsample",
     factor=1.5,
     n_configs=20,
-    racing_folds=3,
-    n_jobs=-1,
-    cv_folds=10,
-    test_seed=42,
-    test_size=0.2,
-    val_size=0.1,
-    cv_seed=10,
-    mlp_flag=True,
-    threshold_tuning=True,
-    verbose=True,
+    racing_folds=5,
 )
 
 # Perform the evaluation based on cross-validation
@@ -319,7 +345,7 @@ final_metrics = experiment.perform_evaluation()
 print(final_metrics)
 ```
 
-For running multiple experiments, the `Benchmarker`class can be used. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.
+For multiple experiments, the `Benchmarker` class provides a streamlined benchmarking process. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.
 
 ```python
 from periomod.benchmarking import Benchmarker
@@ -333,14 +359,6 @@ benchmarker = Benchmarker(
     encodings=["one_hot", "target"],
     sampling=[None, "upsampling", "downsampling"],
     factor=2,
-    n_configs=20,
-    n_jobs=-1,
-    cv_folds=5,
-    test_seed=42,
-    test_size=0.2,
-    verbose=True,
-    path="/data/processed",
-    name="processed_data.csv",
 )
 
 # Running all benchmarks
@@ -351,7 +369,9 @@ print(top_models)
 
 ### Wrapper Module
 
-The wrapper module wraps benchmark and evaluation methods to provide a streamlined setup that requires a minimal amount of code while making use of all the submodules contained in the `periomod` package.
+The wrapper module wraps benchmark and evaluation methods to provide a straightforward setup that requires a minimal amount of code while making use of all the submodules contained in the `periomod` package.
+
+The `BenchmarkWrapper` includes the functionality of the `Benchmarker` while also wrapping methods for baseline benchmarking and saving.
 
 ```python
 from periomod.wrapper import BenchmarkWrapper
@@ -360,17 +380,12 @@ from periomod.wrapper import BenchmarkWrapper
 benchmarker = BenchmarkWrapper(
     task="pocketclosure",
     encodings=["one_hot", "target"],
-    learners=["rf", "xgb", "lr"],
+    learners=["rf", "xgb", "lr", "mlp"],
     tuning_methods=["holdout", "cv"],
     hpo_methods=["rs", "hebo"],
     criteria=["f1", "brier_score"],
     sampling=["upsampling"],
-    factor=None,
-    n_configs=10,
-    n_jobs=4,
-    verbose=True,
-    path="data/processed",
-    name="processed_data.csv",
+    factor=2,
 )
 
 # Run baseline benchmarking
@@ -380,12 +395,12 @@ baseline_df = benchmarker.baseline()
 benchmark_results, learners_used = benchmarker.wrapped_benchmark()
 
 # Save the benchmark results
-benchmarker.save_benchmark(baseline_df, path=Path("reports"))
+benchmarker.save_benchmark(baseline_df, path="reports")
 
 # Save the trained learners
-benchmarker.save_learners(learners_dict=learners_used, path=Path("models"))
+benchmarker.save_learners(learners_dict=learners_used, path="models")
 ```
-
+The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomod.inference` modules.
 ```python
 # Initialize the evaluator with required parameters
 evaluator = EvaluatorWrapper(
@@ -412,7 +427,11 @@ jackknife_results, ci_plots = evaluator.wrapped_jackknife(
 
 ## License
 
-This project is licensed under the MIT License.
+© 2024 Tobias Brock, Elias Walter
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+See the [LICENSE](./LICENSE) file for more details or read the full license at
+[Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 
 ## Contributing
 

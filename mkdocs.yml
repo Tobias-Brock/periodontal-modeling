@@ -20,6 +20,8 @@ plugins:
         python:
           options:
             render_typehint_in_signature: true
+          selection:
+            strict: false
 
 markdown_extensions:
   - admonition
@@ -41,6 +43,7 @@ nav:
       - Tooth: "reference/base/tooth.md"
   - periomod.benchmarking:
       - Overview: "reference/benchmarking/index.md"
+      - Baseline: "reference/benchmarking/baseline.md"
       - BaseExperiment: "reference/benchmarking/baseexperiment.md"
       - Experiment: "reference/benchmarking/experiment.md"
       - BaseBenchmark: "reference/benchmarking/basebenchmark.md"
@@ -88,4 +91,6 @@ nav:
       - BaseEvaluatorWrapper: "reference/wrapper/baseevaluatorwrapper.md"
       - BenchmarkWrapper: "reference/wrapper/benchmarkwrapper.md"
       - EvaluatorWrapper: "reference/wrapper/evaluatorwrapper.md"
+      - load_benchmark: "reference/wrapper/loadbenchmark.md"
       - load_learners: "reference/wrapper/loadlearners.md"
+      - ModelExtractor: "reference/wrapper/modelextractor.md"

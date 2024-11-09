@@ -1,3 +1,5 @@
+import contextlib
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -15,6 +17,7 @@ from ..resampling import Resampler
 from ._inputprocessor import InputProcessor
 
 plotter = None
+data_df = None
 
 all_teeth = [
     18,
@@ -52,31 +55,145 @@ all_teeth = [
 ]
 
 
-def _load_and_initialize_plotter(path: str) -> str:
-    """Loads the data and initializes the DescriptivesPlotter.
-
-    Args:
-        path (str): The full path to the data file.
+def _load_data_engine(
+    path: str,
+) -> Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict, dict]:
+    """Loads the data and returns updates for dropdowns.
 
     Returns:
-        str: A message indicating that the data has been loaded and that the
-        user can proceed with creating plots.
+        Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict]: A status message and
+        updates for each dropdown component.
     """
-    global plotter
+    global data_df
     data_path = Path(path)
     engine = StaticProcessEngine(behavior=False)
-    df = engine.load_data(path=data_path.parent, name=data_path.name)
-    df = engine.process_data(df=df)
-    plotter = DescriptivesPlotter(df=df)
-    return "Data loaded successfully. You can now create plots."
+    data_df = engine.load_data(path=data_path.parent, name=data_path.name)
+    columns = data_df.columns.tolist()
+    dropdown_update = gr.update(choices=columns)
+    return (
+        "Data loaded successfully. You can now display, process, or save the data.",
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+        dropdown_update,
+    )
 
 
-def _plot_histogram_2d(col_before: str, col_after: str) -> Union[plt.Figure, str]:
+def _display_data() -> gr.DataFrame:
+    """Displays a preview of the loaded data.
+
+    Returns:
+        gr.DataFrame: The first few rows of the loaded data if available, or a message
+        indicating that no data has been loaded.
+    """
+    if data_df is None:
+        return "No data loaded. Please load data first."
+    return data_df.head(10)
+
+
+def _process_data() -> Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict, dict]:
+    global plotter, data_df
+    if data_df is None:
+        return ("No data loaded. Please load data first.",) + (gr.update(),) * 9
+
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        engine = StaticProcessEngine(behavior=False)
+        data_df = engine.process_data(df=data_df)
+        plotter = DescriptivesPlotter(df=data_df)
+
+    process_output = output.getvalue()
+    process_output += "\nData processed successfully. Ready for plotting."
+    output.close()
+    columns = data_df.columns.tolist()
+    default_column_before = "pdbaseline" if "pdbaseline" in columns else columns[0]
+    default_column_after = "pdrevaluation" if "pdrevaluation" in columns else columns[0]
+    default_column1 = "pdbaseline" if "pdbaseline" in columns else columns[0]
+    default_column2 = "pdrevaluation" if "pdrevaluation" in columns else columns[0]
+    default_group_column_before = (
+        "pdgroupbase" if "pdgroupbase" in columns else columns[0]
+    )
+    default_group_column_after = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+    default_vertical = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+    default_horizontal = "pdgroupbase" if "pdgroupbase" in columns else columns[0]
+    default_outcome = (
+        "pdgrouprevaluation" if "pdgrouprevaluation" in columns else columns[0]
+    )
+
+    dropdown_update_column_before = gr.update(
+        choices=columns, value=default_column_before
+    )
+    dropdown_update_column_after = gr.update(
+        choices=columns, value=default_column_after
+    )
+    dropdown_update_column1 = gr.update(choices=columns, value=default_column1)
+    dropdown_update_column2 = gr.update(choices=columns, value=default_column2)
+    dropdown_update_group_column_before = gr.update(
+        choices=columns, value=default_group_column_before
+    )
+    dropdown_update_group_column_after = gr.update(
+        choices=columns, value=default_group_column_after
+    )
+    dropdown_update_vertical = gr.update(choices=columns, value=default_vertical)
+    dropdown_update_horizontal = gr.update(choices=columns, value=default_horizontal)
+    dropdown_update_outcome = gr.update(choices=columns, value=default_outcome)
+
+    return (
+        process_output,
+        dropdown_update_column_before,
+        dropdown_update_column_after,
+        dropdown_update_column1,
+        dropdown_update_column2,
+        dropdown_update_group_column_before,
+        dropdown_update_group_column_after,
+        dropdown_update_vertical,
+        dropdown_update_horizontal,
+        dropdown_update_outcome,
+    )
+
+
+def _save_data(save_path: Union[str, Path]) -> str:
+    """Saves the processed data to the specified file path.
+
+    Args:
+        save_path (Union[str, Path]): The full path where the processed data should
+        be saved, including the file name.
+
+    Returns:
+        str: A message indicating that the data was successfully saved to the specified
+        path. If no data is loaded, returns an error message.
+    """
+    global data_df
+    if data_df is None:
+        return "No data loaded. Please load data first."
+
+    engine = StaticProcessEngine(behavior=False)
+    if isinstance(save_path, str):
+        save_path = Path(save_path)
+
+    engine.save_data(data_df, path=save_path.parent, name=save_path.name)
+    return f"Data saved successfully to {save_path}"
+
+
+def _plot_histogram_2d(
+    col_before: str, col_after: str, x_label: str, y_label: str
+) -> Union[plt.Figure, str]:
     """Plots a 2D histogram.
 
     Args:
         col_before (str): Name of the column representing values before therapy.
         col_after (str): Name of the column representing values after therapy.
+        x_label (str): Label for x-axis.
+        y_label (str): Label for y-axis.
 
     Returns:
         Union[plt.Figure, str]: The 2D histogram plot if successful, or a message
@@ -85,16 +202,22 @@ def _plot_histogram_2d(col_before: str, col_after: str) -> Union[plt.Figure, str
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.histogram_2d(col_before=col_before, col_after=col_after)
+    plotter.histogram_2d(
+        col_before=col_before, col_after=col_after, x_label=x_label, y_label=y_label
+    )
     return plt.gcf()
 
 
-def _plot_pocket_comparison(col1: str, col2: str) -> Union[plt.Figure, str]:
+def _plot_pocket_comparison(
+    col1: str, col2: str, title_1: str, title_2: str
+) -> Union[plt.Figure, str]:
     """Plots a pocket depth comparison before and after therapy.
 
     Args:
         col1 (str): Name of column representing pocket depth before therapy.
         col2 (str): Name of column representing pocket depth after therapy.
+        title_1 (str): Title of first plot.
+        title_2 (str): Title of second plot.
 
     Returns:
         Union[plt.Figure, str]: The pocket comparison plot if successful, or
@@ -103,18 +226,20 @@ def _plot_pocket_comparison(col1: str, col2: str) -> Union[plt.Figure, str]:
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_comparison(col1=col1, col2=col2)
+    plotter.pocket_comparison(col1=col1, col2=col2, title_1=title_1, title_2=title_2)
     return plt.gcf()
 
 
 def _plot_pocket_group_comparison(
-    col_before: str, col_after: str
+    col_before: str, col_after: str, title_1: str, title_2: str
 ) -> Union[plt.Figure, str]:
     """Plots a pocket group comparison before and after therapy.
 
     Args:
         col_before (str): Name of column representing pocket group before therapy.
         col_after (str): Name of column representing pocket group after therapy.
+        title_1 (str): Title of first plot.
+        title_2 (str): Title of second plot.
 
     Returns:
         Union[plt.Figure, str]: Pocket group comparison plot if successful,
@@ -123,16 +248,22 @@ def _plot_pocket_group_comparison(
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.pocket_group_comparison(col_before=col_before, col_after=col_after)
+    plotter.pocket_group_comparison(
+        col_before=col_before, col_after=col_after, title_1=title_1, title_2=title_2
+    )
     return plt.gcf()
 
 
-def _plot_matrix(vertical: str, horizontal: str) -> Union[plt.Figure, str]:
+def _plot_matrix(
+    vertical: str, horizontal: str, x_label: str, y_label: str
+) -> Union[plt.Figure, str]:
     """Plots confusion matrix or heatmap based on given vertical and horizontal columns.
 
     Args:
         vertical (str): The name of the column used for the vertical axis.
         horizontal (str): The name of the column used for the horizontal axis.
+        x_label (str): Label for x-axis.
+        y_label (str): Label for y-axis.
 
     Returns:
         Union[plt.Figure, str]: The matrix plot if successful, or a message
@@ -141,7 +272,9 @@ def _plot_matrix(vertical: str, horizontal: str) -> Union[plt.Figure, str]:
     global plotter
     if plotter is None:
         return "Please load the data first."
-    plotter.plt_matrix(vertical=vertical, horizontal=horizontal)
+    plotter.plt_matrix(
+        vertical=vertical, horizontal=horizontal, x_label=x_label, y_label=y_label
+    )
     return plt.gcf()
 
 
@@ -173,13 +306,13 @@ def _run_benchmarks(
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
-    cv_folds: Optional[int],
+    cv_folds: int,
     racing_folds: int,
-    test_seed: Optional[int],
-    test_size: Optional[float],
-    val_size: Optional[float],
-    cv_seed: Optional[int],
-    mlp_flag: Optional[bool],
+    test_seed: int,
+    test_size: float,
+    val_size: float,
+    cv_seed: int,
+    mlp_flag: bool,
     threshold_tuning: bool,
     n_jobs: int,
     path: str,
@@ -204,11 +337,11 @@ def _run_benchmarks(
         cv_folds (int): Number of cross-validation folds.
         racing_folds (int): Number of folds to use for racing during random
             search (RS).
-        test_seed (Optional[int]): Seed for random train-test split.
-        test_size (Optional[float]): Proportion of data used for testing.
-        val_size (Optional[float]): Proportion of data for validation in holdout.
-        cv_seed (Optional[int]): Seed for cross-validation splits.
-        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+        test_seed (int): Seed for random train-test split.
+        test_size (float): Proportion of data used for testing.
+        val_size (float): Proportion of data for validation in holdout.
+        cv_seed (int): Seed for cross-validation splits.
+        mlp_flag (bool): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
@@ -264,15 +397,13 @@ def _run_benchmarks(
         name=file_name,
     )
 
-    df_results, learners_dict = benchmarker.run_all_benchmarks()
+    df_results, learners_dict = benchmarker.run_benchmarks()
 
     if df_results.empty:
         return "No results to display", None, None
 
     df_results = df_results.round(4)
-
     classification = "multiclass" if "pdgrouprevaluation" in task else "binary"
-
     available_metrics = df_results.columns.tolist()
 
     if classification == "binary":
@@ -464,6 +595,7 @@ def _plot_fi(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> plt.Figure:
     """Generates a feature importance plot using FeatureImportanceEngine.
 
@@ -473,6 +605,7 @@ def _plot_fi(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         plt.Figure: Feature importance plot.
@@ -481,7 +614,7 @@ def _plot_fi(
         return "No model available."
 
     ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
     ).evaluate_feature_importance(fi_types=fi_types)
     return plt.gcf()
 
@@ -491,8 +624,9 @@ def _plot_cluster(
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
-) -> Tuple[plt.Figure, plt.Figure]:
+) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
     """Performs clustering on Brier score and returns related plots.
 
     Args:
@@ -500,18 +634,20 @@ def _plot_cluster(
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters for Brier score analysis.
 
     Returns:
-        Tuple[plt.Figure, plt.Figure]: A tuple containing the Brier score plot
-            and the heatmap plot.
+        Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]: A tuple containing the
+        Brier score plot, heatmap plot and the clustered data. Returns None if model is
+        None.
     """
     if not model:
         return "No model available."
 
     return ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding
-    ).analyze_brier_within_clusters(n_clusters=n_clusters)
+        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
+    ).analyze_brier_within_clusters(n_clusters=n_clusters, tight_layout=True)
 
 
 def _brier_score_wrapper(
@@ -528,7 +664,9 @@ def _brier_score_wrapper(
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
-    ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups()
+    ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups(
+        tight_layout=True
+    )
     return plt.gcf()
 
 
@@ -536,9 +674,10 @@ def _plot_fi_wrapper(
     models: dict,
     selected_model: str,
     fi_types: List[str],
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
 ) -> Any:
     """Wrapper function to call plot_fi.
 
@@ -546,9 +685,10 @@ def _plot_fi_wrapper(
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
         fi_types (List[str]): List of importance types.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
 
     Returns:
         Any: The result from the plot_fi function.
@@ -559,35 +699,41 @@ def _plot_fi_wrapper(
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
     )
 
 
 def _plot_cluster_wrapper(
     models: dict,
     selected_model: str,
-    X: Any,
-    y: Any,
+    X: pd.DataFrame,
+    y: pd.Series,
     encoding: str,
+    aggregate: bool,
     n_clusters: int,
-) -> Tuple[Any, Any]:
+) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
     """Wrapper function to call plot_cluster.
 
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        X (Any): Test features.
-        y (Any): Test labels.
+        X (pd.DataFrame): Test dataset containing input features.
+        y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
+        aggregate (bool): Aggregates multi-category features.
         n_clusters (int): Number of clusters.
 
     Returns:
-        Tuple[Any, Any]: The Brier score plot and heatmap plot.
+        Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]: A tuple containing the
+        Brier score plot, heatmap plot and the clustered data. Returns None if model is
+        None.
     """
     return _plot_cluster(
         model=models[selected_model],
         X=X,
         y=y,
         encoding=encoding,
+        aggregate=aggregate,
         n_clusters=n_clusters,
     )
 
@@ -685,43 +831,47 @@ def _update_side_state(
 
 def _collect_data(
     age: Union[int, float],
-    gender: int,
+    gender: str,
     bmi: float,
-    perio_history: int,
-    diabetes: int,
-    smokingtype: int,
+    perio_history: str,
+    diabetes: str,
+    smokingtype: str,
     cigarettenumber: int,
-    antibiotics: int,
-    stresslvl: int,
+    antibiotics: str,
+    stresslvl: str,
     tooth_states_value: Dict[str, Any],
 ) -> Tuple[str, pd.DataFrame]:
     """Collect data from the inputs and construct a Patient object and DataFrame.
 
     Args:
-        age: The age of the patient.
-        gender: The gender of the patient.
-        bmi: The body mass index of the patient.
-        perio_history: The periodontal family history.
-        diabetes: The diabetes status.
-        smokingtype: The smoking type.
-        cigarettenumber: The number of cigarettes.
-        antibiotics: The antibiotic treatment status.
-        stresslvl: The stress level.
-        tooth_states_value: A dictionary storing the state of each tooth.
+        age (Union[int, float]): The age of the patient.
+        gender (str): The gender of the patient.
+        bmi (float): The body mass index of the patient.
+        perio_history (str): The periodontal family history.
+        diabetes (str): The diabetes status.
+        smokingtype (str): The smoking type.
+        cigarettenumber (int): The number of cigarettes.
+        antibiotics (str): The antibiotic treatment status.
+        stresslvl (str): The stress level.
+        tooth_states_value (Dict[str, Any]): Dictionary storing the state of each tooth.
 
     Returns:
         A tuple containing a success message and the patient data as a DataFrame.
     """
     patient = Patient(
         age=int(age),
-        gender=int(gender),
+        gender=int(InputProcessor.process_gender(gender=gender)),
         bodymassindex=float(bmi),
-        periofamilyhistory=int(perio_history),
-        diabetes=int(diabetes),
-        smokingtype=int(smokingtype),
+        periofamilyhistory=int(
+            InputProcessor.process_periohistory(periohistory=perio_history)
+        ),
+        diabetes=int(InputProcessor.process_diabetes(diabetes=diabetes)),
+        smokingtype=int(InputProcessor.process_smokingtype(smokingtype=smokingtype)),
         cigarettenumber=int(cigarettenumber),
-        antibiotictreatment=int(antibiotics),
-        stresslvl=int(stresslvl),
+        antibiotictreatment=int(
+            InputProcessor.process_antibotics(antibiotics=antibiotics)
+        ),
+        stresslvl=int(InputProcessor.process_stresslvl(stresslvl=stresslvl)),
         teeth=[],
     )
     for tooth_str, tooth_data in tooth_states_value.items():
@@ -755,12 +905,16 @@ def _collect_data(
             )
             if side_has_data:
                 side_obj = Side(
-                    furcationbaseline=int(side_data.get("furcationbaseline")),
+                    furcationbaseline=int(
+                        InputProcessor.process_furcation(
+                            side_data.get("furcationbaseline")
+                        )
+                    ),
                     side=int(side_num_str),
                     pdbaseline=int(side_data.get("pdbaseline")),
                     recbaseline=int(side_data.get("recbaseline")),
-                    plaque=int(side_data.get("plaque")),
-                    bop=int(side_data.get("bop")),
+                    plaque=int(InputProcessor.process_plaque(side_data.get("plaque"))),
+                    bop=int(InputProcessor.process_bop(side_data.get("bop"))),
                 )
                 sides.append(side_obj)
 
@@ -770,22 +924,30 @@ def _collect_data(
                 toothtype=toothtype,
                 rootnumber=rootnumber,
                 mobility=(
-                    int(tooth_data.get("mobility"))
+                    int(InputProcessor.process_mobility(tooth_data.get("mobility")))
                     if tooth_data.get("mobility") is not None
                     else None
                 ),
                 restoration=(
-                    int(tooth_data.get("restoration"))
+                    int(
+                        InputProcessor.process_restoration(
+                            tooth_data.get("restoration")
+                        )
+                    )
                     if tooth_data.get("restoration") is not None
                     else None
                 ),
                 percussion=(
-                    int(tooth_data.get("percussion"))
+                    int(InputProcessor.process_percussion(tooth_data.get("percussion")))
                     if tooth_data.get("percussion") is not None
                     else None
                 ),
                 sensitivity=(
-                    int(tooth_data.get("sensitivity"))
+                    int(
+                        InputProcessor.process_sensitivity(
+                            tooth_data.get("sensitivity")
+                        )
+                    )
                     if tooth_data.get("sensitivity") is not None
                     else None
                 ),
@@ -806,7 +968,7 @@ def _app_inference(
     encoding: str,
     X_train: pd.DataFrame,
     y_train: pd.Series,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run inference on the patient's data.
 
     Args:
@@ -819,7 +981,11 @@ def _app_inference(
         y_train (pd.Series): Training target for target encoding.
 
     Returns:
-        pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
+        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing:
+            - predict_data (pd.DataFrame): The transformed patient data for prediction.
+            - output_data (pd.DataFrame): DataFrame with columns "tooth", "side",
+              transformed "prediction", and "probability".
+            - results (pd.DataFrame): Original results from the model inference.
     """
     model = models[selected_model]
     task_processed = InputProcessor.process_task(task=task)
@@ -835,9 +1001,13 @@ def _app_inference(
         y_train=y_train,
     )
 
-    return inference_engine.patient_inference(
+    prediction_data, prediction_output, results = inference_engine.patient_inference(
         predict_data=predict_data, patient_data=patient_data
     )
+    prediction_output = InputProcessor.transform_predictions(
+        task_processed, prediction_output
+    )
+    return prediction_data, prediction_output, results
 
 
 def _run_jackknife_inference(
@@ -865,7 +1035,7 @@ def _run_jackknife_inference(
         alpha (float, optional): Significance level for confidence intervals.
         sample_fraction (float, optional): Fraction of patient IDs to use in jackknife.
             Defaults to 1.0.
-        n_jobs (int, optional): Number of parallel jobs. Defaults to -1.
+        n_jobs (int): Number of parallel jobs. Defaults to -1.
 
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.

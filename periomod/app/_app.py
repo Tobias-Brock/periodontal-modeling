@@ -4,9 +4,9 @@ Contains streamlined methods for plotting, benchmarking, evaluation and inferenc
 
 Example:
     ```
-    from periomod.app import app
+    from periomod.app import perioapp
 
-    app.launch()
+    perioapp.launch()
     ```
 """
 
@@ -20,8 +20,9 @@ from periomod.app import (
     _benchmarks_wrapper,
     _brier_score_wrapper,
     _collect_data,
+    _display_data,
     _handle_tooth_selection,
-    _load_and_initialize_plotter,
+    _load_data_engine,
     _load_data_wrapper,
     _plot_cluster_wrapper,
     _plot_cm,
@@ -31,16 +32,17 @@ from periomod.app import (
     _plot_outcome_descriptive,
     _plot_pocket_comparison,
     _plot_pocket_group_comparison,
+    _process_data,
     _run_jackknife_inference,
+    _save_data,
     _update_model_dropdown,
     _update_side_state,
     _update_tooth_state,
     all_teeth,
 )
-from periomod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
-with gr.Blocks() as app:
-    gr.Markdown("## ML Periodontal Modeling")
+with gr.Blocks() as perioapp:
+    gr.Markdown("## Periodontal Modeling")
 
     models_state = gr.State()
     task_state = gr.State()
@@ -52,42 +54,121 @@ with gr.Blocks() as app:
     side_data_state = gr.State({})
 
     with gr.Tabs():
-        with gr.Tab("Descriptives"):
+        with gr.Tab("Data"):
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value=str(RAW_DATA_DIR) + "/" + "Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw" + "/Periodontitis_ML_Dataset.xlsx",
                     scale=1,
+                    info="Specify the path to the raw data file for processing.",
                 )
             load_button = gr.Button("Load Data", scale=1)
             load_output = gr.Textbox(label="Status", interactive=False, scale=2)
 
+            display_button = gr.Button("Display Data", scale=1)
+            display_output = gr.Dataframe(
+                label="Data Preview", interactive=False, scale=6
+            )
+
+            process_button = gr.Button("Process Data", scale=1)
+            process_output = gr.Textbox(
+                label="Process Output", interactive=False, scale=6, lines=8
+            )
+
+            save_path_input = gr.Textbox(
+                label="Save Path",
+                value="data/processed" + "/processed_data.csv",
+                scale=1,
+            )
+            save_button = gr.Button("Save Data", scale=1)
+            save_output = gr.Textbox(label="Save Status", interactive=False, scale=2)
+
             with gr.Row():
-                column_before_input = gr.Textbox(
-                    label="Column Before", value="pdbaseline", scale=1
+                column_before_input = gr.Dropdown(
+                    label="Column Before",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing initial values before therapy.",
                 )
-                column_after_input = gr.Textbox(
-                    label="Column After", value="pdrevaluation", scale=1
+                column_after_input = gr.Dropdown(
+                    label="Column After",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing values after therapy.",
+                )
+                x_2dh_input = gr.Textbox(
+                    label="x-Axis Label",
+                    scale=1,
+                    value="Pocket depth before therapy [mm]",
+                    info="Enter label for the x-axis of the 2D histogram plot.",
+                )
+                y_2dh_input = gr.Textbox(
+                    label="y-Axis Label",
+                    scale=1,
+                    value="Pocket after before therapy [mm]",
+                    info="Enter label for the y-axis of the 2D histogram plot.",
                 )
                 plot_hist_2d_button = gr.Button("Plot 2D Histogram", scale=1)
             hist_2d_output = gr.Plot(scale=6)
 
             with gr.Row():
-                column1_input = gr.Textbox(
-                    label="Column 1", value="pdbaseline", scale=1
+                column1_input = gr.Dropdown(
+                    label="Column 1",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing initial values before therapy.",
                 )
-                column2_input = gr.Textbox(
-                    label="Column 2", value="pdrevaluation", scale=1
+                column2_input = gr.Dropdown(
+                    label="Column 2",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing values after therapy.",
+                )
+                title1_pocket_input = gr.Textbox(
+                    label="Title 1",
+                    scale=1,
+                    value="Pocket depth before therapy",
+                    info="Set title for the first comparison plot.",
+                )
+                title2_pocket_input = gr.Textbox(
+                    label="Title 2",
+                    scale=1,
+                    value="Pocket after before therapy",
+                    info="Set title for the second comparison plot.",
                 )
                 plot_comparison_button = gr.Button("Plot Pocket Comparison", scale=1)
             pocket_comparison_output = gr.Plot(scale=6)
 
             with gr.Row():
-                group_column_before_input = gr.Textbox(
-                    label="Group Before", value="pdgroupbase", scale=1
+                group_column_before_input = gr.Dropdown(
+                    label="Group Before",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing initial values before therapy.",
                 )
-                group_column_after_input = gr.Textbox(
-                    label="Group After", value="pdgrouprevaluation", scale=1
+                group_column_after_input = gr.Dropdown(
+                    label="Group After",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column representing values after therapy.",
+                )
+                title1_pocket_group_input = gr.Textbox(
+                    label="Title 1",
+                    scale=1,
+                    value="Pocket depth before therapy",
+                    info="Set title for the first comparison plot.",
+                )
+                title2_pocket_group_input = gr.Textbox(
+                    label="Title 2",
+                    scale=1,
+                    value="Pocket after before therapy",
+                    info="Set the title for the second comparison plot.",
                 )
                 plot_group_comparison_button = gr.Button(
                     "Plot Pocket Group Comparison", scale=1
@@ -95,48 +176,132 @@ with gr.Blocks() as app:
             group_comparison_output = gr.Plot(scale=6)
 
             with gr.Row():
-                vertical_input = gr.Textbox(
-                    label="Vertical Column", value="pdgrouprevaluation", scale=1
+                vertical_input = gr.Dropdown(
+                    label="Vertical Column",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column for the vertical axis in the matrix plot.",
                 )
-                horizontal_input = gr.Textbox(
-                    label="Horizontal Column", value="pdgroupbase", scale=1
+                horizontal_input = gr.Dropdown(
+                    label="Horizontal Column",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select column for the horizontal axis in the matrix plot.",
+                )
+                x_matrix_input = gr.Textbox(
+                    label="x-Axis Label",
+                    scale=1,
+                    value="Pocket depth before therapy",
+                    info="Enter label for the x-axis in the matrix plot.",
+                )
+                y_matrix_input = gr.Textbox(
+                    label="y-Axis Label",
+                    scale=1,
+                    value="Pocket after before therapy",
+                    info="Enter label for the y-axis in the matrix plot.",
                 )
                 plot_matrix_button = gr.Button("Plot Matrix", scale=1)
             matrix_output = gr.Plot(scale=6)
 
             with gr.Row():
-                outcome_input = gr.Textbox(
-                    label="Outcome Column", value="pdgrouprevaluation", scale=1
+                outcome_input = gr.Dropdown(
+                    label="Outcome Column",
+                    choices=[],
+                    scale=1,
+                    value=None,
+                    info="Select the column to analyze distribution.",
                 )
                 title_input = gr.Textbox(
-                    label="Plot Title", value="Distribution of Classes", scale=1
+                    label="Plot Title",
+                    value="Distribution of Classes",
+                    scale=1,
+                    info="Enter the title of the  plot.",
                 )
                 plot_outcome_button = gr.Button("Plot Outcome Descriptive", scale=1)
             outcome_output = gr.Plot(scale=6)
 
             load_button.click(
-                fn=_load_and_initialize_plotter,
+                fn=_load_data_engine,
                 inputs=[path_input],
-                outputs=[load_output],
+                outputs=[
+                    load_output,
+                    column_before_input,
+                    column_after_input,
+                    column1_input,
+                    column2_input,
+                    group_column_before_input,
+                    group_column_after_input,
+                    horizontal_input,
+                    vertical_input,
+                    outcome_input,
+                ],
+            )
+            display_button.click(
+                fn=_display_data,
+                inputs=None,
+                outputs=[display_output],
+            )
+            process_button.click(
+                fn=_process_data,
+                inputs=None,
+                outputs=[
+                    process_output,
+                    column_before_input,
+                    column_after_input,
+                    column1_input,
+                    column2_input,
+                    group_column_before_input,
+                    group_column_after_input,
+                    vertical_input,
+                    horizontal_input,
+                    outcome_input,
+                ],
+            )
+            save_button.click(
+                fn=_save_data,
+                inputs=[save_path_input],
+                outputs=[save_output],
             )
             plot_hist_2d_button.click(
                 fn=_plot_histogram_2d,
-                inputs=[column_before_input, column_after_input],
+                inputs=[
+                    column_before_input,
+                    column_after_input,
+                    x_2dh_input,
+                    y_2dh_input,
+                ],
                 outputs=hist_2d_output,
             )
             plot_comparison_button.click(
                 fn=_plot_pocket_comparison,
-                inputs=[column1_input, column2_input],
+                inputs=[
+                    column1_input,
+                    column2_input,
+                    title1_pocket_input,
+                    title2_pocket_input,
+                ],
                 outputs=pocket_comparison_output,
             )
             plot_group_comparison_button.click(
                 fn=_plot_pocket_group_comparison,
-                inputs=[group_column_before_input, group_column_after_input],
+                inputs=[
+                    group_column_before_input,
+                    group_column_after_input,
+                    title1_pocket_group_input,
+                    title2_pocket_group_input,
+                ],
                 outputs=group_comparison_output,
             )
             plot_matrix_button.click(
                 fn=_plot_matrix,
-                inputs=[vertical_input, horizontal_input],
+                inputs=[
+                    vertical_input,
+                    horizontal_input,
+                    x_matrix_input,
+                    y_matrix_input,
+                ],
                 outputs=matrix_output,
             )
             plot_outcome_button.click(
@@ -148,7 +313,8 @@ with gr.Blocks() as app:
         with gr.Tab("Benchmarking"):
             path_input = gr.Textbox(
                 label="File Path",
-                value=str(PROCESSED_BASE_DIR) + "/" + "processed_data.csv",
+                value="data/processed" + "/" + "processed_data.csv",
+                info="Specify the path to the processed data file for benchmarking.",
             )
 
             with gr.Row():
@@ -161,6 +327,7 @@ with gr.Blocks() as app:
                         "Pocket groups",
                     ],
                     value="Pocket closure",
+                    info="Select the task for benchmarking.",
                 )
                 learners_input = gr.CheckboxGroup(
                     label="Learners",
@@ -171,6 +338,7 @@ with gr.Blocks() as app:
                         "Multilayer Perceptron",
                     ],
                     value=["XGBoost"],
+                    info="Select machine learning algorithms for benchmarking.",
                 )
 
             with gr.Row():
@@ -178,16 +346,19 @@ with gr.Blocks() as app:
                     label="Tuning Methods",
                     choices=["Holdout", "Cross-Validation"],
                     value=["Holdout"],
+                    info="Choose the validation strategy to tune models.",
                 )
                 hpo_methods_input = gr.CheckboxGroup(
                     label="HPO Methods",
                     choices=["HEBO", "Random Search"],
                     value=["HEBO"],
+                    info="Select hyperparameter optimization method(s).",
                 )
                 criteria_input = gr.CheckboxGroup(
                     label="Criteria",
                     choices=["F1 Score", "Brier Score", "Macro F1 Score"],
                     value=["F1 Score"],
+                    info="Choose evaluation metrics to assess model performance.",
                 )
 
             with gr.Row():
@@ -195,36 +366,78 @@ with gr.Blocks() as app:
                     label="Encoding",
                     choices=["One-hot", "Target"],
                     value=["One-hot"],
+                    info="Select encoding type(s) for categorical features.",
                 )
                 sampling_input = gr.CheckboxGroup(
                     label="Sampling Strategy",
                     choices=["None", "upsampling", "downsampling", "smote"],
                     value=["None"],
+                    info="Choose a sampling strategy to address class imbalance.",
                 )
-                factor_input = gr.Textbox(label="Sampling Factor", value="")
+                factor_input = gr.Textbox(
+                    label="Sampling Factor",
+                    value="",
+                    info="Specify a factor for resampling methods if applicable.",
+                )
 
             with gr.Row():
-                n_configs_input = gr.Number(label="Num Configs", value=3)
-                cv_folds_input = gr.Number(label="CV Folds", value=10)
-                racing_folds_input = gr.Number(label="Racing Folds", value=5)
-                n_jobs_input = gr.Number(label="Num Jobs", value=-1)
+                n_configs_input = gr.Number(
+                    label="Num Configs",
+                    value=3,
+                    info="Enter number of configurations for hyperparameter tuning.",
+                )
+                cv_folds_input = gr.Number(
+                    label="CV Folds",
+                    value=10,
+                    info="Specify number of folds for cross-validation.",
+                )
+                racing_folds_input = gr.Number(
+                    label="Racing Folds",
+                    value=5,
+                    info="Enter number of folds for racing in hyperparameter tuning.",
+                )
+                n_jobs_input = gr.Number(
+                    label="Num Jobs",
+                    value=-1,
+                    info="Set number of parallel jobs. Use -1 to utilize all CPUs.",
+                )
 
             with gr.Row():
-                test_seed_input = gr.Number(label="Test Seed", value=0)
-                cv_seed_input = gr.Number(label="CV Seed", value=0)
+                test_seed_input = gr.Number(
+                    label="Test Seed",
+                    value=0,
+                    info="Specify random seed for test set splitting.",
+                )
+                cv_seed_input = gr.Number(
+                    label="CV Seed",
+                    value=0,
+                    info="Set random seed for cross-validation splitting.",
+                )
                 test_size_input = gr.Number(
-                    label="Test Set Size", value=0.2, minimum=0.0, maximum=1.0
+                    label="Test Set Size",
+                    value=0.2,
+                    minimum=0.0,
+                    maximum=1.0,
+                    info="Define proportion of data to allocate to the test set.",
                 )
                 val_size_input = gr.Number(
-                    label="Val Set Size", value=0.2, minimum=0.0, maximum=1.0
+                    label="Val Set Size",
+                    value=0.2,
+                    minimum=0.0,
+                    maximum=1.0,
+                    info="Define proportion of training data for validation.",
                 )
 
             with gr.Row():
                 mlp_flag_input = gr.Checkbox(
-                    label="Enable MLP Training with Early Stopping", value=True
+                    label="Enable MLP Training with Early Stopping",
+                    value=True,
+                    info="Enable or disable early stopping for MLP training.",
                 )
                 threshold_tuning_input = gr.Checkbox(
-                    label="Enable Threshold Tuning", value=True
+                    label="Enable Threshold Tuning",
+                    value=True,
+                    info="Enable or disable threshold tuning for classification tasks.",
                 )
 
             run_button = gr.Button("Run Benchmark")
@@ -263,15 +476,23 @@ with gr.Blocks() as app:
         with gr.Tab("Evaluation"):
             with gr.Row():
                 task_display = gr.Textbox(
-                    label="Selected Task", value="", interactive=False
+                    label="Selected Task",
+                    value="",
+                    interactive=False,
+                    info="Displays task currently selected for evaluation.",
                 )
                 model_dropdown = gr.Dropdown(
-                    label="Select Model", choices=[], value=None, multiselect=False
+                    label="Select Model",
+                    choices=[],
+                    value=None,
+                    multiselect=False,
+                    info="Select a model from the available trained models.",
                 )
                 encoding_input = gr.Dropdown(
                     label="Encoding",
                     choices=["one_hot", "target"],
                     value="one_hot",
+                    info="Choose encoding method used for categorical variables.",
                 )
 
             load_data_button = gr.Button("Load Data")
@@ -294,21 +515,34 @@ with gr.Blocks() as app:
             generate_brier_scores_button = gr.Button("Generate Brier Scores")
             brier_score_plot = gr.Plot()
 
-            importance_type_input = gr.CheckboxGroup(
-                label="Importance Types",
-                choices=["shap", "permutation", "standard"],
-                value=["shap"],
-            )
+            with gr.Row():
+                importance_type_input = gr.CheckboxGroup(
+                    label="Importance Types",
+                    choices=["shap", "permutation", "standard"],
+                    value=["shap"],
+                )
+                aggregate_fi_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
 
             generate_feature_importance_button = gr.Button(
                 "Generate Feature Importance"
             )
             fi_plot = gr.Plot()
 
+            with gr.Row():
+                n_clusters_input = gr.Slider(
+                    label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
+                )
+                aggregate_cluster_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
+
             cluster_button = gr.Button("Perform Brier Score Clustering")
-            n_clusters_input = gr.Slider(
-                label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
-            )
             cluster_brier_plot = gr.Plot()
             cluster_heatmap_plot = gr.Plot()
 
@@ -360,6 +594,7 @@ with gr.Blocks() as app:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_fi_input,
                 ],
                 outputs=fi_plot,
             )
@@ -372,64 +607,140 @@ with gr.Blocks() as app:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_cluster_input,
                     n_clusters_input,
                 ],
                 outputs=[cluster_brier_plot, cluster_heatmap_plot],
             )
+
         with gr.Tab("Inference"):
             with gr.Row():
+                gender_input = gr.Radio(
+                    label="Gender",
+                    choices=["Male", "Female"],
+                    value="Male",
+                    info="Select the patient's gender.",
+                )
                 age_input = gr.Number(
-                    label="Age", value=30, minimum=0, maximum=120, step=1
+                    label="Age",
+                    value=30,
+                    minimum=0,
+                    maximum=120,
+                    step=1,
+                    info="Enter the patient's age.",
                 )
-                gender_input = gr.Radio(label="Gender", choices=[0, 1], value=1)
-                bmi_input = gr.Number(label="Body Mass Index", value=35.0, minimum=0)
-                perio_history_input = gr.Radio(
-                    label="Perio Family History", choices=[0, 1, 2], value=2
-                )
-                diabetes_input = gr.Radio(
-                    label="Diabetes", choices=[0, 1, 2, 3], value=1
+                bmi_input = gr.Number(
+                    label="Body Mass Index",
+                    value=35.0,
+                    minimum=0,
+                    info="Enter the patient's Body Mass Index (BMI).",
                 )
                 smokingtype_input = gr.Radio(
-                    label="Smoking Type", choices=[0, 1, 2, 3, 4], value=1
+                    label="Smoking Type",
+                    choices=["no", "Cigarette", "Pipe", "Cigarillo", "all"],
+                    value="no",
+                    info="Specify the type of smoking habit, if any.",
+                )
+                cigarettenumber_input = gr.Number(
+                    label="Cigarette Number",
+                    value=0,
+                    minimum=0,
+                    step=1,
+                    info="Enter the average number of cigarettes smoked per day.",
                 )
             with gr.Row():
-                cigarettenumber_input = gr.Number(
-                    label="Cigarette Number", value=0, minimum=0, step=1
+                perio_history_input = gr.Radio(
+                    label="Perio Family History",
+                    choices=["yes", "no", "unknown"],
+                    value="no",
+                    info="Is there a family history of periodontal disease?",
+                )
+                diabetes_input = gr.Radio(
+                    label="Diabetes",
+                    choices=["no", "Type I", "Type II", "Type II med."],
+                    value="no",
+                    info="Select the type of diabetes, if diagnosed.",
                 )
                 antibiotics_input = gr.Radio(
-                    label="Antibiotic Treatment", choices=[0, 1], value=1
+                    label="Antibiotic Treatment",
+                    choices=["yes", "no"],
+                    value="no",
+                    info="Patient recieved adjunct antibiotic treatment.",
                 )
                 stresslvl_input = gr.Radio(
-                    label="Stress Level", choices=[0, 1, 2], value=2
+                    label="Stress Level",
+                    choices=["low", "mid", "high"],
+                    value="low",
+                    info="Specify the patient's perceived stress level.",
                 )
 
             tooth_features = [
-                ("Mobility", "mobility", "radio", [0, 1]),
-                ("Restoration", "restoration", "radio", [0, 1, 2]),
-                ("Percussion", "percussion", "radio", [0, 1]),
-                ("Sensitivity", "sensitivity", "radio", [0, 1]),
+                (
+                    "Mobility",
+                    "mobility",
+                    "radio",
+                    ["yes", "no"],
+                    "Can the tooth be moved?",
+                ),
+                (
+                    "Restoration",
+                    "restoration",
+                    "radio",
+                    ["no", "Filling", "Crown"],
+                    "Is a type of restoration present?",
+                ),
+                (
+                    "Percussion",
+                    "percussion",
+                    "radio",
+                    ["yes", "no"],
+                    "Is the tooth percussion sensitive?",
+                ),
+                (
+                    "Sensitivity",
+                    "sensitivity",
+                    "radio",
+                    ["yes", "no"],
+                    "Has the tooth vitality/sensitivity",
+                ),
             ]
 
             side_features = [
                 (
-                    "Furcation",
+                    "Furcation:\n\n What furcation involvement does the tooth exhibit?",
                     "furcationbaseline",
                     "radio",
-                    [0, 1, 2],
+                    ["no", "Palpable", "1-3 mm", ">3 mm"],
                 ),
-                ("PD Baseline", "pdbaseline", "textbox", None),
-                ("REC Baseline", "recbaseline", "textbox", None),
-                ("Plaque", "plaque", "radio", [0, 1]),
-                ("BOP", "bop", "radio", [0, 1]),
+                (
+                    "PD Baseline:\n\n Pocket depth at baseline examination in mm.",
+                    "pdbaseline",
+                    "textbox",
+                    None,
+                ),
+                (
+                    "REC Baseline:\n\n Recession at baseline examination in mm.",
+                    "recbaseline",
+                    "textbox",
+                    None,
+                ),
+                (
+                    "Plaque:\n\n Was plaque found at the toothside?",
+                    "plaque",
+                    "radio",
+                    ["yes", "no"],
+                ),
+                ("BOP: \n\n Bleeding on Probing", "bop", "radio", ["yes", "no"]),
             ]
 
             tooth_selector = gr.Radio(
                 label="Select Tooth",
                 choices=[str(tooth) for tooth in all_teeth],
                 value=str(all_teeth[0]),
+                info="Select the tooth of interest",
             )
 
-            tooth_choices: Union[str, List[int], None]
+            tooth_choices: Union[str, List[str], None]
             tooth_states = gr.State({})
             tooth_components: Dict[str, gr.components.Component] = {}
             with gr.Row():
@@ -438,18 +749,21 @@ with gr.Blocks() as app:
                     feature_key,
                     input_type,
                     tooth_choices,
+                    info,
                 ) in tooth_features:
                     if input_type == "radio":
                         input_component = gr.Radio(
                             label=feature_label,
                             choices=tooth_choices,
                             value=None,
+                            info=info,
                         )
                     else:
                         input_component = gr.Dropdown(
                             label=feature_label,
                             choices=tooth_choices,
                             value=None,
+                            info=info,
                         )
                     tooth_components[feature_key] = input_component
 
@@ -460,7 +774,7 @@ with gr.Blocks() as app:
                 for side_num in range(1, 7):
                     gr.Markdown(f"**Side {side_num}**")
 
-            side_choices: Union[List[int], None]
+            side_choices: Union[str, List[str], None]
             for feature_label, feature_key, input_type, side_choices in side_features:
                 with gr.Row():
                     gr.Markdown(f"{feature_label}")
@@ -545,15 +859,23 @@ with gr.Blocks() as app:
             )
             with gr.Row():
                 task_display = gr.Textbox(
-                    label="Selected Task", value="", interactive=False
+                    label="Selected Task",
+                    value="",
+                    interactive=False,
+                    info="Displays the selected task for inference.",
                 )
                 inference_model_dropdown = gr.Dropdown(
-                    label="Select Model", choices=[], value=None, multiselect=False
+                    label="Select Model",
+                    choices=[],
+                    value=None,
+                    multiselect=False,
+                    info="Choose the model to use for inference.",
                 )
                 encoding_input = gr.Dropdown(
                     label="Encoding",
                     choices=["one_hot", "target"],
                     value="one_hot",
+                    info="Select the encoding method for categorical features.",
                 )
 
             results = gr.DataFrame(visible=False)
@@ -629,9 +951,14 @@ with gr.Blocks() as app:
                     label="Number of Parallel Jobs (n_jobs)",
                     value=-1,
                     precision=0,
+                    info="Set number of parallel jobs (-1 uses all available cores).",
                 )
                 alpha_input = gr.Number(
-                    label="Confidence Level", value=0.05, minimum=0.0, maximum=1.0
+                    label="Confidence Level",
+                    value=0.05,
+                    minimum=0.0,
+                    maximum=1.0,
+                    info="Specify the confidence level for jackknife intervals.",
                 )
 
             load_data_button.click(
@@ -667,4 +994,4 @@ with gr.Blocks() as app:
                 outputs=[jackknife_plot],
             )
 
-app.launch(server_port=7880, server_name="0.0.0.0")
+perioapp.launch(server_port=7890, server_name="0.0.0.0")

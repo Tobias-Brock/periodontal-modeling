@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,33 +24,34 @@ class ModelEvaluator(BaseModelEvaluator):
     importance. It also supports clustering analyses of Brier scores.
 
     Inherits:
-        - BaseModelEvaluator: Provides methods for model evaluation, calculating
-            Brier scores, plotting confusion matrices, and aggregating feature
-            importance for one-hot encoded features.
+        - `BaseModelEvaluator`: Provides methods for model evaluation, calculating
+          Brier scores, plotting confusion matrices, and aggregating feature
+          importance for one-hot encoded features.
 
     Args:
-        X (pd.DataFrame): Dataset features used for testing.
-        y (pd.Series): True labels for the test dataset.
-        model (Union[sklearn estimators, None], optional): A single trained
-            model instance, such as `RandomForestClassifier` or `LogisticRegression`.
-            Defaults to None.
-        models (Union[List[sklearn estimators], None], optional): List of trained
-            models to evaluate. Defaults to None.
-        encoding (Optional[str], optional): Encoding type for plot titles
-            ('one_hot' or 'target'). Defaults to None.
-        aggregate (bool, optional): If True, aggregates one-hot feature
-            importance scores. Defaults to True.
+        X (pd.DataFrame): The dataset features used for testing the model's
+            performance.
+        y (pd.Series): The true labels for the test dataset.
+        model (Optional[sklearn.base.BaseEstimator]): A single trained model instance
+            (e.g., `RandomForestClassifier` or `LogisticRegression`) for evaluation.
+        models (Optional[List[sklearn.base.BaseEstimator]]): A list of trained model
+            instances for evaluation, enabling multi-model analysis.
+        encoding (Optional[str]): Encoding type for categorical variables used in plot
+            titles and feature grouping (e.g., 'one_hot' or 'target').
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
-        X (pd.DataFrame): Stores the test dataset features for evaluation.
-        y (pd.Series): Stores the test dataset labels for evaluation.
-        model (Union[sklearn estimators, None]): The primary model for evaluation.
-        models (List[sklearn estimators]): List of trained models for multi-model
-            evaluation.
-        encoding (Optional[str]): The encoding type used, impacting plot titles
-            and feature grouping.
-        aggregate (bool): Determines if importance values of one-hot encoded
-            features are aggregated for interpretability.
+        X (pd.DataFrame): Stores the test dataset features for model evaluation.
+        y (pd.Series): Stores the test dataset labels for model evaluation.
+        model (Optional[sklearn.base.BaseEstimator]): Primary model used for evaluation.
+        models (List[sklearn.base.BaseEstimator]): Collection of models for multi-model
+            evaluations.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            multi-category encoded features, enhancing interpretability in feature
+            importance plots.
 
     Methods:
         evaluate_feature_importance: Calculates feature importance scores using
@@ -59,6 +60,12 @@ class ModelEvaluator(BaseModelEvaluator):
             specified clustering algorithm and provides visualizations.
 
     Inherited Methods:
+        - `brier_scores`: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        - `model_predictions`: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
         - `brier_score_groups`: Calculates Brier score within specified groups
           based on a grouping variable (e.g., target class).
         - `plot_confusion_matrix`: Generates a styled confusion matrix heatmap
@@ -99,17 +106,7 @@ class ModelEvaluator(BaseModelEvaluator):
         encoding: Optional[str] = None,
         aggregate: bool = True,
     ) -> None:
-        """Initialize the FeatureImportance class.
-
-        Args:
-            X (pd.DataFrame): Test dataset features.
-            y (pd.Series): Test dataset labels.
-            model ([sklearn estimators]): Trained sklearn models.
-            models (List[sklearn estimators]): List of trained models.
-            encoding (Optional[str]): Determines encoding for plot titles
-                ('one_hot' or 'target'). Defaults to None.
-            aggregate (bool): If True, aggregates importance values of one-hot features.
-        """
+        """Initialize the FeatureImportance class."""
         super().__init__(
             X=X, y=y, model=model, models=models, encoding=encoding, aggregate=aggregate
         )
@@ -122,8 +119,7 @@ class ModelEvaluator(BaseModelEvaluator):
                 'shap', 'permutation', 'standard'.
 
         Returns:
-            Dict[str, pd.DataFrame]: A dictionary containing DataFrames of features and
-            their importance scores for each model.
+            Plot: Feature importance plot for the specified method.
         """
         if self.models and self.model is None:
             return None
@@ -203,7 +199,8 @@ class ModelEvaluator(BaseModelEvaluator):
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
-                        plt.figure(figsize=(3, 2), dpi=150)
+
+                        plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             aggregated_shap_values,
                             feature_names=aggregated_feature_names,
@@ -211,8 +208,18 @@ class ModelEvaluator(BaseModelEvaluator):
                             show=False,
                         )
 
+                        ax = plt.gca()  # Get current axis
+                        for bar in ax.patches:
+                            bar.set_edgecolor("black")
+                            bar.set_linewidth(1)
+
+                        ax.spines["left"].set_visible(True)
+                        ax.spines["left"].set_color("black")
+                        ax.spines["bottom"].set_color("black")
+                        ax.tick_params(axis="y", colors="black")
+
                         plt.title(
-                            f"{model_name} SHAP Feature Importance {self.encoding}"
+                            f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
                     else:
                         fi_df_aggregated = self._aggregate_one_hot_importances(
@@ -222,9 +229,25 @@ class ModelEvaluator(BaseModelEvaluator):
                             by="Importance", ascending=False, inplace=True
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
+
+                        top10_fi_df_aggregated = fi_df_aggregated.head(10)
+                        bottom10_fi_df_aggregated = fi_df_aggregated.tail(10)
+
+                        placeholder = pd.DataFrame(
+                            [["[...]", 0]], columns=["Feature", "Importance"]
+                        )
+                        selected_fi_df_aggregated = pd.concat(
+                            [
+                                top10_fi_df_aggregated,
+                                placeholder,
+                                bottom10_fi_df_aggregated,
+                            ],
+                            ignore_index=True,
+                        )
+
                 else:
                     if fi_type == "shap":
-                        plt.figure(figsize=(3, 2), dpi=150)
+                        plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             shap_values,
                             self.X,
@@ -232,8 +255,18 @@ class ModelEvaluator(BaseModelEvaluator):
                             feature_names=feature_names,
                             show=False,
                         )
+                        ax = plt.gca()  # Get current axis
+                        for bar in ax.patches:
+                            bar.set_edgecolor("black")
+                            bar.set_linewidth(1)
+
+                        ax.spines["left"].set_visible(True)
+                        ax.spines["left"].set_color("black")
+                        ax.spines["bottom"].set_color("black")
+
+                        ax.tick_params(axis="y", colors="black")
                         plt.title(
-                            f"{model_name} SHAP Feature Importance {self.encoding}"
+                            f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
                     else:
                         fi_df.sort_values(
@@ -242,21 +275,37 @@ class ModelEvaluator(BaseModelEvaluator):
                         importance_dict[model_name] = fi_df
 
                 if fi_type != "shap":
-                    plt.figure(figsize=(6, 4), dpi=200)
+                    plt.figure(figsize=(8, 6), dpi=300)
+
                     if self.aggregate:
                         plt.bar(
-                            fi_df_aggregated["Feature"],
-                            fi_df_aggregated["Importance"],
+                            selected_fi_df_aggregated["Feature"],
+                            selected_fi_df_aggregated["Importance"],
+                            edgecolor="black",
+                            linewidth=1,
+                            color="#078294",
                         )
+
                     else:
                         plt.bar(
                             fi_df["Feature"],
                             fi_df["Importance"],
                         )
 
-                    plt.title(f"{model_name} {fi_type.title()} FI {self.encoding}")
-                    plt.xticks(rotation=45, fontsize=3)
-                    plt.ylabel("Importance")
+                    plt.title(
+                        f"{model_name}: {fi_type.title()} Feature Importance; "
+                        f"{self.encoding}"
+                    )
+                    plt.xticks(rotation=90, fontsize=12)
+                    plt.yticks(fontsize=12)
+                    plt.axhline(y=0, color="black", linewidth=1)
+
+                    ax = plt.gca()
+                    ax.spines["top"].set_visible(False)
+                    ax.spines["right"].set_visible(False)
+                    ax.spines["bottom"].set_visible(False)
+
+                    plt.ylabel("Importance", fontsize=12)
                     plt.tight_layout()
                     plt.show()
 
@@ -264,17 +313,20 @@ class ModelEvaluator(BaseModelEvaluator):
         self,
         clustering_algorithm: Type = AgglomerativeClustering,
         n_clusters: int = 3,
-    ) -> pd.DataFrame:
+        tight_layout: bool = False,
+    ) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
         """Analyze distribution of Brier scores within clusters formed by input data.
 
         Args:
             clustering_algorithm (Type): Clustering algorithm class from sklearn to use
                 for clustering.
             n_clusters (int): Number of clusters to form.
+            tight_layout (bool): If True, applies tight layout to the plots. Defaults
+                to False.
 
         Returns:
-            pd.DataFrame: The input DataFrame X with columns for 'Cluster' labels
-            and 'Brier_Score'.
+            Union: Tuple containing the Brier score plot, heatmap plot, and clustered
+                DataFrame with 'Cluster' and 'Brier_Score' columns.
 
         Raises:
             ValueError: If the provided model cannot predict probabilities.
@@ -291,10 +343,11 @@ class ModelEvaluator(BaseModelEvaluator):
             for true, proba in zip(self.y, probas, strict=False)
         ]
 
-        if self.aggregate and self.encoding == "one_hot":
-            X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
-        else:
-            X_cluster_input = self.X
+        X_cluster_input = (
+            self._aggregate_one_hot_features_for_clustering(X=self.X)
+            if self.aggregate
+            else self.X
+        )
 
         clustering_algo = clustering_algorithm(n_clusters=n_clusters)
         cluster_labels = clustering_algo.fit_predict(X_cluster_input)
@@ -317,9 +370,15 @@ class ModelEvaluator(BaseModelEvaluator):
             .mean()
         )
 
-        plt.figure(figsize=(8, 6), dpi=150)
-        sns.boxplot(x="Cluster", y="Brier_Score", data=X_clustered)
-
+        plt.figure(figsize=(6, 4), dpi=300)
+        sns.violinplot(
+            x="Cluster",
+            y="Brier_Score",
+            data=X_clustered,
+            linewidth=0.5,
+            color="#078294",
+            inner_kws={"box_width": 6, "whis_width": 0.5},
+        )
         sns.pointplot(
             x="Cluster",
             y="Brier_Score",
@@ -329,17 +388,37 @@ class ModelEvaluator(BaseModelEvaluator):
             scale=0.75,
             ci=None,
         )
+        sns.despine(top=True, right=True)
+        plt.ylabel("Brier Score")
+        plt.title("Brier Score Distribution within Clusters", fontsize=14)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        if tight_layout:
+            plt.tight_layout()
         brier_plot = plt.gcf()
 
-        plt.figure(figsize=(12, 8), dpi=150)
+        plt.figure(figsize=(8, 3), dpi=300)
         annot_array = np.around(feature_averages.values, decimals=1)
         sns.heatmap(
             feature_averages,
             cmap="viridis",
             annot=annot_array,
             fmt=".1f",
-            annot_kws={"size": 8},
+            annot_kws={"size": 5, "rotation": 90},
         )
+        if tight_layout:
+            plt.tight_layout()
+
+        ax = plt.gca()
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color("black")
+            spine.set_linewidth(1)
+
+        cbar = ax.collections[0].colorbar
+        cbar.outline.set_visible(True)
+        cbar.outline.set_edgecolor("black")
+        cbar.outline.set_linewidth(1)
         heatmap_plot = plt.gcf()
 
         return brier_plot, heatmap_plot, X_clustered

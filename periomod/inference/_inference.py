@@ -22,7 +22,7 @@ class ModelInference(BaseModelInference):
     evaluation with confidence bounds.
 
     Inherits:
-        - BaseModelInference: Base class that implements prediction and
+        - `BaseModelInference`: Base class that implements prediction and
             preprocessing methods.
 
     Args:
@@ -92,13 +92,7 @@ class ModelInference(BaseModelInference):
     """
 
     def __init__(self, classification: str, model: Any, verbose: bool = True):
-        """Initialize the ModelInference class with a trained model.
-
-        Args:
-            classification (str): Classification type ('binary' or 'multiclass').
-            model (Any): Trained classification model with a `predict_proba` method.
-            verbose (bool): Activates verbose if set to True.
-        """
+        """Initialize the ModelInference class with a trained model."""
         super().__init__(classification=classification, model=model, verbose=verbose)
 
     def jackknife_resampling(
@@ -122,7 +116,7 @@ class ModelInference(BaseModelInference):
             n_jobs (int, optional): Number of jobs to run in parallel. Defaults to -1.
 
         Returns:
-            pd.DataFrame: DataFrame containing predictions for each iteration.
+            DataFrame: DataFrame containing predictions for each iteration.
         """
         resampler = Resampler(classification=self.classification, encoding=encoding)
         patient_ids = train_df[self.group_col].unique()
@@ -139,8 +133,7 @@ class ModelInference(BaseModelInference):
             for patient_id in patient_ids
         )
 
-        jackknife_results = pd.concat(results, ignore_index=True)
-        return jackknife_results
+        return pd.concat(results, ignore_index=True)
 
     def jackknife_confidence_intervals(
         self, jackknife_results: pd.DataFrame, alpha: float = 0.05
@@ -153,8 +146,7 @@ class ModelInference(BaseModelInference):
                 Defaults to 0.05.
 
         Returns:
-            Dict[int, Dict[str, Dict[str, float]]]: Confidence intervals for each data
-            index and class.
+            Dict: Confidence intervals for each data index and class.
         """
         ci_dict: Dict[int, Dict[str, Dict[str, float]]] = {}
         probability_columns = [
@@ -197,7 +189,7 @@ class ModelInference(BaseModelInference):
                 probabilities for each data point.
 
         Returns:
-            plt.Figure: Figure object containing the plots, with one subplot per class.
+            Figure: Figure object containing the plots, with one subplot per class.
         """
         classes = list(next(iter(ci_dict.values())).keys())
         num_classes = len(classes)
@@ -205,7 +197,7 @@ class ModelInference(BaseModelInference):
         nrows = 1
 
         fig, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(6 * ncols, 6), sharey=True
+            nrows=nrows, ncols=ncols, figsize=(6 * ncols, 6), sharey=True, dpi=300
         )
         axes = np.atleast_1d(axes).flatten()
         predicted_classes = original_preds["prediction"]
@@ -300,7 +292,7 @@ class ModelInference(BaseModelInference):
             max_plots (int): Maximum number of plots for jackknife intervals.
 
         Returns:
-            Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
+            Tuple: Jackknife results and the plot.
         """
         model_params = model.get_params()
 

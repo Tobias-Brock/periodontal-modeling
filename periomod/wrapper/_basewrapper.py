@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -12,59 +13,32 @@ from ..resampling import Resampler
 from ..training import Trainer
 
 
-class BaseEvaluatorWrapper(BaseConfig, ABC):
-    """Base class for wrappers handling model evaluation processes.
-
-    This class serves as a foundational structure for evaluator wrappers, offering
-    methods to initialize, prepare, and evaluate models according to specified
-    parameters. It provides core functionality to streamline evaluation, feature
-    importance analysis, patient inference, and jackknife resampling.
+class ModelExtractor(BaseConfig):
+    """Extracts best model from learner dictionary.
 
     Inherits:
-        BaseConfig: Loads configuration parameters and manages general setup.
-        ABC: Specifies abstract methods that must be implemented by subclasses.
+        `BaseConfig`: Loads configuration parameters.
 
     Args:
         learners_dict (Dict): Dictionary containing models and their metadata.
         criterion (str): Criterion for selecting models (e.g., 'f1', 'brier_score').
         aggregate (bool): Whether to aggregate metrics.
         verbose (bool): Controls verbose in the evaluation process.
+        random_state (int): Random state for resampling.
 
     Attributes:
-        learners_dict (dict): Holds learners and metadata.
+        learners_dict (Dict): Holds learners and metadata.
         criterion (str): Evaluation criterion to select the optimal model.
         aggregate (bool): Indicates if metrics should be aggregated.
         verbose (bool): Flag for controlling logging verbose.
-        model (object): Best-ranked model for the given criterion.
-        encoding (str): Encoding type, either 'one_hot' or 'target'.
-        learner (str): The learner associated with the best model.
-        task (str): Task associated with the model ('pocketclosure', 'improve', etc.).
-        factor (Optional[float]): Resampling factor if applicable.
-        sampling (Optional[str]): Resampling strategy used (e.g., 'smote').
+        random_state (int): Random state for resampling.
         classification (str): Classification type ('binary' or 'multiclass').
-        dataloader (ProcessedDataLoader): Data loader and transformer.
-        resampler (Resampler): Resampling strategy for training and testing.
-        df (pd.DataFrame): Loaded dataset.
-        train_df (pd.DataFrame): Training data after splitting.
-        test_df (pd.DataFrame): Test data after splitting.
-        X_train (pd.DataFrame): Training features.
-        y_train (pd.Series): Training labels.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): Test labels.
-        base_target (Optional[np.ndarray]): Baseline target for evaluations.
-        evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
-        inference_engine (ModelInference): Model inference manager.
-        trainer (Trainer): Trainer for model evaluation and optimization.
 
-    Abstract Methods:
-        - `wrapped_evaluation`: Performs model evaluation and generates specified plots.
-        - `evaluate_feature_importance`: Computes feature importance using specified
-          methods.
-        - `average_over_splits`: Aggregates metrics over multiple splits for model
-          robustness.
-        - `wrapped_patient_inference`: Runs inference on individual patient data.
-        - `wrapped_jackknife`: Executes jackknife resampling on patient data for
-          confidence interval estimation.
+    Properties:
+        - `criterion (str)`: Retrieves or sets current evaluation criterion for model
+            selection. Supports 'f1', 'brier_score', and 'macro_f1'.
+        - `model (object)`: Retrieves best-ranked model dynamically based on the current
+            criterion. Recalculates when criterion is updated.
     """
 
     def __init__(
@@ -73,63 +47,73 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         criterion: str,
         aggregate: bool,
         verbose: bool,
+        random_state: int,
     ):
-        """Base class for EvaluatorWrapper, initializing common parameters.
-
-        Args:
-            learners_dict (dict): Dictionary containing models and their metadata.
-            criterion (str): Criterion for selecting model (e.g., 'f1', 'brier_score').
-            aggregate (bool): Method for aggregating metrics.
-            verbose (bool): verbose flag.
-        """
+        """Initializes ModelExtractor."""
         super().__init__()
         self.learners_dict = learners_dict
         self.criterion = criterion
         self.aggregate = aggregate
         self.verbose = verbose
+        self.random_state = random_state
+        self._update_best_model()
+        self.classification = (
+            "multiclass" if self.task == "pdgrouprevaluation" else "binary"
+        )
+
+    @property
+    def criterion(self) -> str:
+        """The current evaluation criterion used to select the best model.
+
+        Returns:
+            str: The current criterion for model selection (e.g., 'f1', 'brier_score').
+
+        Raises:
+            ValueError: If an unsupported criterion is assigned.
+        """
+        return self._criterion
+
+    @criterion.setter
+    def criterion(self, value: str) -> None:
+        """Sets the evaluation criterion and updates related attributes accordingly.
+
+        Args:
+            value (str): The criterion for selecting the model ('f1', 'brier_score',
+                or 'macro_f1').
+
+        Raises:
+            ValueError: If the provided criterion is unsupported.
+        """
+        if value not in ["f1", "brier_score", "macro_f1"]:
+            raise ValueError(
+                "Unsupported criterion. Choose 'f1', 'macro_f1', or 'brier_score'."
+            )
+        self._criterion = value
+        self._update_best_model()
+
+    @property
+    def model(self) -> Any:
+        """Retrieves the best model based on the current criterion.
+
+        Returns:
+            Any: The model object selected according to the current criterion.
+
+        Raises:
+            ValueError: If no model matching the criterion and rank is found.
+        """
+        return self._model
+
+    def _update_best_model(self) -> None:
+        """Retrieves and updates the best model based on the current criterion."""
         (
-            self.model,
+            best_model,
             self.encoding,
             self.learner,
             self.task,
             self.factor,
             self.sampling,
         ) = self._get_best()
-        self.classification = (
-            "multiclass" if self.task == "pdgrouprevaluation" else "binary"
-        )
-        self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
-        self.resampler = Resampler(
-            classification=self.classification, encoding=self.encoding
-        )
-        (
-            self.df,
-            self.train_df,
-            self._test_df,
-            self.X_train,
-            self.y_train,
-            self.X_test,
-            self.y_test,
-            self.base_target,
-        ) = self._prepare_data_for_evaluation()
-        self.evaluator = ModelEvaluator(
-            model=self.model,
-            X=self.X_test,
-            y=self.y_test,
-            encoding=self.encoding,
-            aggregate=self.aggregate,
-        )
-        self.inference_engine = ModelInference(
-            classification=self.classification,
-            model=self.model,
-            verbose=self.verbose,
-        )
-        self.trainer = Trainer(
-            classification=self.classification,
-            criterion=self.criterion,
-            tuning=None,
-            hpo=None,
-        )
+        self._model = best_model
 
     def _get_best(self) -> Tuple[Any, str, str, str, Optional[float], Optional[str]]:
         """Retrieves best model entities.
@@ -188,10 +172,132 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
 
         return best_model, encoding, learner, task, factor, sampling
 
+
+class BaseEvaluatorWrapper(ModelExtractor, ABC):
+    """Base class for wrappers handling model evaluation processes.
+
+    This class serves as a foundational structure for evaluator wrappers, offering
+    methods to initialize, prepare, and evaluate models according to specified
+    parameters. It provides core functionality to streamline evaluation, feature
+    importance analysis, patient inference, and jackknife resampling.
+
+    Inherits:
+        - `BaseModelExtractor`: Loads configuration parameters and model extraction.
+        - `ABC`: Specifies abstract methods that must be implemented by subclasses.
+
+    Args:
+        learners_dict (Dict): Dictionary containing models and their metadata.
+        criterion (str): Criterion for selecting models (e.g., 'f1', 'brier_score').
+        aggregate (bool): Whether to aggregate metrics.
+        verbose (bool): Controls verbose in the evaluation process.
+        random_state (int): Random state for resampling.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file.
+
+    Attributes:
+        learners_dict (Dict): Holds learners and metadata.
+        criterion (str): Evaluation criterion to select the optimal model.
+        aggregate (bool): Indicates if metrics should be aggregated.
+        verbose (bool): Flag for controlling logging verbose.
+        random_state (int): Random state for resampling.
+        model (object): Best-ranked model for the given criterion.
+        encoding (str): Encoding type, either 'one_hot' or 'target'.
+        learner (str): The learner associated with the best model.
+        task (str): Task associated with the model ('pocketclosure', 'improve', etc.).
+        factor (Optional[float]): Resampling factor if applicable.
+        sampling (Optional[str]): Resampling strategy used (e.g., 'smote').
+        classification (str): Classification type ('binary' or 'multiclass').
+        dataloader (ProcessedDataLoader): Data loader and transformer.
+        resampler (Resampler): Resampling strategy for training and testing.
+        df (pd.DataFrame): Loaded dataset.
+        df_processed (pd.DataFrame): Processed dataset.
+        train_df (pd.DataFrame): Training data after splitting.
+        test_df (pd.DataFrame): Test data after splitting.
+        X_train (pd.DataFrame): Training features.
+        y_train (pd.Series): Training labels.
+        X_test (pd.DataFrame): Test features.
+        y_test (pd.Series): Test labels.
+        base_target (Optional[np.ndarray]): Baseline target for evaluations.
+        evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
+        inference_engine (ModelInference): Model inference manager.
+        trainer (Trainer): Trainer for model evaluation and optimization.
+
+    Inherited Properties:
+        - `criterion (str)`: Retrieves or sets current evaluation criterion for model
+            selection. Supports 'f1', 'brier_score', and 'macro_f1'.
+        - `model (object)`: Retrieves best-ranked model dynamically based on the current
+            criterion. Recalculates when criterion is updated.
+
+    Abstract Methods:
+        - `wrapped_evaluation`: Performs model evaluation and generates specified plots.
+        - `evaluate_cluster`: Performs clustering and calculates Brier scores.
+        - `evaluate_feature_importance`: Computes feature importance using specified
+          methods.
+        - `average_over_splits`: Aggregates metrics over multiple splits for model
+          robustness.
+        - `wrapped_patient_inference`: Runs inference on individual patient data.
+        - `wrapped_jackknife`: Executes jackknife resampling on patient data for
+          confidence interval estimation.
+    """
+
+    def __init__(
+        self,
+        learners_dict: Dict,
+        criterion: str,
+        aggregate: bool,
+        verbose: bool,
+        random_state: int,
+        path: Path,
+        name: str,
+    ):
+        """Base class for EvaluatorWrapper, initializing common parameters."""
+        super().__init__(
+            learners_dict=learners_dict,
+            criterion=criterion,
+            aggregate=aggregate,
+            verbose=verbose,
+            random_state=random_state,
+        )
+        self.path = path
+        self.name = name
+        self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
+        self.resampler = Resampler(
+            classification=self.classification, encoding=self.encoding
+        )
+        (
+            self.df,
+            self.df_processed,
+            self.train_df,
+            self.test_df,
+            self.X_train,
+            self.y_train,
+            self.X_test,
+            self.y_test,
+            self.base_target,
+        ) = self._prepare_data_for_evaluation()
+        self.evaluator = ModelEvaluator(
+            model=self.model,
+            X=self.X_test,
+            y=self.y_test,
+            encoding=self.encoding,
+            aggregate=self.aggregate,
+        )
+        self.inference_engine = ModelInference(
+            classification=self.classification,
+            model=self.model,
+            verbose=self.verbose,
+        )
+        self.trainer = Trainer(
+            classification=self.classification,
+            criterion=self.criterion,
+            tuning=None,
+            hpo=None,
+        )
+
     def _prepare_data_for_evaluation(
         self,
-        seed: Optional[int] = None,
     ) -> Tuple[
+        pd.DataFrame,
         pd.DataFrame,
         pd.DataFrame,
         pd.DataFrame,
@@ -203,14 +309,11 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
     ]:
         """Prepares data for evaluation.
 
-        Args:
-            seed (Optional[int]): Seed for train test split. Defaults to None.
-
         Returns:
-            Tuple: df, train_df, test_df, X_train, y_train, X_test, y_test,
-                and optionally base_target.
+            Tuple: df, df_processed, train_df, test_df, X_train, y_train, X_test,
+                y_test, and optionally base_target.
         """
-        df = self.dataloader.load_data()
+        df = self.dataloader.load_data(path=self.path, name=self.name)
 
         task = "pocketclosure" if self.task == "pocketclosureinf" else self.task
 
@@ -219,15 +322,16 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         else:
             base_target = None
 
-        df = self.dataloader.transform_data(df=df)
-        seed = seed if seed is not None else self.random_state_split
-        train_df, test_df = self.resampler.split_train_test_df(df=df, seed=seed)
+        df_processed = self.dataloader.transform_data(df=df)
+        train_df, test_df = self.resampler.split_train_test_df(
+            df=df_processed, seed=self.random_state
+        )
 
         if task in ["pocketclosure", "pdgrouprevaluation"] and base_target is not None:
             test_patient_ids = test_df[self.group_col]
             base_target = (
-                base_target.reindex(df.index)
-                .loc[df[self.group_col].isin(test_patient_ids)]
+                base_target.reindex(df_processed.index)
+                .loc[df_processed[self.group_col].isin(test_patient_ids)]
                 .values
             )
 
@@ -235,7 +339,17 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
             train_df=train_df, test_df=test_df
         )
 
-        return df, train_df, test_df, X_train, y_train, X_test, y_test, base_target
+        return (
+            df,
+            df_processed,
+            train_df,
+            test_df,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            base_target,
+        )
 
     def _generate_base_target(self, df: pd.DataFrame) -> pd.Series:
         """Generates the target column before treatment based on the task.
@@ -262,12 +376,15 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         else:
             raise ValueError(f"Task '{self.task}' is not recognized.")
 
-    def _train_and_get_metrics(self, seed: int, learner: str, n_jobs: int = -1) -> dict:
+    def _train_and_get_metrics(
+        self, seed: int, learner: str, test_set_size: float = 0.2, n_jobs: int = -1
+    ) -> dict:
         """Helper function to run `train_final_model` with a specific seed.
 
         Args:
             seed (int): Seed value for train-test split.
             learner (str): Type of learner, used for MLP-specific training logic.
+            test_set_size (float): Size of test set. Defaults to 0.2.
             n_jobs (int): Number of parallel jobs. Defaults to -1 (use all processors).
 
         Returns:
@@ -280,17 +397,80 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         model_tuple = (learner, best_params, best_threshold)
 
         result = self.trainer.train_final_model(
-            df=self.df,
+            df=self.df_processed,
             resampler=self.resampler,
             model=model_tuple,
             sampling=self.sampling,
             factor=self.factor,
             n_jobs=n_jobs,
             seed=seed,
-            test_size=self.test_set_size,
+            test_size=test_set_size,
             verbose=self.verbose,
         )
         return result["metrics"]
+
+    def _subset_test_set(
+        self, base: str, revaluation: str
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Creates a subset of the test set based on differences in raw data variables.
+
+        Args:
+            base (str): Baseline variable to compare against in `df_raw`.
+            revaluation (str): Revaluation variable to check for changes in `df_raw`.
+
+        Returns:
+            Tuple: Subsets of X_test and y_test where
+                `revaluation` differs from `base`.
+        """
+        changed_indices = self.df.index[self.df[revaluation] != self.df[base]]
+        X_test_subset = self.X_test.reindex(changed_indices)
+        y_test_subset = self.y_test.reindex(changed_indices)
+        return X_test_subset, y_test_subset
+
+    def _test_filters(
+        self,
+        base: Optional[str],
+        revaluation: Optional[str],
+        true_preds: bool,
+        brier_threshold: Optional[float],
+    ) -> Tuple[pd.DataFrame, pd.Series]:
+        """Applies subsetting filters to the evaluator's test set.
+
+        Args:
+            base (Optional[str]): Baseline variable for comparison. If provided with
+                `revaluation`, subsets to cases where `revaluation` differs from `base`.
+            revaluation (Optional[str]): Revaluation variable for comparison. Used only
+                if `base` is also provided.
+            true_preds (bool): If True, further subsets to cases where the model's
+                predictions match the true labels.
+            brier_threshold (Optional[float]): Threshold for filtering Brier scores. If
+                provided, further subsets to cases with Brier scores below threshold.
+
+        Returns:
+            Tuple: Filtered feature set and labels.
+        """
+        X_subset = self.evaluator.X
+        y_subset = self.evaluator.y
+
+        if base and revaluation:
+            X_subset, y_subset = self._subset_test_set(
+                base=base, revaluation=revaluation
+            )
+            X_subset, y_subset = X_subset.dropna(), y_subset.dropna()
+
+        if true_preds:
+            pred = self.evaluator.model_predictions().reindex(y_subset.index)
+            correct_indices = y_subset.index[pred == y_subset]
+            X_subset = X_subset.loc[correct_indices].dropna()
+            y_subset = y_subset.loc[correct_indices].dropna()
+
+        if brier_threshold is not None:
+            brier_scores = self.evaluator.brier_scores().reindex(y_subset.index)
+            threshold_indices = brier_scores[brier_scores < brier_threshold].index
+            X_subset = X_subset.loc[threshold_indices].dropna()
+            y_subset = y_subset.loc[threshold_indices].dropna()
+
+        return X_subset, y_subset
 
     @abstractmethod
     def wrapped_evaluation(
@@ -298,22 +478,62 @@ class BaseEvaluatorWrapper(BaseConfig, ABC):
         cm: bool,
         cm_base: bool,
         brier_groups: bool,
-        cluster: bool,
-        n_cluster: int,
+        tight_layout: bool,
     ):
-        """Abstract method for evaluating the best-ranked model."""
-        pass
-
-    @abstractmethod
-    def evaluate_feature_importance(self, importance_types: List[str]):
-        """Evaluates feature importance using the provided evaluator.
+        """Runs evaluation on the best-ranked model based on specified criteria.
 
         Args:
-            importance_types (List[str]): List of feature importance types.
+            cm (bool): If True, plots the confusion matrix.
+            cm_base (bool): If True, plots the confusion matrix against the
+                value before treatment. Only applicable for specific tasks.
+            brier_groups (bool): If True, calculates Brier score groups.
+            tight_layout (bool): If True, applies tight layout to the plot.
         """
 
     @abstractmethod
-    def average_over_splits(self, num_splits: int, n_jobs: int) -> pd.DataFrame:
+    def evaluate_cluster(
+        self,
+        n_cluster: int,
+        base: Optional[str],
+        revaluation: Optional[str],
+        true_preds: bool,
+        brier_threshold: Optional[float],
+        tight_layout: bool,
+    ):
+        """Performs cluster analysis with Brier scores, with optional subsetting.
+
+        Args:
+            n_cluster (int): Number of clusters for Brier score clustering analysis.
+            base (Optional[str]): Baseline variable for comparison.
+            revaluation (Optional[str]): Revaluation variable for comparison.
+            true_preds (bool): If True, further subsets to cases where model predictions
+                match the true labels.
+            brier_threshold (Optional[float]): Threshold for Brier score filtering.
+            tight_layout (bool): If True, applies tight layout to the plot.
+        """
+
+    @abstractmethod
+    def evaluate_feature_importance(
+        self,
+        fi_types: List[str],
+        base: Optional[str],
+        revaluation: Optional[str],
+        true_preds: bool,
+        brier_threshold: Optional[float],
+    ):
+        """Evaluates feature importance using specified types, with optional subsetting.
+
+        Args:
+            fi_types (List[str]): List of feature importance types to evaluate.
+            base (Optional[str]): Baseline variable for comparison.
+            revaluation (Optional[str]): Revaluation variable for comparison.
+            true_preds (bool): If True, further subsets to cases where model predictions
+                match the true labels.
+            brier_threshold (Optional[float]): Threshold for Brier score filtering.
+        """
+
+    @abstractmethod
+    def average_over_splits(self, num_splits: int, n_jobs: int):
         """Trains the final model over multiple splits with different seeds.
 
         Args:

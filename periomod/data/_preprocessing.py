@@ -15,7 +15,7 @@ class StaticProcessEngine(BaseProcessor):
     outcome variables tailored for periodontal data analysis.
 
     Inherits:
-        - BaseProcessor: Provides core data processing methods and abstract method
+        - `BaseProcessor`: Provides core data processing methods and abstract method
             definitions for required preprocessing steps.
 
     Args:
@@ -52,13 +52,7 @@ class StaticProcessEngine(BaseProcessor):
     """
 
     def __init__(self, behavior: bool = False, verbose: bool = True) -> None:
-        """Initializes the StaticProcessEngine.
-
-        Args:
-            behavior (bool): If True, includes behavioral columns in processing.
-                Defaults to False.
-            verbose (bool): Activates verbose. Defaults to True.
-        """
+        """Initializes the StaticProcessEngine."""
         super().__init__(behavior=behavior)
         self.verbose = verbose
         self.helper = ProcessDataHelper()
@@ -67,12 +61,16 @@ class StaticProcessEngine(BaseProcessor):
     def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
 
+        Imputation rules exist for a predefined set of variables.
+        The method will only impute the columns present in the dataframe.
+
         Args:
             df (pd.DataFrame): The DataFrame with missing values.
 
         Returns:
-            pd.DataFrame: The DataFrame with imputed missing values.
+            df: The DataFrame with imputed missing values.
         """
+        pd.set_option("future.no_silent_downcasting", True)
         if df.isnull().values.any():
             missing_values = df.isnull().sum()
             warnings.warn(
@@ -89,7 +87,7 @@ class StaticProcessEngine(BaseProcessor):
             "percussion-sensitivity": lambda x: x.fillna(1).astype(float),
             "sensitivity": lambda x: x.fillna(1).astype(float),
             "bodymassindex": lambda x: pd.to_numeric(x, errors="coerce")
-            .fillna(x.mean())
+            .fillna(pd.to_numeric(x, errors="coerce").mean())
             .astype(float),
             "periofamilyhistory": lambda x: x.fillna(2).astype(int),
             "smokingtype": lambda x: x.fillna(1).astype(int),
@@ -132,7 +130,7 @@ class StaticProcessEngine(BaseProcessor):
                 included in the grouping; otherwise, it is not. Defaults to True.
 
         Returns:
-            pd.DataFrame: The dataframe with additional tooth-related features.
+            df: The dataframe with additional tooth-related features.
         """
         df["side_infected"] = df.apply(
             lambda row: self.helper.check_infection(
@@ -170,7 +168,7 @@ class StaticProcessEngine(BaseProcessor):
             df (pd.DataFrame): The input DataFrame.
 
         Returns:
-            pd.DataFrame: The DataFrame with new outcome variables.
+            df: The DataFrame with new outcome variables.
         """
         df["pocketclosure"] = df.apply(
             lambda row: (
@@ -192,13 +190,13 @@ class StaticProcessEngine(BaseProcessor):
         return df
 
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Processes dataset with data cleaning, imputations and scaling.
+        """Processes dataset with data cleaning, imputation and transformation.
 
         Args:
             df (pd.DataFrame): The input DataFrame.
 
         Returns:
-            pd.DataFrame: The processed DataFrame.
+            df: The imputed Dataframe with added feature and target columns.
         """
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]
