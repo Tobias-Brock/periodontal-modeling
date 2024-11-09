@@ -24,8 +24,8 @@ class BaseTrainer(BaseValidator, ABC):
     tuning, and cross-validation procedures.
 
     Inherits:
-        - BaseValidator: Validates instance level variables.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseValidator`: Validates instance level variables.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): Specifies the type of classification ('binary'
@@ -77,19 +77,7 @@ class BaseTrainer(BaseValidator, ABC):
         mlp_training: bool,
         threshold_tuning: bool,
     ) -> None:
-        """Initializes the Trainer with classification type and criterion.
-
-        Args:
-            classification (str): The type of classification ('binary' or
-                'multiclass').
-            criterion (str): The performance criterion to optimize (e.g., 'f1',
-                'brier_score').
-            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            mlp_training (bool): Flag for separate MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1".
-        """
+        """Initializes the Trainer with classification type and criterion."""
         super().__init__(
             classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
@@ -114,7 +102,7 @@ class BaseTrainer(BaseValidator, ABC):
             threshold (bool): Flag for threshold tuning when tuning with F1.
 
         Returns:
-            Tuple[float, Optional[float]]: Score and optimal threshold (if for binary).
+            Tuple: Score and optimal threshold (if for binary).
                 For multiclass, only the score is returned.
         """
         if self.classification == "binary":
@@ -136,7 +124,7 @@ class BaseTrainer(BaseValidator, ABC):
             threshold (bool): Flag for threshold tuning when tuning with F1.
 
         Returns:
-            Tuple[float, Optional[float]]: Score and optimal threshold (if applicable).
+            Tuple: Score and optimal threshold (if applicable).
         """
         if self.criterion == "f1":
             if threshold:
@@ -162,7 +150,7 @@ class BaseTrainer(BaseValidator, ABC):
             probs (np.ndarray): Probability predictions for each class (2D array).
 
         Returns:
-            float: The calculated score.
+            Tuple: The calculated score and None.
         """
         preds = np.argmax(probs, axis=1)
 
@@ -190,9 +178,8 @@ class BaseTrainer(BaseValidator, ABC):
             return_probs (bool): Return predicted probabilities with score if True.
 
         Returns:
-            Union[float, Tuple[float, np.ndarray, np.ndarray]]: The calculated score of
-                the model on the validation data, and optionally the true labels and
-                predicted probabilities.
+            Union: The calculated score of the model on the validation data, and
+                optionally the true labels and predicted probabilities.
         """
         (X_train, y_train), (X_val, y_val) = fold
         with warnings.catch_warnings():
@@ -226,7 +213,7 @@ class BaseTrainer(BaseValidator, ABC):
             probs (np.ndarray): Predicted probabilities for the positive class.
 
         Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
+            Union: The optimal threshold for 'f1', or None if the criterion is
                 'brier_score'.
         """
         if self.criterion == "brier_score":
@@ -259,7 +246,7 @@ class BaseTrainer(BaseValidator, ABC):
             n_jobs (int): Number of parallel jobs to use for cross-validation.
 
         Returns:
-            float or None: The optimal threshold for 'f1', or None if the criterion is
+            Union: The optimal threshold for 'f1', or None if the criterion is
                 'brier_score'.
         """
         if outer_splits is None:
@@ -327,7 +314,7 @@ class BaseTrainer(BaseValidator, ABC):
         model: Tuple,
         sampling: Optional[str],
         factor: Optional[float],
-        n_jobs: Optional[int],
+        n_jobs: int,
         seed: int,
         test_size: float,
         verbose: bool,

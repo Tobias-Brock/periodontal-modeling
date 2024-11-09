@@ -69,7 +69,7 @@ class ProcessDataHelper(BaseConfig):
     'furcationbaseline' columns based on predefined rules and conditions.
 
     Inherits:
-        BaseConfig: Provides configuration settings for data processing.
+        - `BaseConfig`: Provides configuration settings for data processing.
 
     Attributes:
         teeth_neighbors (dict): Dictionary mapping each tooth to its adjacent

@@ -21,20 +21,21 @@ class BaseModelInference(BaseConfig, ABC):
     allows encoding configurations for model compatibility.
 
     Inherits:
-        - BaseConfig: Provides configuration settings for data processing.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides configuration settings for data processing.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
-        classification (str): Specifies the type of classification task
-            ('binary' or 'multiclass').
-        model: A trained model that includes a `predict_proba` method for
-            generating class probabilities.
-        verbose (bool): Enables detailed logging if set to True.
+        classification (str): The type of classification task, either 'binary'
+            or 'multiclass', used to configure the inference process.
+        model: A trained model instance that implements a `predict_proba` method
+            for generating class probabilities.
+        verbose (bool): If True, enables detailed logging of inference steps.
 
     Attributes:
-        classification (str): Defines the type of classification task for the model.
-        model: The trained model used for predictions and inference.
-        verbose (bool): Controls the level of detail in log output during inference.
+        classification (str): Stores the classification type ('binary' or 'multiclass')
+            for model compatibility.
+        model: The trained model used to make predictions during inference.
+        verbose (bool): Indicates if verbose logging is enabled during inference.
 
     Methods:
         predict: Run predictions on a batch of input data, returning
@@ -60,13 +61,7 @@ class BaseModelInference(BaseConfig, ABC):
     """
 
     def __init__(self, classification: str, model: Any, verbose: bool):
-        """Initialize the ModelInference class with a trained model.
-
-        Args:
-            classification (str): Classification type ('binary' or 'multiclass').
-            model (Any): Trained classification model with a `predict_proba` method.
-            verbose (bool): Activates verbose if set to True.
-        """
+        """Initialize the ModelInference class with a trained model."""
         super().__init__()
         self.classification = classification
         self.model = model
@@ -79,7 +74,7 @@ class BaseModelInference(BaseConfig, ABC):
             input_data (pd.DataFrame): DataFrame containing feature values.
 
         Returns:
-            pd.DataFrame: DataFrame with predictions and probabilities for each class.
+            probs_df: DataFrame with predictions and probabilities for each class.
         """
         probs = self.model.predict_proba(input_data)
 
@@ -93,7 +88,6 @@ class BaseModelInference(BaseConfig, ABC):
         classes = [str(cls) for cls in self.model.classes_]
         probs_df = pd.DataFrame(probs, columns=classes, index=input_data.index)
         probs_df["prediction"] = preds
-
         return probs_df
 
     def create_predict_data(
@@ -110,7 +104,7 @@ class BaseModelInference(BaseConfig, ABC):
             encoding (str): Type of encoding used ('one_hot' or 'target').
 
         Returns:
-            pd.DataFrame: A DataFrame containing the prepared data for model prediction.
+            predict_data: A DataFrame containing the prepared data for model prediction.
         """
         base_data = raw_data.copy()
 
@@ -189,7 +183,7 @@ class BaseModelInference(BaseConfig, ABC):
             y_train (pd.Series): Training target for target encoding.
 
         Returns:
-            pd.DataFrame: Data prepared for model inference.
+            Tuple: Transformed patient data for prediction and patient data.
         """
         if patient_data.empty:
             raise ValueError(
@@ -237,7 +231,11 @@ class BaseModelInference(BaseConfig, ABC):
             patient_data (pd.DataFrame): The patient's data as a DataFrame.
 
         Returns:
-            pd.DataFrame: DataFrame containing tooth, side, prediction, and probability.
+            Tuple:
+                - predict_data: Transformed patient data for prediction.
+                - output_data: DataFrame with columns "tooth", "side",
+                transformed "prediction", and "probability".
+                - results: Original results from the model inference.
         """
         results = self.predict(predict_data)
         output_data = patient_data[["tooth", "side"]].copy()
@@ -265,7 +263,7 @@ class BaseModelInference(BaseConfig, ABC):
             resampler (Resampler): Instance of the Resampler class for encoding.
 
         Returns:
-            pd.DataFrame: DataFrame containing patient predictions and probabilities.
+            predictions_df: DataFrame containing patient predictions and probabilities.
         """
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)

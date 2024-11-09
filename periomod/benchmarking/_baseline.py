@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Tuple, Union
 
 import pandas as pd
@@ -19,6 +20,24 @@ class Baseline(BaseConfig):
     Regression, and a Dummy Classifier, which are trained and evaluated on
     split data, returning a summary of performance metrics for each model.
 
+    Inherits:
+        - `BaseConfig`: Provides configuration settings for data processing.
+
+    Args:
+        task (str): Task name used to determine the classification type.
+        encoding (str): Encoding type for categorical columns.
+        random_state (int, optional): Random seed for reproducibility. Defaults to 0.
+        lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
+            'saga'.
+        dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
+            'prior'.
+        models (List[Tuple[str, object]], optional): List of models to benchmark.
+            If not provided, default models are initialized.
+        n_jobs (int): Number of parallel jobs. Defaults to -1.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file. Defaults to
+            "processed_data.csv".
+
     Attributes:
         classification (str): Specifies classification type ('binary' or
             'multiclass') based on the task.
@@ -32,17 +51,8 @@ class Baseline(BaseConfig):
         models (List[Tuple[str, object]]): List of models to benchmark, each
             represented as a tuple containing the model's name and the initialized
             model object.
-
-    Args:
-        task (str): Task name used to determine the classification type.
-        encoding (str): Encoding type for categorical columns.
-        random_state (int, optional): Random seed for reproducibility. Defaults to 0.
-        lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
-            'saga'.
-        dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
-            'prior'.
-        models (List[Tuple[str, object]], optional): List of models to benchmark.
-            If not provided, default models are initialized.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file.
 
     Methods:
         baseline: Trains and evaluates each model in the models list, returning
@@ -73,22 +83,37 @@ class Baseline(BaseConfig):
         lr_solver: str = "saga",
         dummy_strategy: str = "prior",
         models: Union[List[Tuple[str, object]], None] = None,
+        n_jobs: int = -1,
+        path: Path = Path("data/processed"),
+        name: str = "processed_data.csv",
     ) -> None:
         """Initializes the Baseline class with default or user-specified models.
 
         Args:
-            task (str): Task name that determines the classification type.
-            encoding (str): Encoding type used in data processing.
-            random_state (int, optional): Random state for reproducibility. Defaults
-                to 0.
-            lr_solver (str, optional): Solver for Logistic Regression. Defaults to
+            task (str): Task name used to determine the classification type.
+            encoding (str): Encoding type for categorical columns.
+            random_state (int, optional): Random seed for reproducibility.
+                Defaults to 0.
+            lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
                 'saga'.
-            dummy_strategy (str, optional): Strategy for the DummyClassifier.
-                Defaults to 'prior'.
-            models (List[Tuple[str, object]], optional): List of models to use for
-                benchmarking. If not provided, default models are initialized.
+            dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
+                'prior'.
+            models (List[Tuple[str, object]], optional): List of models to benchmark.
+                If not provided, default models are initialized.
+            n_jobs (int): Number of parallel jobs. Defaults to -1.
+            path (Path): Path to the directory containing processed data files.
+            name (str): File name for the processed data file. Defaults to
+                "processed_data.csv".
         """
-        self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
+        if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
+            self.classification = "binary"
+        elif task == "pdgrouprevaluation":
+            self.classification = "multiclass"
+        else:
+            raise ValueError(
+                f"Unknown task: {task}. Unable to determine classification."
+            )
+
         self.resampler = Resampler(
             classification=self.classification, encoding=encoding
         )
@@ -96,17 +121,24 @@ class Baseline(BaseConfig):
         self.dummy_strategy = dummy_strategy
         self.lr_solver = lr_solver
         self.random_state = random_state
+        self.path = path
+        self.name = name
+        self.default_models: Union[list[str], None]
 
         if models is None:
             self.models = [
                 (
                     "Random Forest",
-                    RandomForestClassifier(n_jobs=-1, random_state=self.random_state),
+                    RandomForestClassifier(
+                        n_jobs=n_jobs, random_state=self.random_state
+                    ),
                 ),
                 (
                     "Logistic Regression",
                     LogisticRegression(
-                        solver=self.lr_solver, random_state=self.random_state
+                        solver=self.lr_solver,
+                        random_state=self.random_state,
+                        n_jobs=n_jobs,
                     ),
                 ),
                 (
@@ -114,8 +146,10 @@ class Baseline(BaseConfig):
                     DummyClassifier(strategy=self.dummy_strategy),
                 ),
             ]
+            self.default_models = [name for name, _ in self.models]
         else:
             self.models = models
+            self.default_models = None
 
     def baseline(self) -> pd.DataFrame:
         """Trains and evaluates each model in the models list on the given dataset.
@@ -125,12 +159,14 @@ class Baseline(BaseConfig):
         such as predictions and probabilities are computed and displayed.
 
         Returns:
-            pd.DataFrame: A DataFrame containing the evaluation metrics for each
-            baseline model, with model names as row indices.
+            DataFrame: A DataFrame containing the evaluation metrics for each
+                baseline model, with model names as row indices.
         """
-        df = self.dataloader.load_data()
+        df = self.dataloader.load_data(path=self.path, name=self.name)
         df = self.dataloader.transform_data(df=df)
-        train_df, test_df = self.resampler.split_train_test_df(df=df)
+        train_df, test_df = self.resampler.split_train_test_df(
+            df=df, seed=self.random_state
+        )
         X_train, y_train, X_test, y_test = self.resampler.split_x_y(
             train_df=train_df, test_df=test_df
         )
@@ -159,11 +195,19 @@ class Baseline(BaseConfig):
             trained_models[(model_name, "Baseline")] = model
 
         results_df = pd.DataFrame(results)
-        baseline_order = ["Dummy Classifier", "Logistic Regression", "Random Forest"]
-        results_df["Model"] = pd.Categorical(
-            results_df["Model"], categories=baseline_order, ordered=True
-        )
-        results_df = results_df.sort_values("Model").reset_index(drop=True)
+        if self.default_models is not None:
+            baseline_order = [
+                "Dummy Classifier",
+                "Logistic Regression",
+                "Random Forest",
+            ]
+            results_df["Model"] = pd.Categorical(
+                results_df["Model"], categories=baseline_order, ordered=True
+            )
+            results_df = results_df.sort_values("Model").reset_index(drop=True)
+
+        else:
+            results_df = results_df.reset_index(drop=True)
         pd.set_option("display.max_columns", None, "display.width", 1000)
 
         return results_df

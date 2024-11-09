@@ -51,30 +51,40 @@ class BaseModelEvaluator(ABC):
     for handling one-hot encoded features and aggregating SHAP values.
 
     Inherits:
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
-        X (pd.DataFrame): Test dataset features.
-        y (pd.Series): Test dataset labels.
-        model (Union[sklearn estimators, None]): A trained sklearn model instance.
-        models (Union[List[sklearn estimators], None]): List of trained models.
-        encoding (Optional[str]): Encoding type for plot titles (e.g., 'one_hot'
-            or 'target').
-        aggregate (bool): If True, aggregates importance values of one-hot encoded
-            features.
+        X (pd.DataFrame): The test dataset features.
+        y (pd.Series): The test dataset labels.
+        model (Optional[sklearn.base.BaseEstimator]): A trained sklearn model instance
+            for single-model evaluation.
+        models (Optional[List[sklearn.base.BaseEstimator]]): A list of trained models
+            for evaluation.
+        encoding (Optional[str]): Encoding type for categorical features, e.g.,
+            'one_hot' or 'target', used for labeling and grouping in plots.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
-        X (pd.DataFrame): Stores the test dataset features for evaluation.
-        y (pd.Series): Stores the test dataset labels for evaluation.
-        model (Union[sklearn estimators, None]): The primary model for evaluation.
-        models (List[sklearn estimators]): List of trained models for multi-model
-            evaluation.
-        encoding (Optional[str]): The encoding type used, impacting plot titles
-            and feature grouping.
-        aggregate (bool): Determines if importance values of one-hot encoded
-            features are aggregated for interpretability.
+        X (pd.DataFrame): Holds the test dataset features for evaluation.
+        y (pd.Series): Holds the test dataset labels for evaluation.
+        model (Optional[sklearn.base.BaseEstimator]): The primary model instance used
+            for evaluation, if single-model evaluation is performed.
+        models (List[sklearn.base.BaseEstimator]): List of trained models for
+            evaluation, if applicable.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            multi-category encoded features, enhancing interpretability in feature
+            importance plots.
 
     Methods:
+        brier_scores: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        model_predictions: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
         brier_score_groups: Calculates Brier score within specified groups.
         plot_confusion_matrix: Generates a styled confusion matrix heatmap
             for the test data and model predictions.
@@ -109,17 +119,7 @@ class BaseModelEvaluator(ABC):
         encoding: Optional[str],
         aggregate: bool,
     ) -> None:
-        """Initialize the FeatureImportance class.
-
-        Args:
-            X (pd.DataFrame): Test dataset features.
-            y (pd.Series): Test dataset labels.
-            model ([sklearn estimators]): Trained sklearn models.
-            models (List[sklearn estimators]): List of trained models.
-            encoding (Optional[str]): Determines encoding for plot titles
-                ('one_hot' or 'target').
-            aggregate (bool): If True, aggregates importance values of one-hot features.
-        """
+        """Initialize the FeatureImportance class."""
         self.X = X
         self.y = y
         self.model = model
@@ -127,26 +127,22 @@ class BaseModelEvaluator(ABC):
         self.encoding = encoding
         self.aggregate = aggregate
 
-    def brier_score_groups(self, group_by: str = "y") -> None:
-        """Calculates Brier score within groups.
-
-        Args:
-            group_by (str): Grouping variable. Defaults to "y".
+    def brier_scores(self) -> pd.Series:
+        """Calculates Brier scores for each instance in the evaluator's dataset.
 
         Returns:
-            pd.DataFrame: DataFrame containing group variable, label, and Brier scores.
+            Series: Brier scores for each instance.
         """
         if not hasattr(self.model, "predict_proba"):
             raise ValueError("The provided model cannot predict probabilities.")
-
         if self.model is None:
-            return None
+            raise ValueError("No model is available for predictions.")
 
         probas = self.model.predict_proba(self.X)
 
-        if len(probas[0]) == 1:
+        if probas.shape[1] == 1:
             brier_scores = [
-                brier_score_loss(y_true=[true_label], y_proba=[pred_proba[0]])
+                brier_score_loss([true_label], [pred_proba[0]])
                 for true_label, pred_proba in zip(self.y, probas, strict=False)
             ]
         else:
@@ -157,19 +153,68 @@ class BaseModelEvaluator(ABC):
                 for true_label, proba in zip(self.y, probas, strict=False)
             ]
 
-            data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
-            data_grouped = data.groupby(group_by)
+        return pd.Series(brier_scores, index=self.y.index)
 
+    def model_predictions(self) -> pd.Series:
+        """Generates model predictions for the evaluator's feature set.
+
+        Returns:
+            pred: Predicted labels as a series.
+        """
+        if not self.model:
+            raise ValueError("No model available for predictions.")
+
+        if (
+            hasattr(self.model, "best_threshold")
+            and self.model.best_threshold is not None
+        ):
+            final_probs = get_probs(model=self.model, classification="binary", X=self.X)
+            if final_probs is not None:
+                pred = pd.Series(
+                    (final_probs >= self.model.best_threshold).astype(int),
+                    index=self.X.index,
+                )
+            else:
+                pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+        else:
+            pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+
+        return pred
+
+    def brier_score_groups(
+        self, group_by: str = "y", tight_layout: bool = False
+    ) -> None:
+        """Calculates and displays Brier score within groups.
+
+        Args:
+            group_by (str): Grouping variable for calculating Brier scores.
+                Defaults to "y".
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
+        """
+        brier_scores = self.brier_scores()
+        data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
+        data_grouped = data.groupby(group_by)
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
-        plt.figure(figsize=(10, 6), dpi=300)
-        sns.boxplot(x=group_by, y="Brier_Score", data=data)
-        plt.title("Distribution of Brier Scores", fontsize=18)
-        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
-        plt.ylabel("Brier Score", fontsize=18)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        plt.figure(figsize=(4, 4), dpi=300)
+        sns.violinplot(
+            x=group_by,
+            y="Brier_Score",
+            data=data,
+            linewidth=0.5,
+            color="#078294",
+            inner_kws={"box_width": 4, "whis_width": 0.5},
+        )
+        if tight_layout:
+            plt.tight_layout()
+        sns.despine(top=True, right=True)
+        plt.title("Distribution of Brier Scores", fontsize=14)
+        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
+        plt.ylabel("Brier Score", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
         plt.show()
 
     def plot_confusion_matrix(
@@ -177,7 +222,8 @@ class BaseModelEvaluator(ABC):
         col: Optional[pd.Series] = None,
         y_label: str = "True",
         normalize: str = "rows",
-    ):
+        tight_layout: bool = False,
+    ) -> plt.Figure:
         """Generates a styled confusion matrix for the given model and test data.
 
         Args:
@@ -185,23 +231,13 @@ class BaseModelEvaluator(ABC):
             y_label (str): Description of y label. Defaults to "True".
             normalize (str, optional): Normalization method ('rows' or 'columns').
                 Defaults to 'rows'.
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
 
         Returns:
-        plt.Figure: Confusion matrix heatmap plot.
+            Figure: Confusion matrix heatmap plot.
         """
-        if not self.model:
-            return "No model available."
-        if (
-            hasattr(self.model, "best_threshold")
-            and self.model.best_threshold is not None
-        ):
-            final_probs = get_probs(model=self.model, classification="binary", X=self.X)
-            if final_probs is not None:
-                pred = (final_probs >= self.model.best_threshold).astype(int)
-            else:
-                pred = self.model.predict(self.X)
-        else:
-            pred = self.model.predict(self.X)
+        pred = self.model_predictions()
 
         if col is not None:
             cm = confusion_matrix(y_true=col, y_pred=pred)
@@ -250,7 +286,6 @@ class BaseModelEvaluator(ABC):
         plt.ylabel(y_label, fontsize=12)
 
         ax = plt.gca()
-
         ax.xaxis.set_ticks_position("top")
         ax.xaxis.set_label_position("top")
         cbar = ax.collections[0].colorbar
@@ -264,6 +299,8 @@ class BaseModelEvaluator(ABC):
         )
 
         plt.tick_params(axis="both", which="major", labelsize=12)
+        if tight_layout:
+            plt.tight_layout()
         plt.show()
 
     @staticmethod

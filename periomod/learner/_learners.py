@@ -31,25 +31,26 @@ class Model(BaseConfig):
     hyperparameter optimization (HPO) configurations.
 
     Inherits:
-        - BaseConfig: Provides base configuration settings, including random
+        - `BaseConfig`: Provides base configuration settings, including random
             state and model parameters.
 
     Args:
-        learner (str): The machine learning algorithm to use, such as 'rf'
-            (random forest), 'mlp' (multi-layer perceptron), 'xgb' (XGBoost),
+        learner (str): The machine learning algorithm to use. Options include:
+            'rf' (random forest), 'mlp' (multi-layer perceptron), 'xgb' (XGBoost),
             or 'lr' (logistic regression).
-        classification (str): Specifies the classification type, either
+        classification (str): Specifies the classification type. Can be either
             'binary' or 'multiclass'.
-        hpo (str, optional): The hyperparameter optimization (HPO) method to
-            use, such as 'hebo' or 'rs' (random search). Defaults to None,
-            which requires specifying HPO in relevant methods.
+        hpo (Optional[str]): The hyperparameter optimization (HPO) method to
+            use. Options are 'hebo' or 'rs'. Defaults to None, which requires
+            specifying HPO in relevant methods.
 
     Attributes:
         learner (str): The specified machine learning algorithm for the model.
-        classification (str): Defines the type of classification task
-            ('binary' or 'multiclass').
+            Options include 'rf', 'mlp', 'xgb', and 'lr'.
+        classification (str): Defines the type of classification task.
+            Options are 'binary' or 'multiclass'.
         hpo (Optional[str]): Hyperparameter optimization method for tuning, if
-            specified.
+            specified. Options are 'hebo' or 'rs'.
 
     Methods:
         get: Class method returning a model and hyperparameter search space
@@ -65,7 +66,10 @@ class Model(BaseConfig):
     """
 
     def __init__(
-        self, learner: str, classification: str, hpo: Optional[str] = None
+        self,
+        learner: str,
+        classification: str,
+        hpo: Optional[str] = None,
     ) -> None:
         """Initializes the Model with the learner type and classification.
 
@@ -73,8 +77,8 @@ class Model(BaseConfig):
             learner (str): The machine learning algorithm to use
                 (e.g., 'rf', 'mlp', 'xgb', 'lr').
             classification (str): The type of classification ('binary' or 'multiclass').
-            hpo (str, optional): The hyperparameter optimization method to use
-                (default None).
+            hpo (str, optional): The hyperparameter optimization method to use.
+                Defaults to None.
         """
         super().__init__()
         self.classification = classification
@@ -91,33 +95,33 @@ class Model(BaseConfig):
             ValueError: If an invalid learner or classification is provided.
         """
         if self.learner == "rf":
-            return RandomForestClassifier(random_state=self.random_state_model)
+            return RandomForestClassifier(random_state=self.learner_state)
         elif self.learner == "mlp":
-            return MLPClassifier(random_state=self.random_state_model)
+            return MLPClassifier(random_state=self.learner_state)
         elif self.learner == "xgb":
             if self.classification == "binary":
                 return xgb.XGBClassifier(
                     objective=self.xgb_obj_binary,
                     eval_metric=self.xgb_loss_binary,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
             elif self.classification == "multiclass":
                 return xgb.XGBClassifier(
                     objective=self.xgb_obj_multi,
                     eval_metric=self.xgb_loss_multi,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
         elif self.learner == "lr":
             if self.classification == "binary":
                 return LogisticRegression(
                     solver=self.lr_solver_binary,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
             elif self.classification == "multiclass":
                 return LogisticRegression(
                     multi_class=self.lr_multi_loss,
                     solver=self.lr_solver_multi,
-                    random_state=self.random_state_model,
+                    random_state=self.learner_state,
                 )
         else:
             raise ValueError(f"Unsupported learner type: {self.learner}")
@@ -134,8 +138,7 @@ class Model(BaseConfig):
             hpo (str): The hyperparameter optimization method ('hebo' or 'rs').
 
         Returns:
-            Union[Tuple, Tuple]: If hpo is 'rs', returns a tuple of
-                (model, parameter grid).
+            Union: If hpo is 'rs', returns a tuple of (model, parameter grid).
                 If hpo is 'hebo', returns a tuple of (model, HEBO search space,
                 transformation function).
         """
@@ -180,7 +183,7 @@ class Model(BaseConfig):
             classification (str): Type of classification ('binary' or 'multiclass').
 
         Returns:
-            model instance (Union[sklearn estiamtor]).
+            model: model instance (Union[sklearn estiamtor]).
         """
         instance = cls(learner, classification)
         return instance._get_model_instance()

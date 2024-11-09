@@ -1,0 +1,59 @@
+Task,Learner,Tuning,HPO,Criterion,Sampling,Factor,F1 Score,Precision,Recall,Accuracy,Brier Score,ROC AUC Score,Confusion Matrix,Best Threshold
+improvement,xgb,holdout,hebo,f1,,,0.2824,0.4198,0.2128,0.6892,0.2164,0.6227,"[[ 233  862]
+ [ 322 2392]]",
+improvement,xgb,holdout,rs,f1,,,0.2398,0.4246,0.1671,0.6955,0.2088,0.6167,"[[ 183  912]
+ [ 248 2466]]",0.5
+improvement,xgb,holdout,rs,f1,,,0.3108,0.423,0.2457,0.6868,0.2129,0.6287,"[[ 269  826]
+ [ 367 2347]]",0.5
+improvement,xgb,holdout,rs,brier_score,,,0.0108,0.4,0.0055,0.7117,0.1969,0.6281,"[[   6 1089]
+ [   9 2705]]",
+improvement,xgb,holdout,rs,brier_score,,,0.0126,0.4667,0.0064,0.7123,0.1964,0.6312,"[[   7 1088]
+ [   8 2706]]",
+improvement,lr,holdout,hebo,f1,,,0.4753,0.3568,0.7114,0.5484,0.2446,0.6334,"[[ 779  316]
+ [1404 1310]]",
+improvement,lr,holdout,hebo,f1,,,0.4825,0.3638,0.716,0.5584,0.2455,0.641,"[[ 784  311]
+ [1371 1343]]",
+improvement,lr,holdout,hebo,brier_score,,,0.088,0.4862,0.0484,0.7117,0.1959,0.6325,"[[  53 1042]
+ [  56 2658]]",
+improvement,lr,holdout,hebo,brier_score,,,0.1746,0.518,0.105,0.7146,0.1951,0.6418,"[[ 115  980]
+ [ 107 2607]]",
+improvement,lr,holdout,rs,f1,,,0.4758,0.3579,0.7096,0.5505,0.2444,0.6329,"[[ 777  318]
+ [1394 1320]]",0.5
+improvement,lr,holdout,rs,f1,,,0.4825,0.3638,0.716,0.5584,0.2455,0.641,"[[ 784  311]
+ [1371 1343]]",0.5
+improvement,lr,holdout,rs,brier_score,,,0.0,0.0,0.0,0.7125,0.2032,0.6005,"[[   0 1095]
+ [   0 2714]]",
+improvement,lr,holdout,rs,brier_score,,,0.0,0.0,0.0,0.7125,0.1974,0.6431,"[[   0 1095]
+ [   0 2714]]",
+improvement,rf,holdout,hebo,f1,,,0.4911,0.3617,0.7644,0.5445,0.2399,0.6351,"[[ 837  258]
+ [1477 1237]]",
+improvement,rf,holdout,hebo,f1,,,0.4923,0.3684,0.7416,0.5603,0.2412,0.6286,"[[ 812  283]
+ [1392 1322]]",
+improvement,rf,holdout,hebo,brier_score,,,0.0,0.0,0.0,0.7125,0.1978,0.6571,"[[   0 1095]
+ [   0 2714]]",
+improvement,rf,holdout,hebo,brier_score,,,0.0,0.0,0.0,0.7125,0.1983,0.659,"[[   0 1095]
+ [   0 2714]]",
+improvement,rf,holdout,rs,f1,,,0.4938,0.3647,0.7644,0.5495,0.2391,0.6402,"[[ 837  258]
+ [1458 1256]]",0.5
+improvement,rf,holdout,rs,f1,,,0.49,0.3647,0.7461,0.5534,0.2388,0.6425,"[[ 817  278]
+ [1423 1291]]",0.5
+improvement,rf,holdout,rs,brier_score,,,0.0,0.0,0.0,0.7125,0.1979,0.6551,"[[   0 1095]
+ [   0 2714]]",
+improvement,rf,holdout,rs,brier_score,,,0.0,0.0,0.0,0.7125,0.1977,0.6549,"[[   0 1095]
+ [   0 2714]]",
+improvement,mlp,holdout,hebo,f1,,,0.0108,0.3529,0.0055,0.7112,0.1985,0.6195,"[[   6 1089]
+ [  11 2703]]",
+improvement,mlp,holdout,hebo,f1,,,0.4526,0.2963,0.958,0.3339,0.2623,0.5824,"[[1049   46]
+ [2491  223]]",
+improvement,mlp,holdout,hebo,brier_score,,,0.0,0.0,0.0,0.7125,0.2002,0.5982,"[[   0 1095]
+ [   0 2714]]",
+improvement,mlp,holdout,hebo,brier_score,,,0.0036,0.5,0.0018,0.7125,0.203,0.6136,"[[   2 1093]
+ [   2 2712]]",
+improvement,mlp,holdout,rs,f1,,,0.0536,0.3265,0.0292,0.7036,0.207,0.464,"[[  32 1063]
+ [  66 2648]]",
+improvement,mlp,holdout,rs,f1,,,0.333,0.3164,0.3516,0.5952,0.3063,0.557,"[[ 385  710]
+ [ 832 1882]]",
+improvement,mlp,holdout,rs,brier_score,,,0.0,0.0,0.0,0.7125,0.2048,0.5839,"[[   0 1095]
+ [   0 2714]]",
+improvement,mlp,holdout,rs,brier_score,,,0.0871,0.4344,0.0484,0.7083,0.2022,0.6022,"[[  53 1042]
+ [  69 2645]]",

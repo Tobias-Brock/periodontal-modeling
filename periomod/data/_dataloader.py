@@ -14,10 +14,12 @@ class ProcessedDataLoader(BaseDataLoader):
     types such as 'one_hot' and 'target', with optional scaling of numeric columns.
 
     Inherits:
-        BaseDataLoader: Provides core data loading, encoding, and scaling methods.
+        `BaseDataLoader`: Provides core data loading, encoding, and scaling methods.
 
     Args:
         task (str): The task column name, used to guide specific transformations.
+            Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
+            'pdgrouprevaluation'.
         encoding (Optional[str]): Specifies the encoding method for categorical columns.
             Options include 'one_hot', 'target', or None. Defaults to None.
         encode (bool, optional): If True, applies encoding to categorical columns.
@@ -26,22 +28,23 @@ class ProcessedDataLoader(BaseDataLoader):
             Defaults to True.
 
     Attributes:
-        task (str): Task column name used during data transformations.
-        encoding (str): Encoding method specified for categorical columns.
+        task (str): Task column name used during data transformations. Can be
+            'pocketclosure', 'pocketclosureinf', 'improvement', or 'pdgrouprevaluation'.
+        encoding (str): Encoding method specified for categorical columns. Options
+            include 'one_hot' or 'target'.
         encode (bool): Flag to enable encoding of categorical columns.
         scale (bool): Flag to enable scaling of numeric columns.
 
     Methods:
         encode_categorical_columns: Encodes categorical columns based on
             the specified encoding method.
-        scale_numeric_columns: Scales numeric columns to normalize
-            data.
+        scale_numeric_columns: Scales numeric columns to normalize data.
         transform_data: Executes the complete data processing pipeline,
             including encoding and scaling.
 
     Inherited Methods:
-        load_data: Load processed data from the specified path and file.
-        save_data: Save processed data to the specified path and file.
+        - `load_data`: Load processed data from the specified path and file.
+        - `save_data`: Save processed data to the specified path and file.
 
     Example:
         ```
@@ -71,7 +74,7 @@ class ProcessedDataLoader(BaseDataLoader):
             df (pd.DataFrame): The DataFrame containing categorical columns.
 
         Returns:
-            pd.DataFrame: The DataFrame with encoded categorical columns.
+            df: The DataFrame with encoded categorical columns.
 
         Raises:
             ValueError: If an invalid encoding type is specified.
@@ -89,17 +92,17 @@ class ProcessedDataLoader(BaseDataLoader):
             encoded_df = pd.DataFrame(
                 encoded_columns, columns=encoder.get_feature_names_out(cat_vars)
             )
-            df_final = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
+            df = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
         elif self.encoding == "target":
             df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
-            df_final = df.drop(columns=["tooth", "side"])
+            df = df.drop(columns=["tooth", "side"])
         else:
             raise ValueError(
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
-        self._check_encoded_columns(df=df_final)
-        return df_final
+        self._check_encoded_columns(df=df)
+        return df
 
     def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Scales numeric columns in the DataFrame.
@@ -108,7 +111,7 @@ class ProcessedDataLoader(BaseDataLoader):
             df (pd.DataFrame): The DataFrame containing numeric columns.
 
         Returns:
-            pd.DataFrame: The DataFrame with scaled numeric columns.
+            df: The DataFrame with scaled numeric columns.
         """
         scale_vars = [col for col in self.scale_vars if col in df.columns]
         df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
@@ -119,13 +122,13 @@ class ProcessedDataLoader(BaseDataLoader):
         return df
 
     def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Select task column, rename to 'y', and delete remaining tasks.
+        """Select task column and optionally, scale and encode.
 
         Args:
             df (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame with the selected task 'y'.
+            df: DataFrame with the selected task 'y'.
         """
         if self.encode:
             df = self.encode_categorical_columns(df=df)

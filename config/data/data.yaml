@@ -1,7 +1,3 @@
-behavior: False
-scale: True
-encoding: 'one_hot'
-
 patient_columns:
   - "ID_patient"
   - "Age"
@@ -74,7 +70,7 @@ cat_map:
   restoration: 3
   periofamilyhistory: 3
   diabetes: 4
-  furcationbaseline: 3
+  furcationbaseline: 4
   smokingtype: 5
   stresslvl: 3
   toothtype: 3
