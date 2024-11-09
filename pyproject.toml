@@ -5,10 +5,12 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "periomod"
 version = "0.1.0"
-description = "Package for short term periodontal modeling"
+description = "Package for short-term periodontal modeling"
 authors = [
   { name = "Tobias Brock" },
+  { name = "Elias Walter" },
 ]
+
 license = { text = "CC-BY-NC-SA-4.0" }
 readme = "README.md"
 classifiers = [

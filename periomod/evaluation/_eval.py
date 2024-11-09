@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -119,7 +119,7 @@ class ModelEvaluator(BaseModelEvaluator):
                 'shap', 'permutation', 'standard'.
 
         Returns:
-            A feature importance plot for the specified method.
+            Plot: Feature importance plot for the specified method.
         """
         if self.models and self.model is None:
             return None
@@ -199,7 +199,7 @@ class ModelEvaluator(BaseModelEvaluator):
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
                         importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
-                        
+
                         plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             aggregated_shap_values,
@@ -233,14 +233,18 @@ class ModelEvaluator(BaseModelEvaluator):
                         top10_fi_df_aggregated = fi_df_aggregated.head(10)
                         bottom10_fi_df_aggregated = fi_df_aggregated.tail(10)
 
-                        placeholder = pd.DataFrame([["[...]", 0]], columns=["Feature", "Importance"])
+                        placeholder = pd.DataFrame(
+                            [["[...]", 0]], columns=["Feature", "Importance"]
+                        )
                         selected_fi_df_aggregated = pd.concat(
                             [
-                            top10_fi_df_aggregated, placeholder, bottom10_fi_df_aggregated
+                                top10_fi_df_aggregated,
+                                placeholder,
+                                bottom10_fi_df_aggregated,
                             ],
-                            ignore_index=True
-                             )
-                                                
+                            ignore_index=True,
+                        )
+
                 else:
                     if fi_type == "shap":
                         plt.figure(figsize=(4, 4), dpi=300)
@@ -259,7 +263,7 @@ class ModelEvaluator(BaseModelEvaluator):
                         ax.spines["left"].set_visible(True)
                         ax.spines["left"].set_color("black")
                         ax.spines["bottom"].set_color("black")
-                        
+
                         ax.tick_params(axis="y", colors="black")
                         plt.title(
                             f"{model_name}: SHAP Feature Importance; {self.encoding}"
@@ -272,14 +276,14 @@ class ModelEvaluator(BaseModelEvaluator):
 
                 if fi_type != "shap":
                     plt.figure(figsize=(8, 6), dpi=300)
-                    
+
                     if self.aggregate:
                         plt.bar(
                             selected_fi_df_aggregated["Feature"],
                             selected_fi_df_aggregated["Importance"],
                             edgecolor="black",
                             linewidth=1,
-                            color="#078294"
+                            color="#078294",
                         )
 
                     else:
@@ -288,11 +292,14 @@ class ModelEvaluator(BaseModelEvaluator):
                             fi_df["Importance"],
                         )
 
-                    plt.title(f"{model_name}: {fi_type.title()} Feature Importance; {self.encoding}")
+                    plt.title(
+                        f"{model_name}: {fi_type.title()} Feature Importance; "
+                        f"{self.encoding}"
+                    )
                     plt.xticks(rotation=90, fontsize=12)
                     plt.yticks(fontsize=12)
-                    plt.axhline(y=0, color='black', linewidth=1)
-                    
+                    plt.axhline(y=0, color="black", linewidth=1)
+
                     ax = plt.gca()
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
@@ -306,17 +313,20 @@ class ModelEvaluator(BaseModelEvaluator):
         self,
         clustering_algorithm: Type = AgglomerativeClustering,
         n_clusters: int = 3,
-    ) -> pd.DataFrame:
+        tight_layout: bool = False,
+    ) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
         """Analyze distribution of Brier scores within clusters formed by input data.
 
         Args:
             clustering_algorithm (Type): Clustering algorithm class from sklearn to use
                 for clustering.
             n_clusters (int): Number of clusters to form.
+            tight_layout (bool): If True, applies tight layout to the plots. Defaults
+                to False.
 
         Returns:
-            pd.DataFrame: The input DataFrame X with columns for 'Cluster' labels
-            and 'Brier_Score'.
+            Union: Tuple containing the Brier score plot, heatmap plot, and clustered
+                DataFrame with 'Cluster' and 'Brier_Score' columns.
 
         Raises:
             ValueError: If the provided model cannot predict probabilities.
@@ -333,10 +343,11 @@ class ModelEvaluator(BaseModelEvaluator):
             for true, proba in zip(self.y, probas, strict=False)
         ]
 
-        if self.aggregate:
-            X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
-        else:
-            X_cluster_input = self.X
+        X_cluster_input = (
+            self._aggregate_one_hot_features_for_clustering(X=self.X)
+            if self.aggregate
+            else self.X
+        )
 
         clustering_algo = clustering_algorithm(n_clusters=n_clusters)
         cluster_labels = clustering_algo.fit_predict(X_cluster_input)
@@ -360,7 +371,14 @@ class ModelEvaluator(BaseModelEvaluator):
         )
 
         plt.figure(figsize=(6, 4), dpi=300)
-        sns.violinplot(x="Cluster", y="Brier_Score", data=X_clustered, linewidth=0.5, color="#078294", inner_kws=dict(box_width=6, whis_width=0.5))
+        sns.violinplot(
+            x="Cluster",
+            y="Brier_Score",
+            data=X_clustered,
+            linewidth=0.5,
+            color="#078294",
+            inner_kws={"box_width": 6, "whis_width": 0.5},
+        )
         sns.pointplot(
             x="Cluster",
             y="Brier_Score",
@@ -375,6 +393,8 @@ class ModelEvaluator(BaseModelEvaluator):
         plt.title("Brier Score Distribution within Clusters", fontsize=14)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        if tight_layout:
+            plt.tight_layout()
         brier_plot = plt.gcf()
 
         plt.figure(figsize=(8, 3), dpi=300)
@@ -386,17 +406,19 @@ class ModelEvaluator(BaseModelEvaluator):
             fmt=".1f",
             annot_kws={"size": 5, "rotation": 90},
         )
+        if tight_layout:
+            plt.tight_layout()
 
-        ax = plt.gca() 
+        ax = plt.gca()
         for spine in ax.spines.values():
-            spine.set_visible(True)   
-            spine.set_color('black')
+            spine.set_visible(True)
+            spine.set_color("black")
             spine.set_linewidth(1)
 
-        cbar = ax.collections[0].colorbar 
-        cbar.outline.set_visible(True) 
+        cbar = ax.collections[0].colorbar
+        cbar.outline.set_visible(True)
         cbar.outline.set_edgecolor("black")
-        cbar.outline.set_linewidth(1)      
+        cbar.outline.set_linewidth(1)
         heatmap_plot = plt.gcf()
 
         return brier_plot, heatmap_plot, X_clustered

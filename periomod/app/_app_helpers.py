@@ -397,7 +397,7 @@ def _run_benchmarks(
         name=file_name,
     )
 
-    df_results, learners_dict = benchmarker.run_all_benchmarks()
+    df_results, learners_dict = benchmarker.run_benchmarks()
 
     if df_results.empty:
         return "No results to display", None, None
@@ -626,7 +626,7 @@ def _plot_cluster(
     encoding: str,
     aggregate: bool,
     n_clusters: int,
-) -> Tuple[plt.Figure, plt.Figure]:
+) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
     """Performs clustering on Brier score and returns related plots.
 
     Args:
@@ -638,15 +638,16 @@ def _plot_cluster(
         n_clusters (int): Number of clusters for Brier score analysis.
 
     Returns:
-        Tuple[plt.Figure, plt.Figure]: A tuple containing the Brier score plot
-            and the heatmap plot.
+        Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]: A tuple containing the
+        Brier score plot, heatmap plot and the clustered data. Returns None if model is
+        None.
     """
     if not model:
         return "No model available."
 
     return ModelEvaluator(
         model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
-    ).analyze_brier_within_clusters(n_clusters=n_clusters)
+    ).analyze_brier_within_clusters(n_clusters=n_clusters, tight_layout=True)
 
 
 def _brier_score_wrapper(
@@ -663,7 +664,9 @@ def _brier_score_wrapper(
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
-    ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups()
+    ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups(
+        tight_layout=True
+    )
     return plt.gcf()
 
 
@@ -708,7 +711,7 @@ def _plot_cluster_wrapper(
     encoding: str,
     aggregate: bool,
     n_clusters: int,
-) -> Tuple[Any, Any]:
+) -> Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]:
     """Wrapper function to call plot_cluster.
 
     Args:
@@ -721,7 +724,9 @@ def _plot_cluster_wrapper(
         n_clusters (int): Number of clusters.
 
     Returns:
-        Tuple[Any, Any]: The Brier score plot and heatmap plot.
+        Union[None, Tuple[plt.Figure, plt.Figure, pd.DataFrame]]: A tuple containing the
+        Brier score plot, heatmap plot and the clustered data. Returns None if model is
+        None.
     """
     return _plot_cluster(
         model=models[selected_model],

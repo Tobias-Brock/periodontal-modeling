@@ -173,7 +173,7 @@ class Trainer(BaseTrainer):
         final: bool = False,
         tol: float = 0.0001,
         n_iter_no_change: int = 5,
-    ) -> Tuple:
+    ) -> Tuple[float, MLPClassifier, Union[float, None]]:
         """Trains MLPClassifier with early stopping and evaluates performance.
 
         Applies evaluation for both binary and multiclass classification.
@@ -190,8 +190,8 @@ class Trainer(BaseTrainer):
                 early stopping. Defaults to 5.
 
         Returns:
-            tuple (Tuple): The best validation score, trained MLPClassifier, and the
-                optimal threshold (None for multiclass).
+            Tuple: Best validation score, trained MLPClassifier, and optimal threshold
+                (None for multiclass or if criterion is "brier_score").
         """
         best_val_score = (
             -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")

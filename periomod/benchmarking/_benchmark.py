@@ -134,7 +134,44 @@ class Experiment(BaseExperiment):
         threshold_tuning: bool = True,
         verbose: bool = True,
     ) -> None:
-        """Initialize the Experiment class with tuning parameters."""
+        """Initialize the Experiment class with tuning parameters.
+
+        Args:
+            df (pd.DataFrame): The preloaded data for the experiment.
+            task (str): The task name used to determine classification type.
+                Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
+                'pdgrouprevaluation'.
+            learner (str): Specifies the model or algorithm to evaluate.
+                Includes 'xgb', 'rf', 'lr' or 'mlp'.
+            criterion (str): Criterion for optimization ('f1', 'macro_f1' or
+                'brier_score').
+            encoding (str): Encoding type for categorical features ('one_hot' or
+                'binary').
+            tuning (Optional[str]): Tuning method to apply ('holdout' or 'cv').
+                Can be None.
+            hpo (Optional[str]): Hyperparameter optimization method ('rs' or 'hebo').
+                Can be None.
+            sampling (Optional[str]): Resampling strategy to apply. Defaults to None.
+                Includes None, 'upsampling', 'downsampling', and 'smote'.
+            factor (Optional[float]): Resampling factor. Defaults to None.
+            n_configs (int): Number of configurations for hyperparameter tuning.
+                Defaults to 10.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+                Defaults to 5.
+            n_jobs (int): Number of parallel jobs to run for evaluation.
+                Defaults to 1.
+            cv_folds (int): Number of folds for cross-validation; Defaults to 10.
+            test_seed (int): Random seed for test splitting. Defaults to 0.
+            test_size (float): Proportion of data used for testing. Defaults to
+                0.2.
+            val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+            cv_seed (int): Random seed for cross-validation. Defaults to 0
+            mlp_flag (bool): Flag to enable MLP training with early stopping. Defaults
+                to True.
+            threshold_tuning (bool): If True, performs threshold tuning for binary
+                classification if the criterion is "f1". Defaults to True.
+            verbose (bool): Enables verbose output if set to True.
+        """
         super().__init__(
             df=df,
             task=task,
@@ -241,7 +278,7 @@ class Benchmarker(BaseBenchmark):
         - `BaseBenchmark`: Provides common benchmarking attributes.
 
     Args:
-        task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
+        task (str): Task for evaluation (`pocketclosure', 'pocketclosureinf',
             'improvement', or 'pdgrouprevaluation'.).
         learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
             'mlp').
@@ -353,7 +390,42 @@ class Benchmarker(BaseBenchmark):
         path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
-        """Initialize the Experiment with different tasks, learners, etc."""
+        """Initialize the Experiment with different tasks, learners, etc.
+
+        Args:
+            task (str): Task for evaluation ('pocketclosure', 'pocketclosureinf',
+                'improvement', or 'pdgrouprevaluation'.).
+            learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
+                'mlp').
+            tuning_methods (List[str]): Tuning methods for each learner ('holdout',
+                'cv').
+            hpo_methods (List[str]): HPO methods ('hebo' or 'rs').
+            criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
+                'brier_score').
+            encodings (List[str]): List of encodings ('one_hot' or 'target').
+            sampling (Optional[List[str]]): Sampling strategies for class imbalance.
+                Includes None, 'upsampling', 'downsampling', and 'smote'.
+            factor (Optional[float]): Factor to apply during resampling.
+            n_configs (int): Number of configurations for hyperparameter tuning.
+                Defaults to 10.
+            n_jobs (int): Number of parallel jobs for processing. Defaults to 1.
+            cv_folds (Optional[int]): Number of folds for cross-validation.
+                Defaults to 10.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+                Defaults to 5.
+            test_seed (int): Random seed for test splitting. Defaults to 0.
+            test_size (float): Proportion of data used for testing. Defaults to
+                0.2.
+            val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+            cv_seed (int): Random seed for cross-validation. Defaults to 0
+            mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
+            threshold_tuning (bool): Enables threshold tuning for binary classification.
+            verbose (bool): If True, enables detailed logging during benchmarking.
+                Defaults to True.
+            path (Path): Path to the directory containing processed data files.
+            name (str): File name for the processed data file. Defaults to
+                "processed_data.csv".
+        """
         super().__init__(
             task=task,
             learners=learners,
@@ -397,14 +469,12 @@ class Benchmarker(BaseBenchmark):
 
         return data_cache
 
-    def run_all_benchmarks(self) -> Tuple[pd.DataFrame, dict]:
+    def run_benchmarks(self) -> Tuple[pd.DataFrame, dict]:
         """Benchmark all combinations of inputs.
 
         Returns:
-            Tuple[pd.DataFrame, dict]:
-                - A DataFrame summarizing the benchmark results with metrics for each
-                configuration.
-                - A dictionary mapping model keys to trained models for the top
+            tuple: DataFrame summarizing the benchmark results with metrics for each
+                configuration and dictionary mapping model keys to models for top
                 configurations per criterion.
 
         Raises:

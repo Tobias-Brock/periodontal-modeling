@@ -68,7 +68,7 @@ class StaticProcessEngine(BaseProcessor):
             df (pd.DataFrame): The DataFrame with missing values.
 
         Returns:
-            pd.DataFrame: The DataFrame with imputed missing values.
+            df: The DataFrame with imputed missing values.
         """
         pd.set_option("future.no_silent_downcasting", True)
         if df.isnull().values.any():
@@ -130,7 +130,7 @@ class StaticProcessEngine(BaseProcessor):
                 included in the grouping; otherwise, it is not. Defaults to True.
 
         Returns:
-            pd.DataFrame: The dataframe with additional tooth-related features.
+            df: The dataframe with additional tooth-related features.
         """
         df["side_infected"] = df.apply(
             lambda row: self.helper.check_infection(
@@ -168,7 +168,7 @@ class StaticProcessEngine(BaseProcessor):
             df (pd.DataFrame): The input DataFrame.
 
         Returns:
-            pd.DataFrame: The DataFrame with new outcome variables.
+            df: The DataFrame with new outcome variables.
         """
         df["pocketclosure"] = df.apply(
             lambda row: (
@@ -196,7 +196,7 @@ class StaticProcessEngine(BaseProcessor):
             df (pd.DataFrame): The input DataFrame.
 
         Returns:
-            pd.DataFrame: The imputed Dataframe with added feature and target columns.
+            df: The imputed Dataframe with added feature and target columns.
         """
         pd.set_option("future.no_silent_downcasting", True)
         df.columns = [col.lower() for col in df.columns]

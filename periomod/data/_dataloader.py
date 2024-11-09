@@ -74,7 +74,7 @@ class ProcessedDataLoader(BaseDataLoader):
             df (pd.DataFrame): The DataFrame containing categorical columns.
 
         Returns:
-            pd.DataFrame: The DataFrame with encoded categorical columns.
+            df: The DataFrame with encoded categorical columns.
 
         Raises:
             ValueError: If an invalid encoding type is specified.
@@ -92,17 +92,17 @@ class ProcessedDataLoader(BaseDataLoader):
             encoded_df = pd.DataFrame(
                 encoded_columns, columns=encoder.get_feature_names_out(cat_vars)
             )
-            df_final = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
+            df = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
         elif self.encoding == "target":
             df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
-            df_final = df.drop(columns=["tooth", "side"])
+            df = df.drop(columns=["tooth", "side"])
         else:
             raise ValueError(
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
-        self._check_encoded_columns(df=df_final)
-        return df_final
+        self._check_encoded_columns(df=df)
+        return df
 
     def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Scales numeric columns in the DataFrame.
@@ -111,7 +111,7 @@ class ProcessedDataLoader(BaseDataLoader):
             df (pd.DataFrame): The DataFrame containing numeric columns.
 
         Returns:
-            pd.DataFrame: The DataFrame with scaled numeric columns.
+            df: The DataFrame with scaled numeric columns.
         """
         scale_vars = [col for col in self.scale_vars if col in df.columns]
         df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
@@ -128,7 +128,7 @@ class ProcessedDataLoader(BaseDataLoader):
             df (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame with the selected task 'y'.
+            df: DataFrame with the selected task 'y'.
         """
         if self.encode:
             df = self.encode_categorical_columns(df=df)

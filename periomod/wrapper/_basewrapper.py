@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -26,7 +27,7 @@ class ModelExtractor(BaseConfig):
         random_state (int): Random state for resampling.
 
     Attributes:
-        learners_dict (dict): Holds learners and metadata.
+        learners_dict (Dict): Holds learners and metadata.
         criterion (str): Evaluation criterion to select the optimal model.
         aggregate (bool): Indicates if metrics should be aggregated.
         verbose (bool): Flag for controlling logging verbose.
@@ -190,9 +191,11 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         aggregate (bool): Whether to aggregate metrics.
         verbose (bool): Controls verbose in the evaluation process.
         random_state (int): Random state for resampling.
+        path (Path): Path to the directory containing processed data files.
+        name (str): File name for the processed data file.
 
     Attributes:
-        learners_dict (dict): Holds learners and metadata.
+        learners_dict (Dict): Holds learners and metadata.
         criterion (str): Evaluation criterion to select the optimal model.
         aggregate (bool): Indicates if metrics should be aggregated.
         verbose (bool): Flag for controlling logging verbose.
@@ -207,6 +210,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         dataloader (ProcessedDataLoader): Data loader and transformer.
         resampler (Resampler): Resampling strategy for training and testing.
         df (pd.DataFrame): Loaded dataset.
+        df_processed (pd.DataFrame): Processed dataset.
         train_df (pd.DataFrame): Training data after splitting.
         test_df (pd.DataFrame): Test data after splitting.
         X_train (pd.DataFrame): Training features.
@@ -243,6 +247,8 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         aggregate: bool,
         verbose: bool,
         random_state: int,
+        path: Path,
+        name: str,
     ):
         """Base class for EvaluatorWrapper, initializing common parameters."""
         super().__init__(
@@ -252,12 +258,15 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             verbose=verbose,
             random_state=random_state,
         )
+        self.path = path
+        self.name = name
         self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
         self.resampler = Resampler(
             classification=self.classification, encoding=self.encoding
         )
         (
             self.df,
+            self.df_processed,
             self.train_df,
             self.test_df,
             self.X_train,
@@ -295,33 +304,34 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         pd.DataFrame,
         pd.DataFrame,
         pd.DataFrame,
+        pd.DataFrame,
         Optional[np.ndarray],
     ]:
         """Prepares data for evaluation.
 
         Returns:
-            Tuple: df_raw, train_df, test_df, X_train, y_train, X_test, y_test,
-                and optionally base_target.
+            Tuple: df, df_processed, train_df, test_df, X_train, y_train, X_test,
+                y_test, and optionally base_target.
         """
-        df_raw = self.dataloader.load_data()
+        df = self.dataloader.load_data(path=self.path, name=self.name)
 
         task = "pocketclosure" if self.task == "pocketclosureinf" else self.task
 
         if task in ["pocketclosure", "pdgrouprevaluation"]:
-            base_target = self._generate_base_target(df=df_raw)
+            base_target = self._generate_base_target(df=df)
         else:
             base_target = None
 
-        df = self.dataloader.transform_data(df=df_raw)
+        df_processed = self.dataloader.transform_data(df=df)
         train_df, test_df = self.resampler.split_train_test_df(
-            df=df, seed=self.random_state
+            df=df_processed, seed=self.random_state
         )
 
         if task in ["pocketclosure", "pdgrouprevaluation"] and base_target is not None:
             test_patient_ids = test_df[self.group_col]
             base_target = (
-                base_target.reindex(df.index)
-                .loc[df[self.group_col].isin(test_patient_ids)]
+                base_target.reindex(df_processed.index)
+                .loc[df_processed[self.group_col].isin(test_patient_ids)]
                 .values
             )
 
@@ -329,7 +339,17 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             train_df=train_df, test_df=test_df
         )
 
-        return df_raw, train_df, test_df, X_train, y_train, X_test, y_test, base_target
+        return (
+            df,
+            df_processed,
+            train_df,
+            test_df,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            base_target,
+        )
 
     def _generate_base_target(self, df: pd.DataFrame) -> pd.Series:
         """Generates the target column before treatment based on the task.
@@ -377,7 +397,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         model_tuple = (learner, best_params, best_threshold)
 
         result = self.trainer.train_final_model(
-            df=self.df,
+            df=self.df_processed,
             resampler=self.resampler,
             model=model_tuple,
             sampling=self.sampling,
@@ -399,7 +419,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             revaluation (str): Revaluation variable to check for changes in `df_raw`.
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: Subsets of X_test and y_test where
+            Tuple: Subsets of X_test and y_test where
                 `revaluation` differs from `base`.
         """
         changed_indices = self.df.index[self.df[revaluation] != self.df[base]]
@@ -427,7 +447,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
                 provided, further subsets to cases with Brier scores below threshold.
 
         Returns:
-            Tuple[pd.DataFrame, pd.Series]: Filtered feature set and labels.
+            Tuple: Filtered feature set and labels.
         """
         X_subset = self.evaluator.X
         y_subset = self.evaluator.y
@@ -458,6 +478,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         cm: bool,
         cm_base: bool,
         brier_groups: bool,
+        tight_layout: bool,
     ):
         """Runs evaluation on the best-ranked model based on specified criteria.
 
@@ -466,26 +487,29 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             cm_base (bool): If True, plots the confusion matrix against the
                 value before treatment. Only applicable for specific tasks.
             brier_groups (bool): If True, calculates Brier score groups.
+            tight_layout (bool): If True, applies tight layout to the plot.
         """
 
     @abstractmethod
     def evaluate_cluster(
         self,
+        n_cluster: int,
         base: Optional[str],
         revaluation: Optional[str],
-        n_cluster: int,
         true_preds: bool,
         brier_threshold: Optional[float],
+        tight_layout: bool,
     ):
         """Performs cluster analysis with Brier scores, with optional subsetting.
 
         Args:
+            n_cluster (int): Number of clusters for Brier score clustering analysis.
             base (Optional[str]): Baseline variable for comparison.
             revaluation (Optional[str]): Revaluation variable for comparison.
-            n_cluster (int): Number of clusters for Brier score clustering analysis.
             true_preds (bool): If True, further subsets to cases where model predictions
                 match the true labels.
             brier_threshold (Optional[float]): Threshold for Brier score filtering.
+            tight_layout (bool): If True, applies tight layout to the plot.
         """
 
     @abstractmethod
@@ -495,6 +519,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         base: Optional[str],
         revaluation: Optional[str],
         true_preds: bool,
+        brier_threshold: Optional[float],
     ):
         """Evaluates feature importance using specified types, with optional subsetting.
 
@@ -504,6 +529,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             revaluation (Optional[str]): Revaluation variable for comparison.
             true_preds (bool): If True, further subsets to cases where model predictions
                 match the true labels.
+            brier_threshold (Optional[float]): Threshold for Brier score filtering.
         """
 
     @abstractmethod

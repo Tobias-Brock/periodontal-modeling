@@ -74,7 +74,7 @@ class BaseModelInference(BaseConfig, ABC):
             input_data (pd.DataFrame): DataFrame containing feature values.
 
         Returns:
-            pd.DataFrame: DataFrame with predictions and probabilities for each class.
+            probs_df: DataFrame with predictions and probabilities for each class.
         """
         probs = self.model.predict_proba(input_data)
 
@@ -88,7 +88,6 @@ class BaseModelInference(BaseConfig, ABC):
         classes = [str(cls) for cls in self.model.classes_]
         probs_df = pd.DataFrame(probs, columns=classes, index=input_data.index)
         probs_df["prediction"] = preds
-
         return probs_df
 
     def create_predict_data(
@@ -105,7 +104,7 @@ class BaseModelInference(BaseConfig, ABC):
             encoding (str): Type of encoding used ('one_hot' or 'target').
 
         Returns:
-            pd.DataFrame: A DataFrame containing the prepared data for model prediction.
+            predict_data: A DataFrame containing the prepared data for model prediction.
         """
         base_data = raw_data.copy()
 
@@ -184,7 +183,7 @@ class BaseModelInference(BaseConfig, ABC):
             y_train (pd.Series): Training target for target encoding.
 
         Returns:
-            pd.DataFrame: Data prepared for model inference.
+            Tuple: Transformed patient data for prediction and patient data.
         """
         if patient_data.empty:
             raise ValueError(
@@ -232,11 +231,11 @@ class BaseModelInference(BaseConfig, ABC):
             patient_data (pd.DataFrame): The patient's data as a DataFrame.
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: A tuple containing:
-                - predict_data (pd.DataFrame): Transformed patient data for prediction.
-                - output_data (pd.DataFrame): DataFrame with columns "tooth", "side",
+            Tuple:
+                - predict_data: Transformed patient data for prediction.
+                - output_data: DataFrame with columns "tooth", "side",
                 transformed "prediction", and "probability".
-                - results (pd.DataFrame): Original results from the model inference.
+                - results: Original results from the model inference.
         """
         results = self.predict(predict_data)
         output_data = patient_data[["tooth", "side"]].copy()
@@ -264,7 +263,7 @@ class BaseModelInference(BaseConfig, ABC):
             resampler (Resampler): Instance of the Resampler class for encoding.
 
         Returns:
-            pd.DataFrame: DataFrame containing patient predictions and probabilities.
+            predictions_df: DataFrame containing patient predictions and probabilities.
         """
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)

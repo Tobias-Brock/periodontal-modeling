@@ -138,8 +138,7 @@ class Model(BaseConfig):
             hpo (str): The hyperparameter optimization method ('hebo' or 'rs').
 
         Returns:
-            Union[Tuple, Tuple]: If hpo is 'rs', returns a tuple of
-                (model, parameter grid).
+            Union: If hpo is 'rs', returns a tuple of (model, parameter grid).
                 If hpo is 'hebo', returns a tuple of (model, HEBO search space,
                 transformation function).
         """
@@ -184,7 +183,7 @@ class Model(BaseConfig):
             classification (str): Type of classification ('binary' or 'multiclass').
 
         Returns:
-            model instance (Union[sklearn estiamtor]).
+            model: model instance (Union[sklearn estiamtor]).
         """
         instance = cls(learner, classification)
         return instance._get_model_instance()

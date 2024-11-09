@@ -337,9 +337,17 @@ def test_evaluator_wrapper_prepare_data(mock_resampler_class, mock_dataloader_cl
         verbose=True,
     )
 
-    df, train_df, test_df, X_train, y_train, X_test, y_test, base_target = (
-        wrapper._prepare_data_for_evaluation()
-    )
+    (
+        df,
+        df_processed,
+        train_df,
+        test_df,
+        X_train,
+        y_train,
+        X_test,
+        y_test,
+        base_target,
+    ) = wrapper._prepare_data_for_evaluation()
 
 
 @patch("periomod.evaluation._baseeval.get_probs")

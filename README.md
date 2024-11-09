@@ -427,7 +427,7 @@ jackknife_results, ci_plots = evaluator.wrapped_jackknife(
 
 ## License
 
-© 2024 Tobias Brock
+© 2024 Tobias Brock, Elias Walter
 
 This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 See the [LICENSE](./LICENSE) file for more details or read the full license at

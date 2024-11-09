@@ -87,7 +87,24 @@ class Baseline(BaseConfig):
         path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
-        """Initializes the Baseline class with default or user-specified models."""
+        """Initializes the Baseline class with default or user-specified models.
+
+        Args:
+            task (str): Task name used to determine the classification type.
+            encoding (str): Encoding type for categorical columns.
+            random_state (int, optional): Random seed for reproducibility.
+                Defaults to 0.
+            lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
+                'saga'.
+            dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
+                'prior'.
+            models (List[Tuple[str, object]], optional): List of models to benchmark.
+                If not provided, default models are initialized.
+            n_jobs (int): Number of parallel jobs. Defaults to -1.
+            path (Path): Path to the directory containing processed data files.
+            name (str): File name for the processed data file. Defaults to
+                "processed_data.csv".
+        """
         if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
             self.classification = "binary"
         elif task == "pdgrouprevaluation":
@@ -142,8 +159,8 @@ class Baseline(BaseConfig):
         such as predictions and probabilities are computed and displayed.
 
         Returns:
-            pd.DataFrame: A DataFrame containing the evaluation metrics for each
-            baseline model, with model names as row indices.
+            DataFrame: A DataFrame containing the evaluation metrics for each
+                baseline model, with model names as row indices.
         """
         df = self.dataloader.load_data(path=self.path, name=self.name)
         df = self.dataloader.transform_data(df=df)

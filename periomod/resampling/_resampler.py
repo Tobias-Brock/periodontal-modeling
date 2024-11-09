@@ -82,7 +82,7 @@ class Resampler(BaseResampler):
             test_size (float): Size of grouped train test split. Defaults to 0.2.
 
         Returns:
-            tuple: Tuple containing the training and test DataFrames
+            Tuple: Tuple containing the training and test DataFrames
                 (train_df, test_df).
 
         Raises:
@@ -129,7 +129,7 @@ class Resampler(BaseResampler):
             factor (float, optional): Factor for sampling, defaults to None.
 
         Returns:
-            tuple: Tuple containing feature and label sets
+            Tuple: Tuple containing feature and label sets
                 (X_train, y_train, X_test, y_test).
 
         Raises:
@@ -180,7 +180,7 @@ class Resampler(BaseResampler):
 
 
         Returns:
-            tuple: A tuple containing outer splits and cross-validation fold indices.
+            Tuple: Tuple containing outer splits and cross-validation fold indices.
 
         Raises:
             ValueError: If required columns are missing or folds are inconsistent.
