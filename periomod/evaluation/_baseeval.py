@@ -194,7 +194,6 @@ class BaseModelEvaluator(ABC):
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
         plt.figure(figsize=(4, 4), dpi=300)
-        #sns.boxplot(x=group_by, y="Brier_Score", data=data, linewidth=0.5, color="#078294")
         sns.violinplot(x=group_by, y="Brier_Score", data=data, linewidth=0.5, color="#078294", inner_kws=dict(box_width=4, whis_width=0.5))
         sns.despine(top=True, right=True)
         plt.title("Distribution of Brier Scores", fontsize=14)
