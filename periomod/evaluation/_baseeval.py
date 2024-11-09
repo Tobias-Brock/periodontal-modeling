@@ -167,13 +167,16 @@ class BaseModelEvaluator(ABC):
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
-        plt.figure(figsize=(10, 6), dpi=300)
-        sns.boxplot(x=group_by, y="Brier_Score", data=data)
-        plt.title("Distribution of Brier Scores", fontsize=18)
-        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=18)
-        plt.ylabel("Brier Score", fontsize=18)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
+        plt.figure(figsize=(4, 4), dpi=300)
+        #sns.boxplot(x=group_by, y="Brier_Score", data=data, linewidth=0.5, color="#078294")
+        sns.violinplot(x=group_by, y="Brier_Score", data=data, linewidth=0.5, color="#078294", inner_kws=dict(box_width=4, whis_width=0.5))
+        sns.despine(top=True, right=True)
+        plt.title("Distribution of Brier Scores", fontsize=14)
+        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
+        plt.ylabel("Brier Score", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+
         plt.show()
 
     def plot_confusion_matrix(
