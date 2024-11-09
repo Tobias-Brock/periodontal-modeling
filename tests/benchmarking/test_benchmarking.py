@@ -88,7 +88,7 @@ def test_benchmarker_run_all_benchmarks(mock_data_loader, mock_experiment):
         name="data.csv",
     )
 
-    results_df, top_models = benchmarker.run_all_benchmarks()
+    results_df, top_models = benchmarker.run_benchmarks()
     assert isinstance(results_df, pd.DataFrame)
     assert not results_df.empty
     assert "Learner" in results_df.columns

@@ -84,7 +84,7 @@ class BaseResampler(BaseConfig, ABC):
             random_state (int): Random state for sampling. Defaults to 0.
 
         Returns:
-            tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
+            Tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
 
         Raises:
             ValueError: If an invalid sampling or classification method is specified.
@@ -134,7 +134,7 @@ class BaseResampler(BaseConfig, ABC):
         X_val: pd.DataFrame,
         y: pd.Series,
         jackknife: bool = False,
-    ) -> pd.DataFrame:
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Applies target encoding to categorical variables.
 
         Args:
@@ -145,7 +145,7 @@ class BaseResampler(BaseConfig, ABC):
                 Defaults to False.
 
         Returns:
-            pd.DataFrame: Dataset with target encoded features.
+            Tuple: X and X_val dataset with target encoded features.
         """
         cat_vars = [col for col in self.all_cat_vars if col in X.columns]
 

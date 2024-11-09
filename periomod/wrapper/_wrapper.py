@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import joblib
 from joblib import Parallel, delayed
@@ -88,7 +88,7 @@ class BenchmarkWrapper(BaseBenchmark):
           configuration for task, learners, tuning methods, HPO, and criteria.
 
     Args:
-        task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
+        task (str): Task for evaluation ('pocketclosure', 'pocketclosureinf',
             'improvement', or 'pdgrouprevaluation'.).
         learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
             'mlp').
@@ -116,10 +116,32 @@ class BenchmarkWrapper(BaseBenchmark):
         verbose (bool): If True, enables detailed logging during benchmarking.
             Defaults to False.
         path (Path): Path to the directory containing processed data files.
+            Defaults to Path("data/processed").
         name (str): File name for the processed data file. Defaults to
             "processed_data.csv".
 
     Attributes:
+        task (str): The specified task for evaluation.
+        learners (List[str]): List of learners to evaluate.
+        tuning_methods (List[str]): Tuning methods for model evaluation.
+        hpo_methods (List[str]): HPO methods for hyperparameter tuning.
+        criteria (List[str]): List of evaluation metrics.
+        encodings (List[str]): Encoding types for categorical features.
+        sampling (List[str]): Resampling strategies for class balancing.
+        factor (float): Resampling factor for balancing.
+        n_configs (int): Number of configurations for hyperparameter tuning.
+        n_jobs (int): Number of parallel jobs for model training.
+        cv_folds (int): Number of cross-validation folds.
+        racing_folds (int): Number of racing folds for random search.
+        test_seed (int): Seed for reproducible train-test splits.
+        test_size (float): Size of the test split.
+        val_size (float): Size of the validation split in holdout tuning.
+        cv_seed (int): Seed for cross-validation splits.
+        mlp_flag (bool): Indicates if MLP training with early stopping is used.
+        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        verbose (bool): Enables detailed logging during benchmarking.
+        path (Path): Directory path for processed data.
+        name (str): File name for processed data.
         classification (str): 'binary' or 'multiclass' based on the task.
 
     Methods:
@@ -184,7 +206,41 @@ class BenchmarkWrapper(BaseBenchmark):
         path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
-        """Initializes the BenchmarkWrapper."""
+        """Initializes the BenchmarkWrapper.
+
+        Args:
+            task (str): Task for evaluation ('pocketclosure', 'pocketclosureinf',
+                'improvement', or 'pdgrouprevaluation'.).
+            learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
+                'mlp').
+            tuning_methods (List[str]): Tuning methods ('holdout', 'cv').
+            hpo_methods (List[str]): HPO methods ('hebo' or 'rs').
+            criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
+                'brier_score').
+            encodings (List[str]): List of encodings ('one_hot' or 'target').
+            sampling (Optional[List[str]]): Sampling strategies for class imbalance.
+                Includes None, 'upsampling', 'downsampling', and 'smote'.
+            factor (Optional[float]): Factor to apply during resampling.
+            n_configs (int): Number of configurations for hyperparameter tuning.
+                Defaults to 10.
+            n_jobs (int): Number of parallel jobs for processing.
+            cv_folds (int): Number of folds for cross-validation. Defaults to 10.
+            racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
+                Defaults to 5.
+            test_seed (int): Random seed for test splitting. Defaults to 0.
+            test_size (float): Proportion of data used for testing. Defaults to
+                0.2.
+            val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+            cv_seed (int): Random seed for cross-validation. Defaults to 0
+            mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
+            threshold_tuning (bool): Enables threshold tuning for binary classification.
+            verbose (bool): If True, enables detailed logging during benchmarking.
+                Defaults to False.
+            path (Path): Path to the directory containing processed data files.
+                Defaults to Path("data/processed").
+            name (str): File name for the processed data file. Defaults to
+                "processed_data.csv".
+        """
         super().__init__(
             task=task,
             learners=learners,
@@ -239,7 +295,7 @@ class BenchmarkWrapper(BaseBenchmark):
         """Runs baseline and benchmarking tasks.
 
         Returns:
-            Tuple[pd.DataFrame, dict]: Benchmark and learners used for evaluation.
+            Tuple: Benchmark and learners used for evaluation.
         """
         benchmarker = Benchmarker(
             task=self.task,
@@ -264,7 +320,7 @@ class BenchmarkWrapper(BaseBenchmark):
             name=self.name,
         )
 
-        return benchmarker.run_all_benchmarks()
+        return benchmarker.run_benchmarks()
 
     def save_benchmark(
         self,
@@ -328,31 +384,37 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
           model evaluation, data preparation, and inference.
 
     Args:
-        learners_dict (dict): Dictionary containing trained models and their metadata.
+        learners_dict (Dict): Dictionary containing trained models and their metadata.
         criterion (str): The criterion used to select the best model ('f1', 'macro_f1',
             'brier_score').
         aggregate (bool): Whether to aggregate one-hot encoding. Defaults
             to True.
         verbose (bool): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
+        random_state (int): Random state for resampling. Defaults to 0.
+        path (Path): Path to the directory containing processed data files.
+            Defaults to Path("data/processed").
+        name (str): File name for the processed data file. Defaults to
+            "processed_data.csv".
 
     Attributes:
-        learners_dict (dict): Contains metadata about trained models.
+        learners_dict (Dict): Contains metadata about trained models.
         criterion (str): Criterion used for model selection.
         aggregate (bool): Flag for aggregating one-hot encoded metrics.
         verbose (bool): Controls verbose in evaluation processes.
         model (object): Best-ranked model based on the criterion.
         encoding (str): Encoding method ('one_hot' or 'target').
         learner (str): Type of model (learner) used in training.
-        task (str): Task associated with the model (e.g., 'pocketclosure', 'improve').
+        task (str): Task associated with the extracted model.
         factor (Optional[float]): Resampling factor if applicable.
         sampling (Optional[str]): Resampling strategy ('upsampling', 'smote', etc.).
         classification (str): Classification type ('binary' or 'multiclass').
         dataloader (ProcessedDataLoader): Data loader and transformer.
         resampler (Resampler): Resampling strategy for training and testing.
         df (pd.DataFrame): Loaded dataset.
+        df_processed (pd.DataFrame): Processed dataset.
         train_df (pd.DataFrame): Training data after splitting.
-        _test_df (pd.DataFrame): Test data after splitting.
+        test_df (pd.DataFrame): Test data after splitting.
         X_train (pd.DataFrame): Training features.
         y_train (pd.Series): Training labels.
         X_test (pd.DataFrame): Test features.
@@ -421,19 +483,38 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
 
     def __init__(
         self,
-        learners_dict: dict,
+        learners_dict: Dict,
         criterion: str,
         aggregate: bool = True,
         verbose: bool = False,
         random_state: int = 0,
+        path: Path = Path("data/processed"),
+        name: str = "processed_data.csv",
     ) -> None:
-        """Initializes EvaluatorWrapper with model, evaluation, and inference setup."""
+        """Initializes EvaluatorWrapper with model, evaluation, and inference setup.
+
+        Args:
+            learners_dict (Dict): Dictionary containing trained models.
+            criterion (str): The criterion used to select the best model ('f1',
+                'macro_f1', 'brier_score').
+            aggregate (bool): Whether to aggregate one-hot encoding. Defaults
+                to True.
+            verbose (bool): If True, enables verbose logging during evaluation
+                and inference. Defaults to False.
+            random_state (int): Random state for resampling. Defaults to 0.
+            path (Path): Path to the directory containing processed data files.
+                Defaults to Path("data/processed").
+            name (str): File name for the processed data file. Defaults to
+                "processed_data.csv".
+        """
         super().__init__(
             learners_dict=learners_dict,
             criterion=criterion,
             aggregate=aggregate,
             verbose=verbose,
             random_state=random_state,
+            path=path,
+            name=name,
         )
 
     def wrapped_evaluation(
@@ -441,6 +522,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         cm: bool = True,
         cm_base: bool = True,
         brier_groups: bool = True,
+        tight_layout: bool = False,
     ) -> None:
         """Runs evaluation on the best-ranked model.
 
@@ -449,12 +531,11 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             cm_base (bool): Plot confusion matrix vs value before treatment.
                 Defaults to True.
             brier_groups (bool): Calculate Brier score groups. Defaults to True.
-
-        Returns:
-            None
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
         """
         if cm:
-            self.evaluator.plot_confusion_matrix()
+            self.evaluator.plot_confusion_matrix(tight_layout=tight_layout)
         if cm_base:
             if self.task in [
                 "pocketclosure",
@@ -462,30 +543,41 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 "pdgrouprevaluation",
             ]:
                 self.evaluator.plot_confusion_matrix(
-                    col=self.base_target, y_label="Pocket Closure"
+                    col=self.base_target,
+                    y_label="Pocket Closure",
+                    tight_layout=tight_layout,
                 )
         if brier_groups:
-            self.evaluator.brier_score_groups()
+            self.evaluator.brier_score_groups(tight_layout=tight_layout)
 
     def evaluate_cluster(
         self,
+        n_cluster: int = 3,
         base: Optional[str] = None,
         revaluation: Optional[str] = None,
-        n_cluster: int = 3,
         true_preds: bool = False,
         brier_threshold: Optional[float] = None,
+        tight_layout: bool = False,
     ) -> None:
         """Performs cluster analysis with Brier scores, optionally applying subsetting.
 
+        This method allows detailed feature analysis by offering multiple subsetting
+        options for the test set. The base and revaluation columns allow filtering of
+        observations that have not changed after treatment. With true_preds, only
+        observations that were correctly predicted are considered. The brier_threshold
+        enables filtering of observations that achieved a smaller Brier score at
+        prediction time than the threshold.
+
         Args:
-            base (Optional[str]): Baseline variable for comparison. Defaults to None.
-            revaluation (Optional[str]): Revaluation variable. Defaults to None.
             n_cluster (int): Number of clusters for Brier score clustering analysis.
                 Defaults to 3.
-            true_preds (bool): Whether to further subset by correct predictions.
+            base (Optional[str]): Baseline variable for comparison. Defaults to None.
+            revaluation (Optional[str]): Revaluation variable. Defaults to None.
+            true_preds (bool): Subset by correct predictions. Defaults to False.
+            brier_threshold (Optional[float]): Filters observations ny Brier score
+                threshold. Defaults to None.
+            tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
-            brier_threshold (Optional[float]): Threshold for Brier score filtering.
-                Defaults to None.
         """
         self.evaluator.X, self.evaluator.y = self._test_filters(
             base=base,
@@ -493,7 +585,9 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             true_preds=true_preds,
             brier_threshold=brier_threshold,
         )
-        self.evaluator.analyze_brier_within_clusters(n_clusters=n_cluster)
+        self.evaluator.analyze_brier_within_clusters(
+            n_clusters=n_cluster, tight_layout=tight_layout
+        )
 
     def evaluate_feature_importance(
         self,
@@ -501,21 +595,30 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         base: Optional[str] = None,
         revaluation: Optional[str] = None,
         true_preds: bool = False,
+        brier_threshold: Optional[float] = None,
     ) -> None:
         """Evaluates feature importance using the evaluator, with optional subsetting.
+
+        This method allows detailed feature analysis by offering multiple subsetting
+        options for the test set. The base and revaluation columns allow filtering of
+        observations that have not changed after treatment. With true_preds, only
+        observations that were correctly predicted are considered. The brier_threshold
+        enables filtering of observations that achieved a smaller Brier score at
+        prediction time than the threshold.
 
         Args:
             fi_types (List[str]): List of feature importance types to evaluate.
             base (Optional[str]): Baseline variable for comparison. Defaults to None.
             revaluation (Optional[str]): Revaluation variable. Defaults to None.
-            true_preds (bool): If True, further subsets to cases where model predictions
-                match the true labels. Defaults to False.
+            true_preds (bool): Subset by correct predictions. Defaults to False.
+            brier_threshold (Optional[float]): Filters observations ny Brier score
+                threshold. Defaults to None.
         """
         self.evaluator.X, self.evaluator.y = self._test_filters(
             base=base,
             revaluation=revaluation,
             true_preds=true_preds,
-            brier_threshold=None,
+            brier_threshold=brier_threshold,
         )
         self.evaluator.evaluate_feature_importance(fi_types=fi_types)
 
@@ -526,10 +629,11 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
 
         Args:
             num_splits (int): Number of random seeds/splits to train the model on.
+                Defaults to 5.
             n_jobs (int): Number of parallel jobs. Defaults to -1 (use all processors).
 
         Returns:
-            pd.DataFrame: DataFrame containing average performance metrics.
+            DataFrame: DataFrame containing average performance metrics.
         """
         seeds = range(num_splits)
         metrics_list = Parallel(n_jobs=n_jobs)(
@@ -565,8 +669,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         if avg_confusion_matrix is not None:
             results["Confusion Matrix"] = avg_confusion_matrix
 
-        df_results = pd.DataFrame([results])
-        return df_results
+        return pd.DataFrame([results])
 
     def wrapped_patient_inference(
         self,
@@ -579,8 +682,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 tooth-level, and side-level information.
 
         Returns:
-            pd.DataFrame: DataFrame with predictions and probabilities for each side
-            of the patient's teeth.
+            DataFrame: DataFrame with predictions and probabilities for each side
+                of the patient's teeth.
         """
         patient_data = patient_to_df(patient=patient)
         predict_data, patient_data = self.inference_engine.prepare_inference(
@@ -615,7 +718,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             max_plots (int): Maximum number of plots for jackknife intervals.
 
         Returns:
-            pd.DataFrame: The results of jackknife inference.
+            DataFrame: The results of jackknife inference.
         """
         patient_data = patient_to_df(patient=patient)
         patient_data, _ = self.inference_engine.prepare_inference(

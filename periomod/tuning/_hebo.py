@@ -56,8 +56,6 @@ class HEBOTuner(BaseTuner):
     Methods:
         holdout: Optimizes hyperparameters using HEBO for holdout validation.
         cv: Optimizes hyperparameters using HEBO with cross-validation.
-        evaluate_objective: Computes the objective function score for model
-            evaluation based on holdout or cross-validation.
 
     Example:
         ```
@@ -144,8 +142,7 @@ class HEBOTuner(BaseTuner):
             y_val (pd.Series): The validation labels for the holdout set.
 
         Returns:
-            Tuple[Dict[str, Union[float, int]], Optional[float]]:
-                The best hyperparameters and the best threshold.
+            Tuple: The best hyperparameters and the best threshold.
         """
         return self._run_optimization(
             learner=learner,
@@ -172,8 +169,7 @@ class HEBOTuner(BaseTuner):
                 cross-validation is performed.
 
         Returns:
-            Tuple[Dict[str, Union[float, int]], Optional[float]]:
-                The best hyperparameters and the best threshold.
+            Tuple: The best hyperparameters and the best threshold.
         """
         return self._run_optimization(
             learner=learner,
@@ -209,8 +205,7 @@ class HEBOTuner(BaseTuner):
                 Cross-validation folds (None if using holdout).
 
         Returns:
-            Tuple[Dict[str, Union[float, int]], Optional[float]]:
-                The best hyperparameters and the best threshold.
+            Tuple: The best hyperparameters and the best threshold.
         """
         model, search_space, params_func = Model.get(
             learner=learner, classification=self.classification, hpo=self.hpo
@@ -295,7 +290,7 @@ class HEBOTuner(BaseTuner):
         if "n_jobs" in model_clone.get_params():
             model_clone.set_params(n_jobs=self.n_jobs)
 
-        score = self.evaluate_objective(
+        score = self._evaluate_objective(
             model=model_clone,
             X_train=X_train,
             y_train=y_train,
@@ -306,7 +301,7 @@ class HEBOTuner(BaseTuner):
 
         return -score if self.criterion in ["f1", "macro_f1"] else score
 
-    def evaluate_objective(
+    def _evaluate_objective(
         self,
         model: Any,
         X_train: pd.DataFrame,

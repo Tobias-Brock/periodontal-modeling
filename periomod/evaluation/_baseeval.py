@@ -131,7 +131,7 @@ class BaseModelEvaluator(ABC):
         """Calculates Brier scores for each instance in the evaluator's dataset.
 
         Returns:
-            pd.Series: Brier scores for each instance.
+            Series: Brier scores for each instance.
         """
         if not hasattr(self.model, "predict_proba"):
             raise ValueError("The provided model cannot predict probabilities.")
@@ -159,7 +159,7 @@ class BaseModelEvaluator(ABC):
         """Generates model predictions for the evaluator's feature set.
 
         Returns:
-            pd.Series: Predicted labels as a series.
+            pred: Predicted labels as a series.
         """
         if not self.model:
             raise ValueError("No model available for predictions.")
@@ -181,11 +181,16 @@ class BaseModelEvaluator(ABC):
 
         return pred
 
-    def brier_score_groups(self, group_by: str = "y") -> None:
+    def brier_score_groups(
+        self, group_by: str = "y", tight_layout: bool = False
+    ) -> None:
         """Calculates and displays Brier score within groups.
 
         Args:
-            group_by (str): Grouping variable. Defaults to "y".
+            group_by (str): Grouping variable for calculating Brier scores.
+                Defaults to "y".
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
         """
         brier_scores = self.brier_scores()
         data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
@@ -194,14 +199,22 @@ class BaseModelEvaluator(ABC):
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
         plt.figure(figsize=(4, 4), dpi=300)
-        sns.violinplot(x=group_by, y="Brier_Score", data=data, linewidth=0.5, color="#078294", inner_kws=dict(box_width=4, whis_width=0.5))
+        sns.violinplot(
+            x=group_by,
+            y="Brier_Score",
+            data=data,
+            linewidth=0.5,
+            color="#078294",
+            inner_kws={"box_width": 4, "whis_width": 0.5},
+        )
+        if tight_layout:
+            plt.tight_layout()
         sns.despine(top=True, right=True)
         plt.title("Distribution of Brier Scores", fontsize=14)
         plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
         plt.ylabel("Brier Score", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
-
         plt.show()
 
     def plot_confusion_matrix(
@@ -209,7 +222,8 @@ class BaseModelEvaluator(ABC):
         col: Optional[pd.Series] = None,
         y_label: str = "True",
         normalize: str = "rows",
-    ):
+        tight_layout: bool = False,
+    ) -> plt.Figure:
         """Generates a styled confusion matrix for the given model and test data.
 
         Args:
@@ -217,9 +231,11 @@ class BaseModelEvaluator(ABC):
             y_label (str): Description of y label. Defaults to "True".
             normalize (str, optional): Normalization method ('rows' or 'columns').
                 Defaults to 'rows'.
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
 
         Returns:
-        plt.Figure: Confusion matrix heatmap plot.
+            Figure: Confusion matrix heatmap plot.
         """
         pred = self.model_predictions()
 
@@ -270,7 +286,6 @@ class BaseModelEvaluator(ABC):
         plt.ylabel(y_label, fontsize=12)
 
         ax = plt.gca()
-
         ax.xaxis.set_ticks_position("top")
         ax.xaxis.set_label_position("top")
         cbar = ax.collections[0].colorbar
@@ -284,6 +299,8 @@ class BaseModelEvaluator(ABC):
         )
 
         plt.tick_params(axis="both", which="major", labelsize=12)
+        if tight_layout:
+            plt.tight_layout()
         plt.show()
 
     @staticmethod

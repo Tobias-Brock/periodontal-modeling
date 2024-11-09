@@ -201,8 +201,7 @@ class RandomSearchTuner(BaseTuner):
             racing_folds (int or None): Number of folds for racing; None uses all folds.
 
         Returns:
-            Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
-                Best hyperparameters, and optimal threshold (if applicable).
+            tuple: Best hyperparameters, and optimal threshold (if applicable).
         """
         best_score, _, best_params, param_grid, model = self._initialize_search(
             learner=learner, random_state=self.rs_state
@@ -253,7 +252,7 @@ class RandomSearchTuner(BaseTuner):
         best_score: float,
         outer_splits: List[Tuple[pd.DataFrame, pd.DataFrame]],
         racing_folds: Union[int, None],
-    ):
+    ) -> list:
         """Evaluate the model across folds using cross-validation or racing strategy.
 
         Args:
@@ -263,7 +262,7 @@ class RandomSearchTuner(BaseTuner):
             racing_folds (int or None): Number of folds to use for the racing strategy.
 
         Returns:
-            list: Scores from each fold evaluation.
+            scores: Scores from each fold evaluation.
         """
         num_folds = len(outer_splits)
         if racing_folds is None or racing_folds >= num_folds:
