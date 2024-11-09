@@ -19,8 +19,8 @@ class RandomSearchTuner(BaseTuner):
     both holdout and cross-validation (CV) tuning methods.
 
     Inherits:
-        - BaseTuner: Provides base functionality for hyperparameter tuning
-          with validation methods, shared parameters, and evaluation functions.
+        - `BaseTuner`: Provides a framework for implementing HPO strategies,
+          including shared evaluation and logging functions.
 
     Args:
         classification (str): The type of classification ('binary' or 'multiclass').
@@ -28,8 +28,8 @@ class RandomSearchTuner(BaseTuner):
         tuning (str): The type of tuning ('holdout' or 'cv').
         hpo (str): The hyperparameter optimization method, default is 'rs'.
         n_configs (int): Number of configurations to evaluate. Defaults to 10.
-        n_jobs (Optional[int]): Number of parallel jobs for model training.
-            Defaults to None.
+        n_jobs (int): Number of parallel jobs for model training.
+            Defaults to 1.
         verbose (bool): Whether to print detailed logs during optimization.
             Defaults to True.
         trainer (Optional[Trainer]): Trainer instance for model training.
@@ -104,7 +104,7 @@ class RandomSearchTuner(BaseTuner):
         tuning: str,
         hpo: str = "rs",
         n_configs: int = 10,
-        n_jobs: Optional[int] = None,
+        n_jobs: int = 1,
         verbose: bool = True,
         trainer: Optional[Trainer] = None,
         mlp_training: bool = True,
@@ -261,7 +261,6 @@ class RandomSearchTuner(BaseTuner):
             best_score (float): The best score recorded so far.
             outer_splits (list of tuples): List of training/validation folds.
             racing_folds (int or None): Number of folds to use for the racing strategy.
-            n_jobs (int): Number of parallel jobs.
 
         Returns:
             list: Scores from each fold evaluation.

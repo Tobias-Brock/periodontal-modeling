@@ -21,8 +21,8 @@ class BaseModelInference(BaseConfig, ABC):
     allows encoding configurations for model compatibility.
 
     Inherits:
-        - BaseConfig: Provides configuration settings for data processing.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides configuration settings for data processing.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): The type of classification task, either 'binary'

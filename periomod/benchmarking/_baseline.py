@@ -7,7 +7,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
 from ..base import BaseConfig
-from ..config import PROCESSED_BASE_DIR
 from ..data import ProcessedDataLoader
 from ..resampling import Resampler
 from ..training import final_metrics, get_probs
@@ -20,6 +19,9 @@ class Baseline(BaseConfig):
     specified dataset. The baseline models include a Random Forest, Logistic
     Regression, and a Dummy Classifier, which are trained and evaluated on
     split data, returning a summary of performance metrics for each model.
+
+    Inherits:
+        - `BaseConfig`: Provides configuration settings for data processing.
 
     Args:
         task (str): Task name used to determine the classification type.
@@ -82,7 +84,7 @@ class Baseline(BaseConfig):
         dummy_strategy: str = "prior",
         models: Union[List[Tuple[str, object]], None] = None,
         n_jobs: int = -1,
-        path: Path = PROCESSED_BASE_DIR,
+        path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
         """Initializes the Baseline class with default or user-specified models."""

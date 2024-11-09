@@ -9,12 +9,11 @@ import pandas as pd
 
 from ..base import Patient, patient_to_df
 from ..benchmarking import BaseBenchmark, Baseline, Benchmarker
-from ..config import MODELS_DIR, PROCESSED_BASE_DIR, REPORTS_DIR
 from ..wrapper import BaseEvaluatorWrapper
 
 
 def load_benchmark(
-    path: Path = REPORTS_DIR,
+    path: Path = Path("reports"),
     file_name: Optional[str] = None,
     folder_name: Optional[str] = None,
     verbose: bool = False,
@@ -23,11 +22,11 @@ def load_benchmark(
 
     Args:
         path (Path): Path from where the benchmark report is loaded.
-            Defaults to REPORTS_DIR.
+            Defaults to "reports".
         file_name (Optional[str]): Name of the CSV file to load.
             Defaults to 'benchmark.csv'.
         folder_name (Optional[str]): Folder name to load the CSV from.
-            Defaults to a subfolder within REPORTS_DIR named after the task.
+            Defaults to a subfolder within "reports" named after the task.
         verbose (bool): Prints loaded models. Defaults to False.
 
     Returns:
@@ -51,14 +50,16 @@ def load_benchmark(
 
 
 def load_learners(
-    path: Path = MODELS_DIR, folder_name: Optional[str] = None, verbose: bool = False
+    path: Path = Path("models"),
+    folder_name: Optional[str] = None,
+    verbose: bool = False,
 ) -> dict:
     """Loads the learners from a specified directory.
 
     Args:
-        path (Path): Path from where models are loaded. Defaults to MODELS_DIR.
+        path (Path): Path from where models are loaded. Defaults to "models".
         folder_name (Optional[str]): Folder name to load models from.
-            Defaults to a subfolder within MODELS_DIR named after the task.
+            Defaults to a subfolder within "models" named after the task.
         verbose (bool): Prints loaded models. Defaults to False.
 
     Returns:
@@ -83,7 +84,7 @@ class BenchmarkWrapper(BaseBenchmark):
     """Wrapper class for model benchmarking, baseline evaluation, and result storage.
 
     Inherits:
-        - BaseBenchmark: Initializes parameters for benchmarking models and provides
+        - `BaseBenchmark`: Initializes parameters for benchmarking models and provides
           configuration for task, learners, tuning methods, HPO, and criteria.
 
     Args:
@@ -101,8 +102,8 @@ class BenchmarkWrapper(BaseBenchmark):
         factor (Optional[float]): Factor to apply during resampling.
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
-        n_jobs (Optional[int]): Number of parallel jobs for processing.
-        cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to 10.
+        n_jobs (int): Number of parallel jobs for processing.
+        cv_folds (int): Number of folds for cross-validation. Defaults to 10.
         racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
             Defaults to 5.
         test_seed (int): Random seed for test splitting. Defaults to 0.
@@ -139,19 +140,17 @@ class BenchmarkWrapper(BaseBenchmark):
             hpo_methods=["rs", "hebo"],
             criteria=["f1", "brier_score"],
             sampling=["upsampling"],
-            factor=0.5,
-            n_configs=10,
-            n_jobs=4,
+            factor=2,
+            n_configs=25,
+            n_jobs=-1,
             verbose=True,
-            path=Path("data"),
-            name="processed_data.csv"
         )
 
         # Run baseline benchmarking
         baseline_df = benchmarker.baseline()
 
         # Run full benchmark and retrieve results
-        benchmark_results, learners_used = benchmarker.wrapped_benchmark()
+        benchmark_results, learners = benchmarker.wrapped_benchmark()
 
         # Save the benchmark results
         benchmarker.save_benchmark(baseline_df, path=Path("reports"))
@@ -172,7 +171,7 @@ class BenchmarkWrapper(BaseBenchmark):
         sampling: Optional[List[Union[str, None]]] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
-        n_jobs: Optional[int] = None,
+        n_jobs: int = 1,
         verbose: bool = False,
         cv_folds: int = 10,
         racing_folds: Optional[int] = 5,
@@ -182,7 +181,7 @@ class BenchmarkWrapper(BaseBenchmark):
         cv_seed: int = 0,
         mlp_flag: bool = True,
         threshold_tuning: bool = True,
-        path: Path = PROCESSED_BASE_DIR,
+        path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
         """Initializes the BenchmarkWrapper."""
@@ -270,7 +269,7 @@ class BenchmarkWrapper(BaseBenchmark):
     def save_benchmark(
         self,
         benchmark_df: pd.DataFrame,
-        path: Path = REPORTS_DIR,
+        path: Path = Path("reports"),
         file_name: Optional[str] = None,
         folder_name: Optional[str] = None,
     ) -> None:
@@ -281,7 +280,7 @@ class BenchmarkWrapper(BaseBenchmark):
             path (Path): Path to save the benchmark report. Defaults to REPORTS_DIR.
             file_name (Optional[str]): Name of CSV file. Defaults to 'benchmark.csv'.
             folder_name (Optional[str]): Folder name for storing the CSV file.
-                Defaults to a subfolder within REPORTS_DIR named after the task.
+                Defaults to a subfolder within "reports" named after the task.
         """
         save_path = path / (folder_name if folder_name else self.task)
         os.makedirs(save_path, exist_ok=True)
@@ -297,16 +296,16 @@ class BenchmarkWrapper(BaseBenchmark):
     def save_learners(
         self,
         learners_dict: dict,
-        path: Path = MODELS_DIR,
+        path: Path = Path("models"),
         folder_name: Optional[str] = None,
     ) -> None:
         """Saves the learners to a specified directory.
 
         Args:
             learners_dict (dict): Dictionary containing learners to save.
-            path: (Path): Path to save models. Defaults to MODELS_DIR.
+            path: (Path): Path to save models. Defaults to "models".
             folder_name (Optional[str]): Folder name for storing models.
-                Defaults to a subfolder within MODELS_DIR named after the task.
+                Defaults to a subfolder within "models" named after the task.
         """
         save_path = path / (folder_name if folder_name else self.task)
         os.makedirs(save_path, exist_ok=True)
@@ -325,16 +324,16 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
     resampling for confidence interval estimation.
 
     Inherits:
-        - BaseEvaluatorWrapper: Provides foundational methods and attributes for
+        - `BaseEvaluatorWrapper`: Provides foundational methods and attributes for
           model evaluation, data preparation, and inference.
 
     Args:
         learners_dict (dict): Dictionary containing trained models and their metadata.
         criterion (str): The criterion used to select the best model ('f1', 'macro_f1',
             'brier_score').
-        aggregate (bool, optional): Whether to aggregate one-hot encoding. Defaults
+        aggregate (bool): Whether to aggregate one-hot encoding. Defaults
             to True.
-        verbose (bool, optional): If True, enables verbose logging during evaluation
+        verbose (bool): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
 
     Attributes:
@@ -385,9 +384,14 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
 
     Examples:
         ```
+        benchmarker = BenchmarkWrapper(...)
+
+        # Results of BenchmarkWrapper
+        benchmark_results, learners = benchmarker.wrapped_benchmark()
+
         # Initialize the evaluator with required parameters
         evaluator = EvaluatorWrapper(
-            learners_dict=my_learners,
+            learners_dict=learners,
             criterion="f1",
             aggregate=True,
             verbose=True

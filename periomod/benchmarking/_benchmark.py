@@ -5,7 +5,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from ..config import PROCESSED_BASE_DIR
 from ..data import ProcessedDataLoader
 from ._basebenchmark import BaseBenchmark, BaseExperiment
 
@@ -19,7 +18,7 @@ class Experiment(BaseExperiment):
     specified tuning and optimization methods.
 
     Inherits:
-        BaseExperiment: Provides core functionality for validation, resampling,
+        `BaseExperiment`: Provides core functionality for validation, resampling,
             training, and tuning configurations.
 
     Args:
@@ -41,8 +40,8 @@ class Experiment(BaseExperiment):
             Defaults to 10.
         racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
             Defaults to 5.
-        n_jobs (Optional[int]): Number of parallel jobs to run for evaluation.
-            Defaults to None.
+        n_jobs (int): Number of parallel jobs to run for evaluation.
+            Defaults to 1.
         cv_folds (int): Number of folds for cross-validation; Defaults to 10.
         test_seed (int): Random seed for test splitting. Defaults to 0.
         test_size (float): Proportion of data used for testing. Defaults to
@@ -125,7 +124,7 @@ class Experiment(BaseExperiment):
         factor: Optional[float] = None,
         n_configs: int = 10,
         racing_folds: Optional[int] = 5,
-        n_jobs: Optional[int] = None,
+        n_jobs: int = 1,
         cv_folds: int = 10,
         test_seed: int = 0,
         test_size: float = 0.2,
@@ -239,7 +238,7 @@ class Benchmarker(BaseBenchmark):
     optimization.
 
     Inherits:
-        - BaseBenchmark: Provides common benchmarking attributes.
+        - `BaseBenchmark`: Provides common benchmarking attributes.
 
     Args:
         task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
@@ -256,7 +255,7 @@ class Benchmarker(BaseBenchmark):
         factor (Optional[float]): Factor to apply during resampling.
         n_configs (int): Number of configurations for hyperparameter tuning.
             Defaults to 10.
-        n_jobs (Optional[int]): Number of parallel jobs for processing.
+        n_jobs (int): Number of parallel jobs for processing. Defaults to 1.
         cv_folds (Optional[int]): Number of folds for cross-validation. Defaults to 10.
         racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
             Defaults to 5.
@@ -341,7 +340,7 @@ class Benchmarker(BaseBenchmark):
         sampling: Optional[List[Union[str, None]]] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
-        n_jobs: Optional[int] = None,
+        n_jobs: int = 1,
         cv_folds: int = 10,
         racing_folds: Optional[int] = 5,
         test_seed: int = 0,
@@ -351,7 +350,7 @@ class Benchmarker(BaseBenchmark):
         mlp_flag: bool = True,
         threshold_tuning: bool = True,
         verbose: bool = True,
-        path: Path = PROCESSED_BASE_DIR,
+        path: Path = Path("data/processed"),
         name: str = "processed_data.csv",
     ) -> None:
         """Initialize the Experiment with different tasks, learners, etc."""

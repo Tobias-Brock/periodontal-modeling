@@ -1030,7 +1030,7 @@ def _run_jackknife_inference(
         alpha (float, optional): Significance level for confidence intervals.
         sample_fraction (float, optional): Fraction of patient IDs to use in jackknife.
             Defaults to 1.0.
-        n_jobs (int, optional): Number of parallel jobs. Defaults to -1.
+        n_jobs (int): Number of parallel jobs. Defaults to -1.
 
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.

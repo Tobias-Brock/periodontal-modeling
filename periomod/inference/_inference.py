@@ -22,7 +22,7 @@ class ModelInference(BaseModelInference):
     evaluation with confidence bounds.
 
     Inherits:
-        - BaseModelInference: Base class that implements prediction and
+        - `BaseModelInference`: Base class that implements prediction and
             preprocessing methods.
 
     Args:
@@ -92,13 +92,7 @@ class ModelInference(BaseModelInference):
     """
 
     def __init__(self, classification: str, model: Any, verbose: bool = True):
-        """Initialize the ModelInference class with a trained model.
-
-        Args:
-            classification (str): Classification type ('binary' or 'multiclass').
-            model (Any): Trained classification model with a `predict_proba` method.
-            verbose (bool): Activates verbose if set to True.
-        """
+        """Initialize the ModelInference class with a trained model."""
         super().__init__(classification=classification, model=model, verbose=verbose)
 
     def jackknife_resampling(

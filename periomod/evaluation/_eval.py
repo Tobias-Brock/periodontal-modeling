@@ -24,7 +24,7 @@ class ModelEvaluator(BaseModelEvaluator):
     importance. It also supports clustering analyses of Brier scores.
 
     Inherits:
-        - BaseModelEvaluator: Provides methods for model evaluation, calculating
+        - `BaseModelEvaluator`: Provides methods for model evaluation, calculating
           Brier scores, plotting confusion matrices, and aggregating feature
           importance for one-hot encoded features.
 

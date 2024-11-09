@@ -13,10 +13,10 @@ from ..training import Trainer
 
 
 class ModelExtractor(BaseConfig):
-    """Extracts based model from dictionary.
+    """Extracts best model from learner dictionary.
 
     Inherits:
-        BaseConfig: Loads configuration parameters.
+        `BaseConfig`: Loads configuration parameters.
 
     Args:
         learners_dict (Dict): Dictionary containing models and their metadata.
@@ -34,9 +34,9 @@ class ModelExtractor(BaseConfig):
         classification (str): Classification type ('binary' or 'multiclass').
 
     Properties:
-        - `criterion (str):` Retrieves or sets current evaluation criterion for model
+        - `criterion (str)`: Retrieves or sets current evaluation criterion for model
             selection. Supports 'f1', 'brier_score', and 'macro_f1'.
-        - `model (object):` Retrieves best-ranked model dynamically based on the current
+        - `model (object)`: Retrieves best-ranked model dynamically based on the current
             criterion. Recalculates when criterion is updated.
     """
 
@@ -48,6 +48,7 @@ class ModelExtractor(BaseConfig):
         verbose: bool,
         random_state: int,
     ):
+        """Initializes ModelExtractor."""
         super().__init__()
         self.learners_dict = learners_dict
         self.criterion = criterion
@@ -180,8 +181,8 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
     importance analysis, patient inference, and jackknife resampling.
 
     Inherits:
-        BaseModelExtractor: Loads configuration parameters and model extraction logic.
-        ABC: Specifies abstract methods that must be implemented by subclasses.
+        - `BaseModelExtractor`: Loads configuration parameters and model extraction.
+        - `ABC`: Specifies abstract methods that must be implemented by subclasses.
 
     Args:
         learners_dict (Dict): Dictionary containing models and their metadata.
@@ -218,9 +219,9 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         trainer (Trainer): Trainer for model evaluation and optimization.
 
     Inherited Properties:
-        - `criterion (str):` Retrieves or sets current evaluation criterion for model
+        - `criterion (str)`: Retrieves or sets current evaluation criterion for model
             selection. Supports 'f1', 'brier_score', and 'macro_f1'.
-        - `model (object):` Retrieves best-ranked model dynamically based on the current
+        - `model (object)`: Retrieves best-ranked model dynamically based on the current
             criterion. Recalculates when criterion is updated.
 
     Abstract Methods:

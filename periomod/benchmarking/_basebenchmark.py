@@ -21,8 +21,8 @@ class BaseExperiment(BaseValidator, ABC):
     tasks.
 
     Inherits:
-        - BaseValidator: Validates instance-level variables and parameters.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseValidator`: Validates instance-level variables and parameters.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         df (pd.DataFrame): The preloaded dataset used for training and evaluation.
@@ -47,7 +47,7 @@ class BaseExperiment(BaseValidator, ABC):
             tuning, used to limit the search space.
         racing_folds (Optional[int]): Number of racing folds used during random
             search for efficient hyperparameter optimization.
-        n_jobs (Optional[int]): Number of parallel jobs to use for processing.
+        n_jobs (int): Number of parallel jobs to use for processing.
             Set to -1 to use all available cores.
         cv_folds (int): Number of folds for cross-validation.
         test_seed (int): Seed for random train-test split for reproducibility.
@@ -119,7 +119,7 @@ class BaseExperiment(BaseValidator, ABC):
         factor: Optional[float],
         n_configs: int,
         racing_folds: Optional[int],
-        n_jobs: Optional[int],
+        n_jobs: int,
         cv_folds: int,
         test_seed: int,
         test_size: float,
@@ -257,7 +257,7 @@ class BaseBenchmark(BaseConfig):
     evaluation criteria.
 
     Inherits:
-        BaseConfig: Base configuration class providing configuration loading.
+        - `BaseConfig`: Base configuration class providing configuration loading.
 
     Args:
         task (str): Task for evaluation (pocketclosure', 'pocketclosureinf',
@@ -278,7 +278,7 @@ class BaseBenchmark(BaseConfig):
         factor (Optional[float]): Factor specifying the amount of sampling to apply
             during resampling, if applicable.
         n_configs (int): Number of configurations to evaluate in hyperparameter tuning.
-        n_jobs (Optional[int]): Number of parallel jobs to use for processing; set
+        n_jobs (int): Number of parallel jobs to use for processing; set
             to -1 to utilize all available cores.
         cv_folds (int): Number of cross-validation folds for model
             training. Defaults to None.
@@ -310,7 +310,7 @@ class BaseBenchmark(BaseConfig):
             within the chosen strategy.
         n_configs (int): Number of configurations assessed during hyperparameter
             optimization.
-        n_jobs (Optional[int]): Number of parallel processes for model training
+        n_jobs (int): Number of parallel processes for model training
             and evaluation.
         cv_folds (int): Number of cross-validation folds for model training.
         racing_folds (Optional[int]): Racing folds used in tuning with cross-validation
@@ -340,7 +340,7 @@ class BaseBenchmark(BaseConfig):
         sampling: Optional[List[Union[str, None]]],
         factor: Optional[float],
         n_configs: int,
-        n_jobs: Optional[int],
+        n_jobs: int,
         cv_folds: int,
         racing_folds: Optional[int],
         test_seed: int,
