@@ -1,7 +1,3 @@
-behavior: False
-scale: True
-encoding: 'one_hot'
-
 patient_columns:
   - "ID_patient"
   - "Age"

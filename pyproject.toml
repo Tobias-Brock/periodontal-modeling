@@ -15,7 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "License :: Other/Proprietary License",
 ]
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.12"
 
 # Core dependencies required to run the package
 dependencies = [
@@ -31,13 +31,15 @@ dependencies = [
   "seaborn==0.13.2",
   "shap==0.46.0",
   "xgboost==2.1.1",
-  "python-dotenv==1.0.1"
 ]
 
 [project.optional-dependencies]
 # Dependencies for documentation
 docs = [
   "mkdocs==1.6.1",
+  "mkdocs-material==9.5.43",
+  "mkdocstrings==0.26.2",
+  "mkdocstrings-python==1.12.2"
 ]
 
 # Dependencies for testing

@@ -40,7 +40,6 @@ from periomod.app import (
     _update_tooth_state,
     all_teeth,
 )
-from periomod.config import PROCESSED_BASE_DIR, RAW_DATA_DIR
 
 with gr.Blocks() as perioapp:
     gr.Markdown("## Periodontal Modeling")
@@ -59,7 +58,7 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value=str(RAW_DATA_DIR) + "/Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw" + "/Periodontitis_ML_Dataset.xlsx",
                     scale=1,
                     info="Specify the path to the raw data file for processing.",
                 )
@@ -78,7 +77,7 @@ with gr.Blocks() as perioapp:
 
             save_path_input = gr.Textbox(
                 label="Save Path",
-                value=str(PROCESSED_BASE_DIR) + "/processed_data.csv",
+                value="data/processed" + "/processed_data.csv",
                 scale=1,
             )
             save_button = gr.Button("Save Data", scale=1)
@@ -314,7 +313,7 @@ with gr.Blocks() as perioapp:
         with gr.Tab("Benchmarking"):
             path_input = gr.Textbox(
                 label="File Path",
-                value=str(PROCESSED_BASE_DIR) + "/" + "processed_data.csv",
+                value="data/processed" + "/" + "processed_data.csv",
                 info="Specify the path to the processed data file for benchmarking.",
             )
 
@@ -516,21 +515,34 @@ with gr.Blocks() as perioapp:
             generate_brier_scores_button = gr.Button("Generate Brier Scores")
             brier_score_plot = gr.Plot()
 
-            importance_type_input = gr.CheckboxGroup(
-                label="Importance Types",
-                choices=["shap", "permutation", "standard"],
-                value=["shap"],
-            )
+            with gr.Row():
+                importance_type_input = gr.CheckboxGroup(
+                    label="Importance Types",
+                    choices=["shap", "permutation", "standard"],
+                    value=["shap"],
+                )
+                aggregate_fi_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
 
             generate_feature_importance_button = gr.Button(
                 "Generate Feature Importance"
             )
             fi_plot = gr.Plot()
 
+            with gr.Row():
+                n_clusters_input = gr.Slider(
+                    label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
+                )
+                aggregate_cluster_input = gr.Checkbox(
+                    label="Aggregate Features",
+                    value=True,
+                    info="Aggregate encoded Multi-Category Features",
+                )
+
             cluster_button = gr.Button("Perform Brier Score Clustering")
-            n_clusters_input = gr.Slider(
-                label="Number of Clusters", minimum=2, maximum=10, step=1, value=3
-            )
             cluster_brier_plot = gr.Plot()
             cluster_heatmap_plot = gr.Plot()
 
@@ -582,6 +594,7 @@ with gr.Blocks() as perioapp:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_fi_input,
                 ],
                 outputs=fi_plot,
             )
@@ -594,6 +607,7 @@ with gr.Blocks() as perioapp:
                     X_test_state,
                     y_test_state,
                     encoding_input,
+                    aggregate_cluster_input,
                     n_clusters_input,
                 ],
                 outputs=[cluster_brier_plot, cluster_heatmap_plot],

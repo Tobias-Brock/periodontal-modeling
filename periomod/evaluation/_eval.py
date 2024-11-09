@@ -24,7 +24,7 @@ class ModelEvaluator(BaseModelEvaluator):
     importance. It also supports clustering analyses of Brier scores.
 
     Inherits:
-        - BaseModelEvaluator: Provides methods for model evaluation, calculating
+        - `BaseModelEvaluator`: Provides methods for model evaluation, calculating
           Brier scores, plotting confusion matrices, and aggregating feature
           importance for one-hot encoded features.
 
@@ -38,8 +38,8 @@ class ModelEvaluator(BaseModelEvaluator):
             instances for evaluation, enabling multi-model analysis.
         encoding (Optional[str]): Encoding type for categorical variables used in plot
             titles and feature grouping (e.g., 'one_hot' or 'target').
-        aggregate (bool): Determines if one-hot feature importance values should be
-            aggregated to improve interpretability.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
 
     Attributes:
         X (pd.DataFrame): Stores the test dataset features for model evaluation.
@@ -47,10 +47,11 @@ class ModelEvaluator(BaseModelEvaluator):
         model (Optional[sklearn.base.BaseEstimator]): Primary model used for evaluation.
         models (List[sklearn.base.BaseEstimator]): Collection of models for multi-model
             evaluations.
-        encoding (Optional[str]): Indicates encoding type used, affecting plot titles
-            and feature grouping.
-        aggregate (bool): Specifies whether to aggregate one-hot feature importance
-            values to improve interpretability.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            multi-category encoded features, enhancing interpretability in feature
+            importance plots.
 
     Methods:
         evaluate_feature_importance: Calculates feature importance scores using
@@ -59,6 +60,12 @@ class ModelEvaluator(BaseModelEvaluator):
             specified clustering algorithm and provides visualizations.
 
     Inherited Methods:
+        - `brier_scores`: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        - `model_predictions`: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
         - `brier_score_groups`: Calculates Brier score within specified groups
           based on a grouping variable (e.g., target class).
         - `plot_confusion_matrix`: Generates a styled confusion matrix heatmap
@@ -99,17 +106,7 @@ class ModelEvaluator(BaseModelEvaluator):
         encoding: Optional[str] = None,
         aggregate: bool = True,
     ) -> None:
-        """Initialize the FeatureImportance class.
-
-        Args:
-            X (pd.DataFrame): Test dataset features.
-            y (pd.Series): Test dataset labels.
-            model ([sklearn estimators]): Trained sklearn models.
-            models (List[sklearn estimators]): List of trained models.
-            encoding (Optional[str]): Determines encoding for plot titles
-                ('one_hot' or 'target'). Defaults to None.
-            aggregate (bool): If True, aggregates importance values of one-hot features.
-        """
+        """Initialize the FeatureImportance class."""
         super().__init__(
             X=X, y=y, model=model, models=models, encoding=encoding, aggregate=aggregate
         )
@@ -336,7 +333,7 @@ class ModelEvaluator(BaseModelEvaluator):
             for true, proba in zip(self.y, probas, strict=False)
         ]
 
-        if self.aggregate:  # and self.encoding == "one_hot":
+        if self.aggregate:
             X_cluster_input = self._aggregate_one_hot_features_for_clustering(X=self.X)
         else:
             X_cluster_input = self.X

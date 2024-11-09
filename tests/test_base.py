@@ -10,44 +10,8 @@ from periomod.base import (
     Patient,
     Side,
     Tooth,
-    _validate_classification,
-    _validate_hpo,
     patient_to_df,
 )
-
-
-def test_validate_classification_valid():
-    """Test _validate_classification with valid inputs."""
-    _validate_classification("binary")
-    _validate_classification("multiclass")
-    _validate_classification(" Binary ")  # Test with extra spaces and different cases
-
-
-def test_validate_classification_invalid():
-    """Test _validate_classification with invalid inputs."""
-    with pytest.raises(ValueError):
-        _validate_classification("invalid_classification")
-    with pytest.raises(ValueError):
-        _validate_classification("")
-    with pytest.raises(ValueError):
-        _validate_classification("binaryy")
-
-
-def test_validate_hpo_valid():
-    """Test _validate_hpo with valid inputs."""
-    _validate_hpo(None)
-    _validate_hpo("rs")
-    _validate_hpo("hebo")
-
-
-def test_validate_hpo_invalid():
-    """Test _validate_hpo with invalid inputs."""
-    with pytest.raises(ValueError):
-        _validate_hpo("invalid_hpo")
-    with pytest.raises(ValueError):
-        _validate_hpo("")
-    with pytest.raises(ValueError):
-        _validate_hpo("xyz")
 
 
 def test_side_dataclass():
@@ -202,14 +166,14 @@ def test_base_validator_valid():
 def test_base_validator_invalid_criterion():
     """Test BaseValidator with invalid criterion."""
     with patch("periomod.base.BaseConfig.__init__", return_value=None):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unsupported criterion"):
             BaseValidator(classification="binary", criterion="invalid_criterion")
 
 
 def test_base_validator_invalid_tuning():
     """Test BaseValidator with invalid tuning method."""
     with patch("periomod.base.BaseConfig.__init__", return_value=None):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unsupported tuning method"):
             BaseValidator(
                 classification="binary", criterion="f1", tuning="invalid_tuning"
             )
@@ -218,12 +182,72 @@ def test_base_validator_invalid_tuning():
 def test_base_validator_invalid_classification():
     """Test BaseValidator with invalid classification type."""
     with patch("periomod.base.BaseConfig.__init__", return_value=None):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="invalid classification type"):
             BaseValidator(classification="invalid_classification", criterion="f1")
 
 
 def test_base_validator_invalid_hpo():
     """Test BaseValidator with invalid HPO type."""
     with patch("periomod.base.BaseConfig.__init__", return_value=None):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="unsupported HPO type"):
             BaseValidator(classification="binary", criterion="f1", hpo="invalid_hpo")
+
+
+def test_validate_classification():
+    """Test the _validate_classification method with valid and invalid inputs."""
+    with patch("periomod.base.BaseConfig.__init__", return_value=None):
+        validator = BaseValidator(classification="binary", criterion="f1")
+        validator.classification = "binary"
+        validator._validate_classification()  # Should pass without exception
+        validator.classification = "multiclass"
+        validator._validate_classification()  # Should pass without exception
+        validator.classification = "invalid_classification"
+        with pytest.raises(ValueError, match="invalid classification type"):
+            validator._validate_classification()
+
+
+def test_validate_hpo():
+    """Test the _validate_hpo method with valid and invalid inputs."""
+    with patch("periomod.base.BaseConfig.__init__", return_value=None):
+        validator = BaseValidator(classification="binary", criterion="f1")
+        validator.hpo = None
+        validator._validate_hpo()  # Should pass without exception
+        validator.hpo = "rs"
+        validator._validate_hpo()  # Should pass without exception
+        validator.hpo = "hebo"
+        validator._validate_hpo()  # Should pass without exception
+        validator.hpo = "invalid_hpo"
+        with pytest.raises(ValueError, match="unsupported HPO type"):
+            validator._validate_hpo()
+
+
+def test_validate_criterion():
+    """Test the _validate_criterion method with valid and invalid inputs."""
+    with patch("periomod.base.BaseConfig.__init__", return_value=None):
+        validator = BaseValidator(classification="binary", criterion="f1")
+
+        validator.criterion = "f1"
+        validator._validate_criterion()  # Should pass without exception
+        validator.criterion = "macro_f1"
+        validator._validate_criterion()  # Should pass without exception
+        validator.criterion = "brier_score"
+        validator._validate_criterion()  # Should pass without exceptio
+        validator.criterion = "invalid_criterion"
+        with pytest.raises(ValueError, match="Unsupported criterion"):
+            validator._validate_criterion()
+
+
+def test_validate_tuning():
+    """Test the _validate_tuning method with valid and invalid inputs."""
+    with patch("periomod.base.BaseConfig.__init__", return_value=None):
+        validator = BaseValidator(classification="binary", criterion="f1")
+        validator.tuning = None
+        validator._validate_tuning()  # Should pass without exception
+        validator.tuning = "holdout"
+        validator._validate_tuning()  # Should pass without exception
+        validator.tuning = "cv"
+        validator._validate_tuning()  # Should pass without exception
+
+        validator.tuning = "invalid_tuning"
+        with pytest.raises(ValueError, match="Unsupported tuning method"):
+            validator._validate_tuning()

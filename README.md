@@ -1,7 +1,6 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
 ![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
 ![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
-![Ruff](https://img.shields.io/badge/style-ruff-000000.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 
@@ -37,7 +36,6 @@
 - `seaborn==0.13.2`
 - `shap==0.46.0`
 - `xgboost==2.1.1`
-- `python-dotenv==1.0.1`
 
 
 Ensure you have Python 3.11 installed. Install the package via pip:
@@ -58,13 +56,20 @@ from periomod.app import perioapp
 perioapp.launch()
 ```
 
+If you download the repository and install the package in editable mode, the following `make` command starts the app:
+
+```bash
+pip install -e .
+make app
+```
+
 The app can also be launched using docker. Run the following commands in the root of the repository:
 
 ```bash
 docker build -f docker/app.dockerfile -t periomod-image .
-docker run -p 7880:7880 periomod-image
+docker run -p 7890:7890 periomod-image
 ```
-By default, the app will be launched on port 7880 and can be accessed at `http://localhost:7880`.
+By default, the app will be launched on port 7890 and can be accessed at `http://localhost:7890`.
 
 Alternatively, the following `make` commands are available to build and run the docker image:
 
@@ -332,16 +337,7 @@ experiment = Experiment(
     sampling="upsample",
     factor=1.5,
     n_configs=20,
-    racing_folds=3,
-    n_jobs=-1,
-    cv_folds=10,
-    test_seed=42,
-    test_size=0.2,
-    val_size=0.1,
-    cv_seed=10,
-    mlp_flag=True,
-    threshold_tuning=True,
-    verbose=True,
+    racing_folds=5,
 )
 
 # Perform the evaluation based on cross-validation
@@ -363,14 +359,6 @@ benchmarker = Benchmarker(
     encodings=["one_hot", "target"],
     sampling=[None, "upsampling", "downsampling"],
     factor=2,
-    n_configs=20,
-    n_jobs=-1,
-    cv_folds=5,
-    test_seed=42,
-    test_size=0.2,
-    verbose=True,
-    path="/data/processed",
-    name="processed_data.csv",
 )
 
 # Running all benchmarks
@@ -392,17 +380,12 @@ from periomod.wrapper import BenchmarkWrapper
 benchmarker = BenchmarkWrapper(
     task="pocketclosure",
     encodings=["one_hot", "target"],
-    learners=["rf", "xgb", "lr"],
+    learners=["rf", "xgb", "lr", "mlp"],
     tuning_methods=["holdout", "cv"],
     hpo_methods=["rs", "hebo"],
     criteria=["f1", "brier_score"],
     sampling=["upsampling"],
-    factor=None,
-    n_configs=10,
-    n_jobs=4,
-    verbose=True,
-    path="data/processed",
-    name="processed_data.csv",
+    factor=2,
 )
 
 # Run baseline benchmarking
@@ -412,10 +395,10 @@ baseline_df = benchmarker.baseline()
 benchmark_results, learners_used = benchmarker.wrapped_benchmark()
 
 # Save the benchmark results
-benchmarker.save_benchmark(baseline_df, path=Path("reports"))
+benchmarker.save_benchmark(baseline_df, path="reports")
 
 # Save the trained learners
-benchmarker.save_learners(learners_dict=learners_used, path=Path("models"))
+benchmarker.save_learners(learners_dict=learners_used, path="models")
 ```
 The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomod.inference` modules.
 ```python

@@ -21,7 +21,7 @@ class HEBOTuner(BaseTuner):
     and cross-validation (CV) tuning methods.
 
     Inherits:
-        - BaseTuner: Provides a framework for implementing HPO strategies,
+        - `BaseTuner`: Provides a framework for implementing HPO strategies,
           including shared evaluation and logging functions.
 
     Args:
@@ -30,8 +30,8 @@ class HEBOTuner(BaseTuner):
         tuning (str): The type of tuning ('holdout' or 'cv').
         hpo (str): The hyperparameter optimization method (default is 'HEBO').
         n_configs (int): Number of configurations to evaluate. Defaults to 10.
-        n_jobs (Optional[int]): Number of parallel jobs for model training.
-            Defaults to None.
+        n_jobs (int): Number of parallel jobs for model training.
+            Defaults to 1.
         verbose (bool): Whether to print detailed logs during HEBO optimization.
             Defaults to True.
         trainer (Optional[Trainer]): Trainer instance for model training.
@@ -61,6 +61,15 @@ class HEBOTuner(BaseTuner):
 
     Example:
         ```
+        trainer = Trainer(
+            classification="binary",
+            criterion="f1",
+            tuning="holdout",
+            hpo="hebo",
+            mlp_training=True,
+            threshold_tuning=True,
+        )
+
         tuner = HEBOTuner(
             classification="binary",
             criterion="f1",
@@ -69,14 +78,7 @@ class HEBOTuner(BaseTuner):
             n_configs=10,
             n_jobs=-1,
             verbose=True,
-            trainer=Trainer(
-                classification="binary",
-                criterion="f1",
-                tuning="holdout",
-                hpo="hebo",
-                mlp_training=True,
-                threshold_tuning=True,
-            ),
+            trainer=trainer,
             mlp_training=True,
             threshold_tuning=True,
         )
@@ -104,7 +106,7 @@ class HEBOTuner(BaseTuner):
         tuning: str,
         hpo: str = "hebo",
         n_configs: int = 10,
-        n_jobs: Optional[int] = None,
+        n_jobs: int = 1,
         verbose: bool = True,
         trainer: Optional[Trainer] = None,
         mlp_training: bool = True,
@@ -291,7 +293,7 @@ class HEBOTuner(BaseTuner):
         model_clone.set_params(**params_dict)
 
         if "n_jobs" in model_clone.get_params():
-            model_clone.set_params(n_jobs=self.n_jobs if self.n_jobs is not None else 1)
+            model_clone.set_params(n_jobs=self.n_jobs)
 
         score = self.evaluate_objective(
             model=model_clone,

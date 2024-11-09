@@ -1,4 +1,4 @@
-random_state_model: 0
+learner_state: 0
 xgb_obj_binary: 'binary:logistic'
 xgb_loss_binary: 'logloss'
 xgb_obj_multi: 'multi:softmax'

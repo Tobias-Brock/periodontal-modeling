@@ -24,8 +24,8 @@ class BaseTrainer(BaseValidator, ABC):
     tuning, and cross-validation procedures.
 
     Inherits:
-        - BaseValidator: Validates instance level variables.
-        - ABC: Specifies abstract methods for subclasses to implement.
+        - `BaseValidator`: Validates instance level variables.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
         classification (str): Specifies the type of classification ('binary'
@@ -77,19 +77,7 @@ class BaseTrainer(BaseValidator, ABC):
         mlp_training: bool,
         threshold_tuning: bool,
     ) -> None:
-        """Initializes the Trainer with classification type and criterion.
-
-        Args:
-            classification (str): The type of classification ('binary' or
-                'multiclass').
-            criterion (str): The performance criterion to optimize (e.g., 'f1',
-                'brier_score').
-            tuning (Optional[str]): The tuning method ('holdout' or 'cv'). Can be None.
-            hpo (Optional[str]): The hyperparameter optimization method. Can be None.
-            mlp_training (bool): Flag for separate MLP training with early stopping.
-            threshold_tuning (bool): Perform threshold tuning for binary classification
-                if the criterion is "f1".
-        """
+        """Initializes the Trainer with classification type and criterion."""
         super().__init__(
             classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
@@ -327,7 +315,7 @@ class BaseTrainer(BaseValidator, ABC):
         model: Tuple,
         sampling: Optional[str],
         factor: Optional[float],
-        n_jobs: Optional[int],
+        n_jobs: int,
         seed: int,
         test_size: float,
         verbose: bool,
