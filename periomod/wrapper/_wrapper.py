@@ -535,7 +535,9 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 Defaults to False.
         """
         if cm:
-            self.evaluator.plot_confusion_matrix(tight_layout=tight_layout)
+            self.evaluator.plot_confusion_matrix(
+                tight_layout=tight_layout, task=self.task
+            )
         if cm_base:
             if self.task in [
                 "pocketclosure",
@@ -546,9 +548,10 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                     col=self.base_target,
                     y_label="Pocket Closure",
                     tight_layout=tight_layout,
+                    task=self.task,
                 )
         if brier_groups:
-            self.evaluator.brier_score_groups(tight_layout=tight_layout)
+            self.evaluator.brier_score_groups(tight_layout=tight_layout, task=self.task)
 
     def evaluate_cluster(
         self,
@@ -588,6 +591,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         self.evaluator.analyze_brier_within_clusters(
             n_clusters=n_cluster, tight_layout=tight_layout
         )
+        self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
     def evaluate_feature_importance(
         self,
@@ -621,6 +625,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             brier_threshold=brier_threshold,
         )
         self.evaluator.evaluate_feature_importance(fi_types=fi_types)
+        self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
     def average_over_splits(
         self, num_splits: int = 5, n_jobs: int = -1

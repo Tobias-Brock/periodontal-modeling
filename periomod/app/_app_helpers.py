@@ -574,18 +574,24 @@ def _update_model_dropdown(models: Dict[str, Any]) -> dict:
     return gr.update(choices=model_keys, value=model_keys[0] if model_keys else None)
 
 
-def _plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
+def _plot_cm(
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series, task: str
+) -> plt.Figure:
     """Generates a confusion matrix plot for the given model and test data.
 
     Args:
-        model (Any): Trained model for generating predictions.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): True labels for the test set.
+        models (dict): Dictionary of trained models where the keys are model names.
+        selected_model (str): Name of the selected model from the dropdown.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
+        task (str): Task mapping for outcome labels.
 
     Returns:
         plt.Figure: Confusion matrix heatmap plot.
     """
-    ModelEvaluator(model=model, X=X_test, y=y_test).plot_confusion_matrix()
+    ModelEvaluator(model=models[selected_model], X=X, y=y).plot_confusion_matrix(
+        task=InputProcessor.process_task(task=task)
+    )
     return plt.gcf()
 
 
@@ -651,7 +657,7 @@ def _plot_cluster(
 
 
 def _brier_score_wrapper(
-    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series, task: str
 ) -> plt.Figure:
     """Wrapper function to generate Brier score plots.
 
@@ -660,12 +666,13 @@ def _brier_score_wrapper(
         selected_model (str): Name of the selected model from the dropdown.
         X (pd.DataFrame): Test dataset containing input features.
         y (pd.Series): Test dataset containing true labels.
+        task (str): Task mapping for outcome labels.
 
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
     ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups(
-        tight_layout=True
+        task=InputProcessor.process_task(task=task), tight_layout=True
     )
     return plt.gcf()
 

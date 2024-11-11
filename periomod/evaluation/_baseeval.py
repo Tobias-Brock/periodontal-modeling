@@ -13,6 +13,7 @@ from sklearn.metrics import brier_score_loss, confusion_matrix
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 
+from ..base import BaseConfig
 from ..training import get_probs
 
 
@@ -43,7 +44,26 @@ def _get_base_name(feature: str) -> str:
     return feature
 
 
-class BaseModelEvaluator(ABC):
+def _label_mapping(task: Optional[str]) -> dict:
+    """Returns a label mapping dictionary based on the provided task.
+
+    Args:
+        task (Optional[str]): Task name for which the label mapping is required.
+
+    Returns:
+        dict: Dictionary with label mappings, or None if no mapping is needed.
+    """
+    if task in ["pocketclosure", "pocketclosureinf"]:
+        return {1: "Closed", 0: "Not closed"}
+    elif task == "improvement":
+        return {1: "Improved", 0: "Not improved"}
+    elif task == "pdgrouprevaluation":
+        return {0: "< 4 mm", 1: "4 or 5 mm", 2: "> 5 mm"}
+    else:
+        raise ValueError(f"Task: {task} invalid.")
+
+
+class BaseModelEvaluator(BaseConfig, ABC):
     """Abstract base class for evaluating machine learning model performance.
 
     This class provides methods for calculating model performance metrics,
@@ -51,6 +71,7 @@ class BaseModelEvaluator(ABC):
     for handling one-hot encoded features and aggregating SHAP values.
 
     Inherits:
+        - `BaseLoader`: Provides loading and saving capabilities for processed data.
         - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
@@ -120,6 +141,7 @@ class BaseModelEvaluator(ABC):
         aggregate: bool,
     ) -> None:
         """Initialize the FeatureImportance class."""
+        super().__init__()
         self.X = X
         self.y = y
         self.model = model
@@ -182,7 +204,10 @@ class BaseModelEvaluator(ABC):
         return pred
 
     def brier_score_groups(
-        self, group_by: str = "y", tight_layout: bool = False
+        self,
+        group_by: str = "y",
+        tight_layout: bool = False,
+        task: Optional[str] = None,
     ) -> None:
         """Calculates and displays Brier score within groups.
 
@@ -191,9 +216,12 @@ class BaseModelEvaluator(ABC):
                 Defaults to "y".
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
+            task (Optional[str]): Task name to apply label mapping for the plot.
+                Defaults to None.
         """
-        brier_scores = self.brier_scores()
-        data = pd.DataFrame({group_by: self.y, "Brier_Score": brier_scores})
+        data = pd.DataFrame({group_by: self.y, "Brier_Score": self.brier_scores()})
+        if task is not None:
+            data[group_by] = data[group_by].map(_label_mapping(task))
         data_grouped = data.groupby(group_by)
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
@@ -223,6 +251,7 @@ class BaseModelEvaluator(ABC):
         y_label: str = "True",
         normalize: str = "rows",
         tight_layout: bool = False,
+        task: Optional[str] = None,
     ) -> plt.Figure:
         """Generates a styled confusion matrix for the given model and test data.
 
@@ -233,22 +262,30 @@ class BaseModelEvaluator(ABC):
                 Defaults to 'rows'.
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
+            task (Optional[str]): Task name to apply label mapping for the plot.
+                Defaults to None.
 
         Returns:
             Figure: Confusion matrix heatmap plot.
         """
+        y_true = pd.Series(col if col is not None else self.y)
         pred = self.model_predictions()
 
-        if col is not None:
-            cm = confusion_matrix(y_true=col, y_pred=pred)
+        if task is not None:
+            label_mapping = _label_mapping(task)
+            y_true = y_true.map(label_mapping)
+            pred = pd.Series(pred).map(label_mapping).values
+            labels = list(label_mapping.values())
         else:
-            cm = confusion_matrix(y_true=self.y, y_pred=pred)
+            labels = None
+
+        cm = confusion_matrix(y_true=y_true, y_pred=pred, labels=labels)
 
         if normalize == "rows":
-            row_sums = cm.sum(axis=1)
-            normalized_cm = (cm / row_sums[:, np.newaxis]) * 100
+            row_sums = cm.sum(axis=1, keepdims=True)
+            normalized_cm = (cm / row_sums) * 100
         elif normalize == "columns":
-            col_sums = cm.sum(axis=0)
+            col_sums = cm.sum(axis=0, keepdims=True)
             normalized_cm = (cm / col_sums) * 100
         else:
             raise ValueError("Invalid value for 'normalize'. Use 'rows' or 'columns'.")
@@ -266,20 +303,20 @@ class BaseModelEvaluator(ABC):
             square=True,
             annot=False,
             cbar_kws={"label": "Percent"},
+            xticklabels=labels if labels else range(cm.shape[1]),
+            yticklabels=labels if labels else range(cm.shape[0]),
         )
 
-        [
-            plt.text(
-                j + 0.5,
-                i + 0.5,
-                cm[i, j],
-                ha="center",
-                va="center",
-                color="white" if normalized_cm[i, j] > 50 else "black",
-            )
-            for i in range(len(cm))
-            for j in range(len(cm))
-        ]
+        for i in range(len(cm)):
+            for j in range(len(cm)):
+                plt.text(
+                    j + 0.5,
+                    i + 0.5,
+                    cm[i, j],
+                    ha="center",
+                    va="center",
+                    color="white" if normalized_cm[i, j] > 50 else "black",
+                )
 
         plt.title("Confusion Matrix", fontsize=12)
         plt.xlabel("Predicted", fontsize=12)
@@ -302,6 +339,18 @@ class BaseModelEvaluator(ABC):
         if tight_layout:
             plt.tight_layout()
         plt.show()
+
+    def _feature_mapping(self, features: List[str]) -> List[str]:
+        """Maps a list of feature names to their original labels.
+
+        Args:
+            features (List[str]): List of feature names to be mapped.
+
+        Returns:
+            List[str]: List of mapped feature names, with original labels applied
+                where available.
+        """
+        return [self.feature_mapping.get(feature, feature) for feature in features]
 
     @staticmethod
     def _aggregate_one_hot_importances(
@@ -359,10 +408,7 @@ class BaseModelEvaluator(ABC):
         base_names = [_get_base_name(feature=feature) for feature in shap_df.columns]
         feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
         aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
-        updated_feature_names = list(aggregated_shap_df.columns)
-        aggregated_shap_values = aggregated_shap_df.values
-
-        return aggregated_shap_values, updated_feature_names
+        return aggregated_shap_df.values, list(aggregated_shap_df.columns)
 
     @staticmethod
     def _aggregate_one_hot_features_for_clustering(X: pd.DataFrame) -> pd.DataFrame:
@@ -383,9 +429,7 @@ class BaseModelEvaluator(ABC):
         non_one_hot_cols = [
             col for col in X_copy.columns if col not in one_hot_encoded_cols
         ]
-        X_aggregated = pd.concat([X_copy[non_one_hot_cols], aggregated_data], axis=1)
-
-        return X_aggregated
+        return pd.concat([X_copy[non_one_hot_cols], aggregated_data], axis=1)
 
     @abstractmethod
     def evaluate_feature_importance(self, importance_types: List[str]):

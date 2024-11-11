@@ -449,28 +449,23 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         Returns:
             Tuple: Filtered feature set and labels.
         """
-        X_subset = self.evaluator.X
-        y_subset = self.evaluator.y
+        X, y = self.evaluator.X, self.evaluator.y
 
         if base and revaluation:
-            X_subset, y_subset = self._subset_test_set(
-                base=base, revaluation=revaluation
-            )
-            X_subset, y_subset = X_subset.dropna(), y_subset.dropna()
+            X, y = self._subset_test_set(base=base, revaluation=revaluation)
+            X, y = X.dropna(), y.dropna()
 
         if true_preds:
-            pred = self.evaluator.model_predictions().reindex(y_subset.index)
-            correct_indices = y_subset.index[pred == y_subset]
-            X_subset = X_subset.loc[correct_indices].dropna()
-            y_subset = y_subset.loc[correct_indices].dropna()
+            pred = self.evaluator.model_predictions().reindex(y.index)
+            correct_indices = y.index[pred == y]
+            X, y = X.loc[correct_indices].dropna(), y.loc[correct_indices].dropna()
 
         if brier_threshold is not None:
-            brier_scores = self.evaluator.brier_scores().reindex(y_subset.index)
+            brier_scores = self.evaluator.brier_scores().reindex(y.index)
             threshold_indices = brier_scores[brier_scores < brier_threshold].index
-            X_subset = X_subset.loc[threshold_indices].dropna()
-            y_subset = y_subset.loc[threshold_indices].dropna()
+            X, y = X.loc[threshold_indices].dropna(), y.loc[threshold_indices].dropna()
 
-        return X_subset, y_subset
+        return X, y
 
     @abstractmethod
     def wrapped_evaluation(
