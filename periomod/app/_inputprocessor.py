@@ -287,6 +287,7 @@ class InputProcessor:
         else:
             return prediction_output
 
-        prediction_output["prediction"] = prediction_output["prediction"].astype(int)
-        prediction_output["prediction"] = prediction_output["prediction"].map(mapping)
+        prediction_output["prediction"] = (
+            prediction_output["prediction"].astype(int).map(mapping)
+        )
         return prediction_output

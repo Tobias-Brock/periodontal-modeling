@@ -195,6 +195,10 @@ class ModelEvaluator(BaseModelEvaluator):
                                 shap_values=shap_values, feature_names=feature_names
                             )
                         )
+                        aggregated_feature_names = self._feature_mapping(
+                            aggregated_feature_names
+                        )
+
                         aggregated_shap_df = pd.DataFrame(
                             aggregated_shap_values, columns=aggregated_feature_names
                         )
@@ -208,7 +212,7 @@ class ModelEvaluator(BaseModelEvaluator):
                             show=False,
                         )
 
-                        ax = plt.gca()  # Get current axis
+                        ax = plt.gca()
                         for bar in ax.patches:
                             bar.set_edgecolor("black")
                             bar.set_linewidth(1)
@@ -221,6 +225,7 @@ class ModelEvaluator(BaseModelEvaluator):
                         plt.title(
                             f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
+
                     else:
                         fi_df_aggregated = self._aggregate_one_hot_importances(
                             fi_df=fi_df
@@ -228,6 +233,11 @@ class ModelEvaluator(BaseModelEvaluator):
                         fi_df_aggregated.sort_values(
                             by="Importance", ascending=False, inplace=True
                         )
+
+                        fi_df_aggregated["Feature"] = self._feature_mapping(
+                            fi_df_aggregated["Feature"]
+                        )
+
                         importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
 
                         top10_fi_df_aggregated = fi_df_aggregated.head(10)
@@ -247,6 +257,8 @@ class ModelEvaluator(BaseModelEvaluator):
 
                 else:
                     if fi_type == "shap":
+                        feature_names = self._feature_mapping(feature_names)
+
                         plt.figure(figsize=(4, 4), dpi=300)
                         shap.summary_plot(
                             shap_values,
@@ -255,7 +267,7 @@ class ModelEvaluator(BaseModelEvaluator):
                             feature_names=feature_names,
                             show=False,
                         )
-                        ax = plt.gca()  # Get current axis
+                        ax = plt.gca()
                         for bar in ax.patches:
                             bar.set_edgecolor("black")
                             bar.set_linewidth(1)
@@ -263,15 +275,16 @@ class ModelEvaluator(BaseModelEvaluator):
                         ax.spines["left"].set_visible(True)
                         ax.spines["left"].set_color("black")
                         ax.spines["bottom"].set_color("black")
-
                         ax.tick_params(axis="y", colors="black")
                         plt.title(
                             f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
+
                     else:
                         fi_df.sort_values(
                             by="Importance", ascending=False, inplace=True
                         )
+                        fi_df["Feature"] = self._feature_mapping(fi_df["Feature"])
                         importance_dict[model_name] = fi_df
 
                 if fi_type != "shap":
@@ -285,12 +298,8 @@ class ModelEvaluator(BaseModelEvaluator):
                             linewidth=1,
                             color="#078294",
                         )
-
                     else:
-                        plt.bar(
-                            fi_df["Feature"],
-                            fi_df["Importance"],
-                        )
+                        plt.bar(fi_df["Feature"], fi_df["Importance"])
 
                     plt.title(
                         f"{model_name}: {fi_type.title()} Feature Importance; "
@@ -299,12 +308,10 @@ class ModelEvaluator(BaseModelEvaluator):
                     plt.xticks(rotation=90, fontsize=12)
                     plt.yticks(fontsize=12)
                     plt.axhline(y=0, color="black", linewidth=1)
-
                     ax = plt.gca()
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
                     ax.spines["bottom"].set_visible(False)
-
                     plt.ylabel("Importance", fontsize=12)
                     plt.tight_layout()
                     plt.show()
@@ -368,6 +375,10 @@ class ModelEvaluator(BaseModelEvaluator):
             X_clustered.drop(["Cluster", "Brier_Score"], axis=1)
             .groupby(X_clustered["Cluster"])
             .mean()
+        )
+
+        feature_averages.columns = self._feature_mapping(
+            features=feature_averages.columns
         )
 
         plt.figure(figsize=(6, 4), dpi=300)

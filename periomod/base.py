@@ -35,6 +35,7 @@ class BaseConfig:
         patient_columns (List[str]): List of column names related to patient data.
         tooth_columns (List[str]): List of column names related to tooth data.
         side_columns (List[str]): List of column names related to side data.
+        feature_mapping (dict[str, str]): Mapping of feature names for plotting.
         cat_vars (List[str]): List of categorical variables in the dataset.
         bin_vars (List[str]): List of binary variables in the dataset.
         scale_vars (List[str]): List of numeric variables to scale in preprocessing.
@@ -83,6 +84,7 @@ class BaseConfig:
         self.patient_columns = cfg.data.patient_columns
         self.tooth_columns = cfg.data.tooth_columns
         self.side_columns = cfg.data.side_columns
+        self.feature_mapping = cfg.data.feature_mapping
         self.cat_vars = cfg.data.cat_vars
         self.bin_vars = cfg.data.bin_vars
         self.scale_vars = cfg.data.scale_vars
@@ -104,6 +106,9 @@ class BaseValidator(BaseConfig):
 
     This class extends `BaseConfig` and validates classification types, evaluation
     criteria, and tuning methods.
+
+    Inherits:
+        - `BaseLoader`: Provides loading and saving capabilities for processed data.
 
     Args:
         classification (str): Type of classification, either 'binary' or 'multiclass'.

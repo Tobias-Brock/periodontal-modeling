@@ -572,16 +572,26 @@ with gr.Blocks() as perioapp:
             )
 
             generate_confusion_matrix_button.click(
-                fn=lambda models, selected_model, X_test, y_test: _plot_cm(
-                    models[selected_model], X_test, y_test
-                ),
-                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
+                fn=_plot_cm,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
                 outputs=matrix_plot,
             )
 
             generate_brier_scores_button.click(
                 fn=_brier_score_wrapper,
-                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
                 outputs=brier_score_plot,
             )
 
