@@ -35,10 +35,16 @@ class DescriptivesPlotter:
 
     Example:
         ```
+        from periomod.data import ProcessedDataLoader
+        from periomod.descriptives import DescriptivesPlotter
+
+        df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+
+        # instantiate plotter with dataframe
         plotter = DescriptivesPlotter(df)
-        plotter.plt_matrix(vertical="depth_before", horizontal="depth_after")
-        plotter.pocket_comparison(column1="depth_before", column2="depth_after")
-        plotter.histogram_2d(column_before="depth_before", column_after="depth_after")
+        plotter.plt_matrix(vertical="pdgrouprevaluation", horizontal="pdgroupbase")
+        plotter.pocket_comparison(col1="pdbaseline", col2="pdrevaluation")
+        plotter.histogram_2d(col_before="pdbaseline", col_after="pdrevaluation")
         ```
     """
 

@@ -1,3 +1,4 @@
+from typing import Tuple
 import warnings
 
 import numpy as np
@@ -5,6 +6,26 @@ import pandas as pd
 
 from ._basedata import BaseProcessor
 from ._helpers import ProcessDataHelper
+
+
+def _impute_tooth_features(row: pd.Series) -> Tuple[int, int]:
+    """Determines the toothtype and rootnumber based on the tooth number.
+
+    Args:
+        row (pd.Series): A row from the DataFrame containing a 'tooth' column.
+
+    Returns:
+        Tuple[int, int]: A tuple with imputed values for 'toothtype' and
+            'rootnumber'. Returns (0, 0) for certain incisors and canines,
+            (1, 1) for specific premolars, and (2, 1) for molars and others.
+    """
+    tooth_number = row["tooth"]
+    if tooth_number in [11, 12, 21, 22, 31, 32, 41, 42, 13, 23, 33, 43]:
+        return 0, 0
+    elif tooth_number in [14, 15, 24, 25, 34, 35, 44, 45]:
+        return 1, 1
+    else:
+        return 2, 1
 
 
 class StaticProcessEngine(BaseProcessor):
@@ -90,6 +111,7 @@ class StaticProcessEngine(BaseProcessor):
             .fillna(pd.to_numeric(x, errors="coerce").mean())
             .astype(float),
             "periofamilyhistory": lambda x: x.fillna(2).astype(int),
+            "restoration": lambda x: x.fillna(0).astype(int),
             "smokingtype": lambda x: x.fillna(1).astype(int),
             "cigarettenumber": lambda x: x.fillna(0).astype(float),
             "diabetes": lambda x: x.fillna(1).astype(int),
@@ -113,6 +135,21 @@ class StaticProcessEngine(BaseProcessor):
                     f"Column '{column}' is missing from DataFrame and was not imputed.",
                     stacklevel=2,
                 )
+        missing_or_incorrect_tooth_rows = df[
+            df["toothtype"].isnull()
+            | df["rootnumber"].isnull()
+            | df.apply(
+                lambda row: (row["toothtype"], row["rootnumber"])
+                != _impute_tooth_features(row),
+                axis=1,
+            )
+        ]
+
+        df.loc[missing_or_incorrect_tooth_rows.index, ["toothtype", "rootnumber"]] = (
+            missing_or_incorrect_tooth_rows.apply(
+                lambda row: _impute_tooth_features(row), axis=1
+            ).tolist()
+        )
 
         return df
 

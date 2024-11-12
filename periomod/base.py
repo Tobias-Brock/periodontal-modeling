@@ -412,6 +412,12 @@ def patient_to_df(patient: Patient) -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: DataFrame where each row represents a tooth side.
+
+    Example:
+        ```
+        patient = Patient(..)
+        patient_data = patient_to_df(patient=patient)
+        ```
     """
     rows = []
     patient_dict = asdict(patient)

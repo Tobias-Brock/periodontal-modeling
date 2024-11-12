@@ -46,6 +46,7 @@ with gr.Blocks() as perioapp:
 
     models_state = gr.State()
     task_state = gr.State()
+    processed_data_state = gr.State()
     train_df_state = gr.State()
     X_train_state = gr.State()
     y_train_state = gr.State()
@@ -58,7 +59,7 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value="data/raw" + "/Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw/Periodontitis_ML_Dataset.xlsx",
                     scale=1,
                     info="Specify the path to the raw data file for processing.",
                 )
@@ -77,7 +78,7 @@ with gr.Blocks() as perioapp:
 
             save_path_input = gr.Textbox(
                 label="Save Path",
-                value="data/processed" + "/processed_data.csv",
+                value="data/processed/processed_data.csv",
                 scale=1,
             )
             save_button = gr.Button("Save Data", scale=1)
@@ -445,6 +446,9 @@ with gr.Blocks() as perioapp:
             results_output = gr.Dataframe(label="Benchmark Results")
             metrics_plot_output = gr.Plot(label="Metrics Comparison")
 
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_state
+            )
             task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
 
             run_button.click(
@@ -494,10 +498,18 @@ with gr.Blocks() as perioapp:
                     value="one_hot",
                     info="Choose encoding method used for categorical variables.",
                 )
+            with gr.Row():
+                processed_data_display = gr.Textbox(
+                    label="File Path",
+                    value="",
+                    scale=1,
+                    info="Specify the path to the processed data file for evaluation.",
+                )
 
             load_data_button = gr.Button("Load Data")
             load_status_output = gr.Textbox(label="Status", interactive=False)
-            task_display.value = task_input.value  # Keep this line
+            processed_data_display.value = path_input.value
+            task_display.value = task_input.value
 
             models_state.change(
                 fn=_update_model_dropdown,
@@ -505,6 +517,9 @@ with gr.Blocks() as perioapp:
                 outputs=model_dropdown,
             )
 
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_display
+            )
             task_input.change(
                 fn=lambda task: task, inputs=task_input, outputs=task_display
             )
@@ -548,7 +563,7 @@ with gr.Blocks() as perioapp:
 
             load_data_button.click(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -887,17 +902,27 @@ with gr.Blocks() as perioapp:
                     value="one_hot",
                     info="Select the encoding method for categorical features.",
                 )
+            with gr.Row():
+                processed_data_display = gr.Textbox(
+                    label="File Path",
+                    value="",
+                    scale=1,
+                    info="Specify the path to the processed data file for evaluation.",
+                )
 
             results = gr.DataFrame(visible=False)
-
+            processed_data_display.value = path_input.value
             task_display.value = task_input.value
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_display
+            )
             task_input.change(
                 fn=lambda task: task, inputs=task_input, outputs=task_display
             )
 
             task_input.change(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -910,7 +935,7 @@ with gr.Blocks() as perioapp:
 
             encoding_input.change(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -973,7 +998,7 @@ with gr.Blocks() as perioapp:
 
             load_data_button.click(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,

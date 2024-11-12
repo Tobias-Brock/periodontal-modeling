@@ -57,19 +57,24 @@ class ModelInference(BaseModelInference):
 
     Example:
         ```
+        from periomod.base import Patient, patient_to_dataframe
+        from periomod.inference import ModelInference
+
         model_inference = ModelInference(
-            classification="binary",
-            model=trained_model,
-            verbose=True
+            classification="binary", model=trained_model, verbose=True
         )
+
+        # Define a patient instance
+        patient = Patient(..)
+        patient_df = patient_to_df(patient=patient)
 
         # Prepare data for inference
         prepared_data, patient_data = model_inference.prepare_inference(
-            task="classification_task",
+            task="pocketclosure",
             patient_data=patient_df,
             encoding="one_hot",
-            X_train=train_df,
-            y_train=target_series
+            X_train=X_train,
+            y_train=y_train,
         )
 
         # Run inference on patient data
@@ -86,7 +91,7 @@ class ModelInference(BaseModelInference):
             inference_results=inference_results,
             alpha=0.05,
             sample_fraction=0.8,
-            n_jobs=4
+            n_jobs=4,
         )
         ```
     """
