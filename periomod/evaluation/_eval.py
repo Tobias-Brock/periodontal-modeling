@@ -73,7 +73,10 @@ class ModelEvaluator(BaseModelEvaluator):
 
     Example:
         ```
-        evaluator = ModelEvaluator(X, y, model=trained_rf_model, encoding="one_hot")
+        # Use X_test, y_test obtained from Resampler
+        evaluator = ModelEvaluator(
+            X=X_test, y=y_test, model=trained_rf_model, encoding="one_hot"
+            )
         evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
         brier_plot, heatmap_plot, clustered_data = (
             evaluator.analyze_brier_within_clusters()

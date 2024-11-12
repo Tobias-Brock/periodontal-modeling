@@ -517,22 +517,23 @@ def _benchmarks_wrapper(*args: Any) -> Any:
 
 
 def _load_data(
-    task: str, encoding: str
+    task: str, encoding: str, path: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Load and prepare the dataset for training and testing.
 
     Args:
         task (str): Task name (e.g., 'Pocket closure').
         encoding (str): Type of encoding to use (e.g., 'one_hot', 'target').
+        path (str): Input path for dataloading.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
     classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
-
     dataloader = ProcessedDataLoader(task=task, encoding=encoding)
-    df = dataloader.load_data()
+    data_path = Path(path)
+    df = dataloader.load_data(path=data_path.parent, name=data_path.name)
     df_transformed = dataloader.transform_data(df=df)
 
     resampler = Resampler(classification, encoding)
@@ -546,19 +547,22 @@ def _load_data(
 
 
 def _load_data_wrapper(
-    task: str, encoding: str
+    task: str, encoding: str, path: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Wraooer to load data.
 
     Args:
         task (str)): Task input from UI.
         encoding (str): Encoding type.
+        path (str): Input path for dataloading.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
-    return _load_data(InputProcessor.process_task(task=task), encoding=encoding)
+    return _load_data(
+        InputProcessor.process_task(task=task), encoding=encoding, path=path
+    )
 
 
 def _update_model_dropdown(models: Dict[str, Any]) -> dict:

@@ -53,11 +53,19 @@ class Resampler(BaseResampler):
 
     Example:
         ```
+        from periomod.data import ProcessedDataLoader
+        from periomod.resampling import Resampler
+
+        df = dataloader.load_data(path="data/training", name="training_data.csv")
+
         resampler = Resampler(classification="binary", encoding="one_hot")
-        train_df, test_df = resampler.split_train_test_df(df, seed=42, test_size=0.3)
+        train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)
+
+        # upsample minority class by a factor of 2.
         X_train, y_train, X_test, y_test = resampler.split_x_y(
-            train_df, test_df, sampling="upsampling", factor=1.5
+            train_df, test_df, sampling="upsampling", factor=2
         )
+        # performs grouped cross-validation with "smote" sampling on the training folds
         outer_splits, cv_folds_indices = resampler.cv_folds(
             df, sampling="smote", factor=2.0, seed=42, n_folds=5
         )

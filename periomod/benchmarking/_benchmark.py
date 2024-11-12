@@ -82,8 +82,16 @@ class Experiment(BaseExperiment):
 
     Example:
         ```
+        from periomod.benchmarking import Experiment
+        from periomod.data import ProcessedDataLoader
+
+        # Load a dataframe with the correct target and encoding selected
+        dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
+        df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+        df = dataloader.transform_data(df=df)
+
         experiment = Experiment(
-            df=dataframe,
+            df=df,
             task="pocketclosure",
             learner="rf",
             criterion="f1",
@@ -93,16 +101,7 @@ class Experiment(BaseExperiment):
             sampling="upsample",
             factor=1.5,
             n_configs=20,
-            racing_folds=3,
-            n_jobs=-1,
-            cv_folds=5,
-            test_seed=42,
-            test_size=0.2,
-            val_size=0.1,
-            cv_seed=10,
-            mlp_flag=True,
-            threshold_tuning=True,
-            verbose=True,
+            racing_folds=5,
         )
 
         # Perform the evaluation based on cross-validation

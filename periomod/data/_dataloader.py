@@ -83,6 +83,9 @@ class ProcessedDataLoader(BaseDataLoader):
             return df
 
         cat_vars = [col for col in self.all_cat_vars if col in df.columns]
+        df[cat_vars] = df[cat_vars].apply(
+            lambda col: col.astype(int) if col.dtype in [float, object] else col
+        )
 
         if self.encoding == "one_hot":
             df_reset = df.reset_index(drop=True)

@@ -62,24 +62,16 @@ class Trainer(BaseTrainer):
 
     Example:
         ```
+        from periomod.training import Trainer
+        from sklearn.ensemble import RandomForestClassifier
+
         trainer = Trainer(
             classification="binary", criterion="f1", tuning="cv", hpo="hebo"
-        )
-        final_model_info = trainer.train_final_model(
-            df=training_data,
-            resampler=Resampler("binary", "target"),
-            model=(learner_type, best_params, optimal_threshold),
-            sampling="smote",
-            factor=1.5,
-            n_jobs=4,
-            seed=42,
-            test_size=0.2,
-            verbose=True,
-        )
-        print(final_model_info["metrics"])
+            )
 
+        # Use Resampler to obtain splits
         score, trained_model, threshold = trainer.train(
-            model=logistic_regression_model,
+            model=RandomForestClassifier,
             X_train=X_train,
             y_train=y_train,
             X_val=X_val,
@@ -87,13 +79,15 @@ class Trainer(BaseTrainer):
         )
         print(f"Score: {score}, Optimal Threshold: {threshold}")
 
+        from sklearn.neural_network import MLPClassifier
+
         score, trained_mlp, threshold = trainer.train_mlp(
-            mlp_model=mlp_classifier,
+            mlp_model=MLPClassifier,
             X_train=X_train,
             y_train=y_train,
             X_val=X_val,
             y_val=y_val,
-            final=True
+            final=True,
         )
         print(f"MLP Validation Score: {score}, Optimal Threshold: {threshold}")
         ```

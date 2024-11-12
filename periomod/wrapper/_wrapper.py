@@ -65,6 +65,7 @@ def load_learners(
     Returns:
         dict: Dictionary containing loaded learners.
     """
+    path = Path(path) if not isinstance(path, Path) else path
     load_path = path / (folder_name if folder_name else "")
     if not load_path.exists():
         raise FileNotFoundError(f"The directory {load_path} does not exist.")
@@ -153,32 +154,37 @@ class BenchmarkWrapper(BaseBenchmark):
 
     Example:
         ```
+        from periomod.wrapper import BenchmarkWrapper
+
         # Initialize the BenchmarkWrapper
         benchmarker = BenchmarkWrapper(
             task="pocketclosure",
             encodings=["one_hot", "target"],
-            learners=["rf", "xgb", "lr"],
+            learners=["rf", "xgb", "lr", "mlp"],
             tuning_methods=["holdout", "cv"],
             hpo_methods=["rs", "hebo"],
             criteria=["f1", "brier_score"],
             sampling=["upsampling"],
             factor=2,
-            n_configs=25,
-            n_jobs=-1,
-            verbose=True,
         )
 
         # Run baseline benchmarking
         baseline_df = benchmarker.baseline()
 
         # Run full benchmark and retrieve results
-        benchmark_results, learners = benchmarker.wrapped_benchmark()
+        benchmark, learners = benchmarker.wrapped_benchmark()
 
         # Save the benchmark results
-        benchmarker.save_benchmark(baseline_df, path=Path("reports"))
+        benchmarker.save_benchmark(
+            benchmark_df=benchmark,
+            path="reports",
+            file_name="benchmark.csv",
+            folder_name="experiment")
 
         # Save the trained learners
-        benchmarker.save_learners(learners_dict=learners_used, path=Path("models"))
+        benchmarker.save_learners(
+            learners_dict=learners, path="models", folder_name="experiment"
+            )
         ```
     """
 
@@ -446,37 +452,43 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
 
     Examples:
         ```
-        benchmarker = BenchmarkWrapper(...)
+        from periomod.base import Patient, patient_to_dataframe
+        from periomod.wrapper import EvaluatorWrapper, load_benchmark, load_learners
 
-        # Results of BenchmarkWrapper
-        benchmark_results, learners = benchmarker.wrapped_benchmark()
-
-        # Initialize the evaluator with required parameters
-        evaluator = EvaluatorWrapper(
-            learners_dict=learners,
-            criterion="f1",
-            aggregate=True,
-            verbose=True
+        benchmark = load_benchmark(
+            file_name="benchmark.csv", folder_name="experiment"
         )
+        learners = load_learners(path="models", folder_name="experiments")
+
+        # Initialize evaluator with learners and specified criterion
+        evaluator = EvaluatorWrapper(
+            learners_dict=learners, criterion="f1", path="data/processed"
+            )
 
         # Evaluate the model and generate plots
-        evaluator.wrapped_evaluation(cm=True, brier_groups=True)
+        evaluator.wrapped_evaluation()
+
+        # Cluster analysis on predictions with brier score smaller than threshold
+        evaluator.evaluate_cluster(brier_threshold=0.15)
 
         # Calculate feature importance
         evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
 
         # Train and average over multiple random splits
-        avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=4)
+        avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=-1)
+
+        # Define a patient instance
+        patient = Patient(..)
+        patient_df = patient_to_df(patient=patient)
 
         # Run inference on a specific patient's data
-        patient_inference_df = evaluator.wrapped_patient_inference(patient=my_patient)
+        predict_data, output, results = evaluator.wrapped_patient_inference(
+            patient=patient
+            )
 
         # Execute jackknife resampling for robust inference
-        jackknife_results_df = evaluator.wrapped_jackknife(
-            patient=my_patient,
-            results=results_df,
-            sample_fraction=0.8,
-            n_jobs=2
+        jackknife_results, ci_plots = evaluator.wrapped_jackknife(
+            patient=my_patient, results=results_df, sample_fraction=0.8, n_jobs=-1
         )
         ```
     """

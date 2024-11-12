@@ -102,7 +102,7 @@ class BaseProcessor(BaseLoader, ABC):
 
     def load_data(
         self,
-        path: Path = Path("raw/data"),
+        path: Path = Path("data/raw"),
         name: str = "Periodontitis_ML_Dataset.xlsx",
     ) -> pd.DataFrame:
         """Loads the dataset and validates required columns.
@@ -338,7 +338,7 @@ class BaseDataLoader(BaseLoader, ABC):
             for col in self.scale_vars:
                 scaled_min = df[col].min()
                 scaled_max = df[col].max()
-                if scaled_min < -5 or scaled_max > 15:
+                if scaled_min < -10 or scaled_max > 20:
                     raise ValueError(f"Column {col} is not correctly scaled.")
 
     @abstractmethod
