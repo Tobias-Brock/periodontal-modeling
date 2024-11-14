@@ -27,7 +27,6 @@ class Resampler(BaseResampler):
         classification (str): Type of classification task ('binary' or 'multiclass').
         encoding (str): Encoding strategy for categorical features
             ('one_hot' or 'target').
-        random_state_sampling (int): Seed used for reproducibility in sampling.
         all_cat_vars (list): List of categorical variables in the dataset, used in
             target encoding when applicable.
 

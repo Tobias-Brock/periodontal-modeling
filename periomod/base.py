@@ -55,7 +55,7 @@ class BaseConfig:
     Example:
         ```
         config = BaseConfig()
-        print(config.random_state_sampling)
+        print(config.tooth_columns)
         ```
 
     Note:

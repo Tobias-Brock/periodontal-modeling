@@ -15,7 +15,7 @@ def _impute_tooth_features(row: pd.Series) -> Tuple[int, int]:
         row (pd.Series): A row from the DataFrame containing a 'tooth' column.
 
     Returns:
-        Tuple[int, int]: A tuple with imputed values for 'toothtype' and
+        Tuple: A tuple with imputed values for 'toothtype' and
             'rootnumber'. Returns (0, 0) for certain incisors and canines,
             (1, 1) for specific premolars, and (2, 1) for molars and others.
     """
