@@ -175,7 +175,7 @@ class DescriptivesPlotter:
         heights_2 = value_counts_2.values
 
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(8, 4), sharex=True, sharey=True, dpi=300
+            1, 2, figsize=(8, 5), sharex=True, sharey=True, dpi=300
         )
 
         ax1.bar(x_values_1, heights_1, edgecolor="black", color="#078294", linewidth=1)
@@ -213,7 +213,7 @@ class DescriptivesPlotter:
         for spine in ax2.spines.values():
             spine.set_linewidth(1)
 
-        fig.text(0.55, 0, "Pocket Depth [mm]", ha="center", fontsize=12)
+        fig.supxlabel("Pocket Depth [mm]", fontsize=12)
         plt.tight_layout()
 
         if save:
@@ -304,8 +304,7 @@ class DescriptivesPlotter:
                 va="bottom",
                 fontsize=12,
             )
-
-        fig.text(0.55, 0, "Pocket depth categories", ha="center", fontsize=12)
+        fig.supxlabel("Pocket depth categories", fontsize=12)
         plt.tight_layout()
 
         if save:
@@ -367,6 +366,7 @@ class DescriptivesPlotter:
                 raise ValueError("'name' argument must required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
+        plt.tight_layout()
         plt.show()
 
     def outcome_descriptive(
@@ -416,4 +416,5 @@ class DescriptivesPlotter:
                 raise ValueError("'name' argument must required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
+        plt.tight_layout()
         plt.show()
