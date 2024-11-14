@@ -418,23 +418,37 @@ def _run_benchmarks(
     if not metrics_to_plot:
         raise ValueError("No matching metrics found in results to plot.")
 
-    plt.figure(figsize=(8, 6), dpi=300)
+    plt.figure(figsize=(6, 4), dpi=300)
     ax = df_results.plot(
         x="Learner",
         y=metrics_to_plot,
         kind="bar",
         ax=plt.gca(),
+        edgecolor="black",
+        linewidth=1,
     )
 
-    plt.title("Benchmark Metrics for Each Learner")
-    plt.xlabel("Learner")
-    plt.ylabel("Score")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.title("Benchmark Metrics for Each Learner", fontsize=12)
+    plt.xlabel("Learner", fontsize=12)
+    plt.ylabel("Score", fontsize=12)
+    plt.ylim(0, 1)
+    ax.tick_params(axis="both", which="major", labelsize=12)
     plt.xticks(rotation=45)
-    plt.legend(title="Metrics")
+    plt.legend(
+        title="Metrics",
+        loc="upper left",
+        bbox_to_anchor=(1, 1),
+        fontsize=10,
+        title_fontsize=10,
+        frameon=False,
+    )
     plt.tight_layout()
 
     for container in ax.containers:
-        ax.bar_label(container, fmt="%.2f", label_type="edge")
+        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
 
     metrics_plot = plt.gcf()
 

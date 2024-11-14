@@ -229,6 +229,8 @@ class ModelEvaluator(BaseModelEvaluator):
                             f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
 
+                        plt.tight_layout()
+
                     else:
                         fi_df_aggregated = self._aggregate_one_hot_importances(
                             fi_df=fi_df
@@ -282,6 +284,7 @@ class ModelEvaluator(BaseModelEvaluator):
                         plt.title(
                             f"{model_name}: SHAP Feature Importance; {self.encoding}"
                         )
+                        plt.tight_layout()
 
                     else:
                         fi_df.sort_values(
@@ -384,7 +387,8 @@ class ModelEvaluator(BaseModelEvaluator):
             features=feature_averages.columns
         )
 
-        plt.figure(figsize=(6, 4), dpi=300)
+        plt.figure(figsize=(4, 4), dpi=300)
+        plt.rcParams.update({"font.size": 12})
         sns.violinplot(
             x="Cluster",
             y="Brier_Score",
@@ -404,14 +408,15 @@ class ModelEvaluator(BaseModelEvaluator):
         )
         sns.despine(top=True, right=True)
         plt.ylabel("Brier Score")
-        plt.title("Brier Score Distribution within Clusters", fontsize=14)
+        plt.xlabel("Cluster", fontsize=12)
+        plt.title("Brier Score Distribution in Clusters", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         if tight_layout:
             plt.tight_layout()
         brier_plot = plt.gcf()
 
-        plt.figure(figsize=(8, 3), dpi=300)
+        plt.figure(figsize=(8, 4), dpi=300)
         annot_array = np.around(feature_averages.values, decimals=1)
         sns.heatmap(
             feature_averages,
