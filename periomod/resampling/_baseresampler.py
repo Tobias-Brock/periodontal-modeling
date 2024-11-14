@@ -31,7 +31,6 @@ class BaseResampler(BaseConfig, ABC):
             ('binary' or 'multiclass').
         encoding (str): Encoding method for categorical features
             ('one_hot' or 'target').
-        random_state_sampling (int): Seed used for ensuring reproducibility in sampling.
         all_cat_vars (list): List of all categorical variables in the dataset that
             can be used in target encoding.
 

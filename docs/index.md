@@ -404,7 +404,7 @@ benchmarker = Benchmarker(
     encodings=["one_hot", "target"],
     sampling=[None, "upsampling", "downsampling"],
     factor=2,
-    path=Path("/data/processed"),
+    path="/data/processed",
     name="processed_data.csv",
 )
 
@@ -433,7 +433,7 @@ benchmarker = BenchmarkWrapper(
     criteria=["f1", "brier_score"],
     sampling=["upsampling"],
     factor=2,
-    path=Path("/data/processed"),
+    path="/data/processed",
     name="processed_data.csv",
 )
 
