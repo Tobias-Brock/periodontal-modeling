@@ -295,7 +295,6 @@ class BaseBenchmark(BaseConfig):
             classification when optimizing for 'f1'.
         verbose (bool): Enables detailed logging of processes if set to True.
         path (Path): Directory path where processed data will be stored.
-        name (str): Filename for the processed data file.
 
     Attributes:
         task (str): Task used for model classification or regression evaluation.
@@ -325,7 +324,6 @@ class BaseBenchmark(BaseConfig):
             in binary classification tasks.
         verbose (bool): Flag to enable detailed logging during training and evaluation.
         path (Path): Path where processed data is saved.
-        name (str): Name assigned to the saved processed data file.
 
     """
 
@@ -351,7 +349,6 @@ class BaseBenchmark(BaseConfig):
         threshold_tuning: bool,
         verbose: bool,
         path: Path,
-        name: str,
     ) -> None:
         """Initialize the base benchmark class with common parameters."""
         super().__init__()
@@ -375,7 +372,6 @@ class BaseBenchmark(BaseConfig):
         self.mlp_flag = mlp_flag
         self.threshold_tuning = threshold_tuning
         self.path = path
-        self.name = name
         self._validate_task()
 
     def _validate_task(self) -> None:

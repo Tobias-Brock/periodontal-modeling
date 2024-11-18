@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from ..base import BaseConfig, Patient
+from ..benchmarking import Baseline
 from ..data import ProcessedDataLoader
 from ..evaluation import ModelEvaluator
 from ..inference import ModelInference
@@ -192,7 +193,6 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         verbose (bool): Controls verbose in the evaluation process.
         random_state (int): Random state for resampling.
         path (Path): Path to the directory containing processed data files.
-        name (str): File name for the processed data file.
 
     Attributes:
         learners_dict (Dict): Holds learners and metadata.
@@ -218,6 +218,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         X_test (pd.DataFrame): Test features.
         y_test (pd.Series): Test labels.
         base_target (Optional[np.ndarray]): Baseline target for evaluations.
+        baseline (Baseline): Basline class for model analysis.
         evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
         inference_engine (ModelInference): Model inference manager.
         trainer (Trainer): Trainer for model evaluation and optimization.
@@ -248,7 +249,6 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         verbose: bool,
         random_state: int,
         path: Path,
-        name: str,
     ):
         """Base class for EvaluatorWrapper, initializing common parameters."""
         super().__init__(
@@ -259,7 +259,6 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             random_state=random_state,
         )
         self.path = path
-        self.name = name
         self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
         self.resampler = Resampler(
             classification=self.classification, encoding=self.encoding
@@ -275,6 +274,12 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             self.y_test,
             self.base_target,
         ) = self._prepare_data_for_evaluation()
+        self.baseline = Baseline(
+            task=self.task,
+            encoding=self.encoding,
+            random_state=self.random_state,
+            path=self.path,
+        )
         self.evaluator = ModelEvaluator(
             model=self.model,
             X=self.X_test,
@@ -313,7 +318,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             Tuple: df, df_processed, train_df, test_df, X_train, y_train, X_test,
                 y_test, and optionally base_target.
         """
-        df = self.dataloader.load_data(path=self.path, name=self.name)
+        df = self.dataloader.load_data(path=self.path)
 
         task = "pocketclosure" if self.task == "pocketclosureinf" else self.task
 
@@ -326,7 +331,6 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         train_df, test_df = self.resampler.split_train_test_df(
             df=df_processed, seed=self.random_state
         )
-
         if task in ["pocketclosure", "pdgrouprevaluation"] and base_target is not None:
             test_patient_ids = test_df[self.group_col]
             base_target = (
@@ -429,14 +433,18 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
 
     def _test_filters(
         self,
+        X: pd.DataFrame,
+        y: pd.Series,
         base: Optional[str],
         revaluation: Optional[str],
         true_preds: bool,
         brier_threshold: Optional[float],
-    ) -> Tuple[pd.DataFrame, pd.Series]:
+    ) -> Tuple[pd.DataFrame, pd.Series, int]:
         """Applies subsetting filters to the evaluator's test set.
 
         Args:
+            X (pd.DataFrame): Feature set.
+            y (pd.Series): Label set.
             base (Optional[str]): Baseline variable for comparison. If provided with
                 `revaluation`, subsets to cases where `revaluation` differs from `base`.
             revaluation (Optional[str]): Revaluation variable for comparison. Used only
@@ -447,10 +455,8 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
                 provided, further subsets to cases with Brier scores below threshold.
 
         Returns:
-            Tuple: Filtered feature set and labels.
+            Tuple: Filtered feature set, labels and number of unique patients.
         """
-        X, y = self.evaluator.X, self.evaluator.y
-
         if base and revaluation:
             X, y = self._subset_test_set(base=base, revaluation=revaluation)
             X, y = X.dropna(), y.dropna()
@@ -465,7 +471,10 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             threshold_indices = brier_scores[brier_scores < brier_threshold].index
             X, y = X.loc[threshold_indices].dropna(), y.loc[threshold_indices].dropna()
 
-        return X, y
+        subset_patient_ids = self.test_df.loc[y.index, self.group_col]
+        num_patients = subset_patient_ids.nunique()
+
+        return X, y, num_patients
 
     @abstractmethod
     def wrapped_evaluation(
@@ -473,6 +482,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         cm: bool,
         cm_base: bool,
         brier_groups: bool,
+        calibration: bool,
         tight_layout: bool,
     ):
         """Runs evaluation on the best-ranked model based on specified criteria.
@@ -482,6 +492,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             cm_base (bool): If True, plots the confusion matrix against the
                 value before treatment. Only applicable for specific tasks.
             brier_groups (bool): If True, calculates Brier score groups.
+            calibration (bool): If True, plots model calibration.
             tight_layout (bool): If True, applies tight layout to the plot.
         """
 

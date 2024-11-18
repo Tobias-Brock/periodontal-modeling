@@ -118,8 +118,7 @@ class ProcessedDataLoader(BaseDataLoader):
         """
         scale_vars = [col for col in self.scale_vars if col in df.columns]
         df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
-        scaler = StandardScaler()
-        scaled_values = scaler.fit_transform(df[scale_vars])
+        scaled_values = StandardScaler().fit_transform(df[scale_vars])
         df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
         self._check_scaled_columns(df=df)
         return df
@@ -148,7 +147,6 @@ class ProcessedDataLoader(BaseDataLoader):
             df = df.query("pdgroupbase in [1, 2]")
             if self.task == "pocketclosureinf":
                 self.task = "pocketclosure"
-
         cols_to_drop = [
             col for col in self.task_cols if col != self.task and col in df.columns
         ] + self.no_train_cols

@@ -21,6 +21,7 @@ class BaseConfig:
     Attributes:
         group_col (str): Column name used for group-based splitting.
         y (str): Target column name in the dataset.
+        target_state (int): Random state of target encoding.
         learner_state (int): Random state of learners.
         xgb_obj_binary (str): Objective function for binary classification in XGBoost.
         xgb_loss_binary (str): Loss function for binary classification in XGBoost.
@@ -73,6 +74,7 @@ class BaseConfig:
 
         self.group_col = cfg.resample.group_col
         self.y = cfg.resample.y
+        self.target_state = cfg.resample.target_state
         self.learner_state = cfg.learner.learner_state
         self.xgb_obj_binary = cfg.learner.xgb_obj_binary
         self.xgb_loss_binary = cfg.learner.xgb_loss_binary

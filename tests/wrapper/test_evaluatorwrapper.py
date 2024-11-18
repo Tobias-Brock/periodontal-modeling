@@ -285,19 +285,34 @@ def test_test_filters(mock_evaluator_wrapper):
         return_value=pd.Series([0.01, 0.2, 0.05, 0.3], index=wrapper.evaluator.y.index)
     )
 
-    X_filtered, y_filtered = wrapper._test_filters(
-        base=None, revaluation=None, true_preds=True, brier_threshold=None
+    X_filtered, y_filtered, _ = wrapper._test_filters(
+        X=wrapper.evaluator.X,
+        y=wrapper.evaluator.y,
+        base=None,
+        revaluation=None,
+        true_preds=True,
+        brier_threshold=None,
     )
     assert len(X_filtered) == 3
     assert all(y_filtered == wrapper.evaluator.y.loc[X_filtered.index])
 
-    X_filtered, y_filtered = wrapper._test_filters(
-        base=None, revaluation=None, true_preds=False, brier_threshold=0.1
+    X_filtered, y_filtered, _ = wrapper._test_filters(
+        X=X_filtered,
+        y=y_filtered,
+        base=None,
+        revaluation=None,
+        true_preds=False,
+        brier_threshold=0.1,
     )
     assert len(X_filtered) == 2
 
-    X_filtered, y_filtered = wrapper._test_filters(
-        base=None, revaluation=None, true_preds=True, brier_threshold=0.05
+    X_filtered, y_filtered, _ = wrapper._test_filters(
+        X=X_filtered,
+        y=y_filtered,
+        base=None,
+        revaluation=None,
+        true_preds=True,
+        brier_threshold=0.05,
     )
     assert len(X_filtered) == 1
 
@@ -590,3 +605,136 @@ def test_evaluator_wrapper_wrapped_jackknife():
 
     assert isinstance(jackknife_results, pd.DataFrame)
     assert "Jackknife_Result" in jackknife_results.columns
+
+
+@patch("periomod.evaluation._eval.ModelEvaluator.plot_confusion_matrix")
+@patch("periomod.evaluation._eval.ModelEvaluator.brier_score_groups")
+@patch("periomod.evaluation._eval.ModelEvaluator.calibration_plot")
+def test_wrapped_evaluation(mock_calibration, mock_brier_groups, mock_confusion_matrix):
+    """Test wrapped_evaluation method."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    wrapper = EvaluatorWrapper(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+    )
+
+    wrapper.evaluator.X = pd.DataFrame({"feature1": [1, 2, 3]})
+    wrapper.evaluator.y = pd.Series([1, 0, 1])
+
+    wrapper.wrapped_evaluation(
+        cm=True,
+        cm_base=False,
+        brier_groups=True,
+        calibration=True,
+        tight_layout=True,
+    )
+
+    mock_confusion_matrix.assert_called_once_with(
+        tight_layout=True, task="pocketclosure"
+    )
+    mock_brier_groups.assert_called_once_with(tight_layout=True, task="pocketclosure")
+    mock_calibration.assert_called_once_with(task="pocketclosure", tight_layout=True)
+
+
+@patch("periomod.evaluation._eval.ModelEvaluator.bss_comparison")
+@patch("periomod.benchmarking._baseline.Baseline.train_baselines")
+@patch("periomod.wrapper._wrapper.EvaluatorWrapper._test_filters")
+def test_compare_bss(mock_test_filters, mock_train_baselines, mock_bss_comparison):
+    """Test compare_bss method."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    wrapper = EvaluatorWrapper(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+    )
+
+    mock_test_filters.return_value = (MagicMock(), MagicMock(), 150)
+    mock_train_baselines.return_value = ({}, None, None)
+
+    wrapper.compare_bss(
+        base="baseline_var",
+        revaluation="revaluation_var",
+        true_preds=True,
+        brier_threshold=0.1,
+        tight_layout=True,
+    )
+
+    mock_test_filters.assert_called_once()
+    mock_bss_comparison.assert_called_once_with(
+        baseline_models={},
+        classification=wrapper.classification,
+        num_patients=150,
+        tight_layout=True,
+    )
+
+
+@patch("periomod.evaluation._eval.ModelEvaluator.analyze_brier_within_clusters")
+@patch("periomod.wrapper._wrapper.EvaluatorWrapper._test_filters")
+def test_evaluate_cluster(mock_test_filters, mock_analyze_clusters):
+    """Test evaluate_cluster method."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    wrapper = EvaluatorWrapper(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+    )
+
+    mock_test_filters.return_value = (MagicMock(), MagicMock(), 120)
+
+    wrapper.evaluate_cluster(
+        n_cluster=3,
+        base="baseline_var",
+        revaluation="revaluation_var",
+        true_preds=True,
+        brier_threshold=0.05,
+        tight_layout=True,
+    )
+
+    mock_test_filters.assert_called_once()
+    mock_analyze_clusters.assert_called_once_with(n_clusters=3, tight_layout=True)
+
+
+@patch("periomod.evaluation._eval.ModelEvaluator.evaluate_feature_importance")
+@patch("periomod.wrapper._wrapper.EvaluatorWrapper._test_filters")
+def test_evaluate_feature_importance(mock_test_filters, mock_evaluate_fi):
+    """Test evaluate_feature_importance method."""
+    model_mock = MagicMock()
+    learners_dict = {
+        "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": model_mock
+    }
+
+    wrapper = EvaluatorWrapper(
+        learners_dict=learners_dict,
+        criterion="f1",
+        aggregate=True,
+        verbose=True,
+    )
+
+    mock_test_filters.return_value = (MagicMock(), MagicMock(), 100)
+
+    wrapper.evaluate_feature_importance(
+        fi_types=["shap", "permutation"],
+        base="baseline_var",
+        revaluation="revaluation_var",
+        true_preds=False,
+        brier_threshold=None,
+    )
+
+    mock_test_filters.assert_called_once()
+    mock_evaluate_fi.assert_called_once_with(fi_types=["shap", "permutation"])

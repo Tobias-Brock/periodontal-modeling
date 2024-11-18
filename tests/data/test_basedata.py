@@ -1,7 +1,8 @@
 """Tests for base data methods."""
 
+import os
 from pathlib import Path
-import shutil
+from typing import Union
 from unittest.mock import patch
 import warnings
 
@@ -14,10 +15,6 @@ from periomod.data._basedata import (
     BaseLoader,
     BaseProcessor,
 )
-
-RAW_DATA_DIR = Path("/tmp/raw_data")
-PROCESSED_BASE_DIR = Path("/tmp/processed_data")
-TRAINING_DATA_DIR = Path("/tmp/training_data")
 
 
 def test_base_loader_abstract_methods():
@@ -42,41 +39,39 @@ def test_base_loader_save_data_empty_df():
     """Test that save_data raises ValueError when provided with an empty DataFrame."""
 
     class ConcreteLoader(BaseLoader):
-        def load_data(self, path: Path, name: str):
+        def load_data(self, path: Union[str, Path]):
             pass
 
-        def save_data(self, df: pd.DataFrame, path: Path, name: str):
-            super().save_data(df, path, name)
+        def save_data(self, df: pd.DataFrame, path: Union[str, Path]):
+            super().save_data(df, path)
 
     loader = ConcreteLoader()
     empty_df = pd.DataFrame()
 
     with pytest.raises(ValueError, match="Data must be processed before saving."):
-        loader.save_data(empty_df, path=Path("/tmp"), name="test.csv")
+        loader.save_data(empty_df, path=Path("/tmp/test.csv"))
 
 
 def test_base_loader_save_data():
     """Test the save_data method saves a DataFrame to the specified path."""
 
     class ConcreteLoader(BaseLoader):
-        def load_data(self, path: Path, name: str):
+        def load_data(self, path: Union[str, Path]):
             pass
 
-        def save_data(self, df: pd.DataFrame, path: Path, name: str):
-            super().save_data(df, path, name)
+        def save_data(self, df: pd.DataFrame, path: Union[str, Path]):
+            super().save_data(df, path)
 
     loader = ConcreteLoader()
     df = pd.DataFrame({"A": [1, 2, 3]})
-    path = Path("/tmp/test_save_data")
-    name = "test.csv"
+    path = Path("/tmp/test_save_data/test.csv")
 
     if path.exists():
-        shutil.rmtree(path)
+        os.remove(path)
 
-    loader.save_data(df, path, name)
-    saved_file = path / name
-    assert saved_file.exists()
-    shutil.rmtree(path)
+    loader.save_data(df, path)
+    assert path.exists()
+    os.remove(path)
 
 
 def test_base_processor_load_data_missing_columns():
@@ -95,19 +90,23 @@ def test_base_processor_load_data_missing_columns():
         def process_data(self, df: pd.DataFrame):
             pass
 
-    with patch("pandas.read_excel") as mock_read_excel:
+    with (
+        patch("pandas.read_excel") as mock_read_excel,
+        patch("pathlib.Path.exists") as mock_exists,
+    ):
         mock_df = pd.DataFrame(
             {
                 "Age": [25, 30],
                 "Gender": [0, 1],
-                # Missing other required columns
             }
         )
         mock_read_excel.return_value = mock_df
+        mock_exists.return_value = True
+
         processor = ConcreteProcessor(behavior=True)
 
         with warnings.catch_warnings(record=True) as w:
-            df = processor.load_data(path=Path("/tmp"), name="test.xlsx")
+            df = processor.load_data(path=Path("/tmp/test.xlsx"))
             assert len(w) == 2
             assert issubclass(w[-1].category, UserWarning)
             assert "Warning: Missing cols" in str(w[-1].message)
@@ -222,13 +221,12 @@ def test_base_data_loader_save_and_load_data():
         }
     )
 
-    path = Path("/tmp/test_data_loader")
-    name = "test_training_data.csv"
+    path = Path("/tmp/test_data_loader/test_training_data.csv")
 
     if path.exists():
-        shutil.rmtree(path)
+        os.remove(path)  # Use os.remove for files
 
-    loader.save_data(df, path, name)
-    loaded_df = loader.load_data(path, name)
+    loader.save_data(df, path)
+    loaded_df = loader.load_data(path)
     pd.testing.assert_frame_equal(df, loaded_df)
-    shutil.rmtree(path)
+    os.remove(path)  # Clean up the created file

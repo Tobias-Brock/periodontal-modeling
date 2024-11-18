@@ -6,5 +6,6 @@ The `periomod.evaluation` module includes evaluative components for assessing mo
 
 | Component              | Description                                                      |
 |------------------------|------------------------------------------------------------------|
-| [BaseModelEvaluator](basemodelevaluator.md)   | Base class for model evaluation and metric computation.       |
+| [BaseModelEvaluator](basemodelevaluator.md)   | Base class for model evaluation and plotting.       |
+| [EvaluatorMethods](evaluatormethods.md)   | Base class for metric calculations and aggregation.       |
 | [ModelEvaluator](modelevaluator.md)           | Comprehensive model evaluation class for metrics analysis.    |

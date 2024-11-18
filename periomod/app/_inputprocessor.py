@@ -198,20 +198,24 @@ class InputProcessor:
         return [cls.learner_map[learner] for learner in learners]
 
     @classmethod
-    def process_tuning(cls, tuning_methods: list) -> list:
-        return [cls.tuning_map[tuning] for tuning in tuning_methods]
+    def process_tuning(cls, tuning_method: str) -> list:
+        """Processes a single tuning method string using the tuning_map."""
+        return [cls.tuning_map[tuning_method]]
 
     @classmethod
-    def process_hpo(cls, hpo_methods: list) -> list:
-        return [cls.hpo_map[hpo] for hpo in hpo_methods]
+    def process_hpo(cls, hpo_method: str) -> list:
+        """Processes a single HPO method string using the hpo_map."""
+        return [cls.hpo_map[hpo_method]]
 
     @classmethod
-    def process_criteria(cls, criteria: list) -> list:
-        return [cls.criteria_map[criterion] for criterion in criteria]
+    def process_criteria(cls, criterion: str) -> list:
+        """Processes a single criterion string using the criteria_map."""
+        return [cls.criteria_map[criterion]]
 
     @classmethod
-    def process_encoding(cls, encodings: list) -> list:
-        return [cls.encodings_map[encoding] for encoding in encodings]
+    def process_encoding(cls, encoding: str) -> list:
+        """Processes a single encoding string using the encodings_map."""
+        return [cls.encodings_map[encoding]]
 
     @classmethod
     def process_antibotics(cls, antibiotics: str) -> int:

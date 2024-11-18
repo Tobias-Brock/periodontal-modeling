@@ -149,7 +149,9 @@ class BaseResampler(BaseConfig, ABC):
         cat_vars = [col for col in self.all_cat_vars if col in X.columns]
 
         if cat_vars:
-            encoder = TargetEncoder(target_type=self.classification)
+            encoder = TargetEncoder(
+                target_type=self.classification, random_state=self.target_state
+            )
             X_encoded = encoder.fit_transform(X[cat_vars], y)
 
             if not jackknife and X_val is not None:

@@ -12,71 +12,54 @@ from ..benchmarking import BaseBenchmark, Baseline, Benchmarker
 from ..wrapper import BaseEvaluatorWrapper
 
 
-def load_benchmark(
-    path: Path = Path("reports"),
-    file_name: Optional[str] = None,
-    folder_name: Optional[str] = None,
-    verbose: bool = False,
-) -> pd.DataFrame:
-    """Loads the benchmark DataFrame from a CSV file.
+def load_benchmark(path: Union[str, Path]) -> pd.DataFrame:
+    """Loads the benchmark DataFrame from a specified CSV file.
 
     Args:
-        path (Path): Path from where the benchmark report is loaded.
-            Defaults to "reports".
-        file_name (Optional[str]): Name of the CSV file to load.
-            Defaults to 'benchmark.csv'.
-        folder_name (Optional[str]): Folder name to load the CSV from.
-            Defaults to a subfolder within "reports" named after the task.
-        verbose (bool): Prints loaded models. Defaults to False.
+        path (Union[str, Path]): Path to the benchmark CSV file.
 
     Returns:
         pd.DataFrame: Loaded benchmark DataFrame.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
     """
-    load_path = path / (folder_name if folder_name else "")
-    if not load_path.exists():
-        raise FileNotFoundError(f"The directory {load_path} does not exist.")
+    path = Path(path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
 
-    csv_file_name = file_name if file_name else "benchmark.csv"
-    csv_file_path = load_path / csv_file_name
+    if not path.exists():
+        raise FileNotFoundError(f"The file {path} does not exist.")
 
-    if not csv_file_path.exists():
-        raise FileNotFoundError(f"The file {csv_file_path} does not exist.")
-
-    benchmark_df = pd.read_csv(csv_file_path)
-    if verbose:
-        print(f"Loaded benchmark report from {csv_file_path}")
-
-    return benchmark_df
+    return pd.read_csv(path)
 
 
-def load_learners(
-    path: Path = Path("models"),
-    folder_name: Optional[str] = None,
-    verbose: bool = False,
-) -> dict:
+def load_learners(path: Union[str, Path], verbose: bool = False) -> dict:
     """Loads the learners from a specified directory.
 
     Args:
-        path (Path): Path from where models are loaded. Defaults to "models".
-        folder_name (Optional[str]): Folder name to load models from.
-            Defaults to a subfolder within "models" named after the task.
+        path (Union[str, Path]): Path to the directory where models are stored.
         verbose (bool): Prints loaded models. Defaults to False.
 
     Returns:
         dict: Dictionary containing loaded learners.
+
+    Raises:
+        FileNotFoundError: If the specified directory does not exist.
     """
-    path = Path(path) if not isinstance(path, Path) else path
-    load_path = path / (folder_name if folder_name else "")
-    if not load_path.exists():
-        raise FileNotFoundError(f"The directory {load_path} does not exist.")
+    path = Path(path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+
+    if not path.exists():
+        raise FileNotFoundError(f"The directory {path} does not exist.")
 
     learners_dict = {}
-    for model_file in load_path.glob("*.pkl"):
-        model_name = model_file.stem
+    for model_file in path.glob("*.pkl"):
         model = joblib.load(model_file)
-        learners_dict[model_name] = model
+        learners_dict[model_file.stem] = model
         if verbose:
-            print(f"Loaded model {model_name} from {model_file}")
+            print(f"Loaded model {model_file.stem} from {model_file}")
 
     return learners_dict
 
@@ -209,8 +192,7 @@ class BenchmarkWrapper(BaseBenchmark):
         cv_seed: int = 0,
         mlp_flag: bool = True,
         threshold_tuning: bool = True,
-        path: Path = Path("data/processed"),
-        name: str = "processed_data.csv",
+        path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes the BenchmarkWrapper.
 
@@ -243,9 +225,7 @@ class BenchmarkWrapper(BaseBenchmark):
             verbose (bool): If True, enables detailed logging during benchmarking.
                 Defaults to False.
             path (Path): Path to the directory containing processed data files.
-                Defaults to Path("data/processed").
-            name (str): File name for the processed data file. Defaults to
-                "processed_data.csv".
+                Defaults to Path("data/processed/processed_data.csv")
         """
         super().__init__(
             task=task,
@@ -268,7 +248,6 @@ class BenchmarkWrapper(BaseBenchmark):
             threshold_tuning=threshold_tuning,
             verbose=verbose,
             path=path,
-            name=name,
         )
         self.classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
 
@@ -282,7 +261,10 @@ class BenchmarkWrapper(BaseBenchmark):
 
         for encoding in self.encodings:
             baseline_df = Baseline(
-                task=self.task, encoding=encoding, path=self.path, name=self.name
+                task=self.task,
+                encoding=encoding,
+                path=self.path,
+                random_state=self.test_seed,
             ).baseline()
             baseline_df["Encoding"] = encoding
             baseline_dfs.append(baseline_df)
@@ -323,57 +305,60 @@ class BenchmarkWrapper(BaseBenchmark):
             threshold_tuning=self.threshold_tuning,
             verbose=self.verbose,
             path=self.path,
-            name=self.name,
         )
 
         return benchmarker.run_benchmarks()
 
-    def save_benchmark(
-        self,
-        benchmark_df: pd.DataFrame,
-        path: Path = Path("reports"),
-        file_name: Optional[str] = None,
-        folder_name: Optional[str] = None,
-    ) -> None:
-        """Saves the benchmark DataFrame to a specified directory as a CSV file.
+    @staticmethod
+    def save_benchmark(benchmark_df: pd.DataFrame, path: Union[str, Path]) -> None:
+        """Saves the benchmark DataFrame to the specified path as a CSV file.
 
         Args:
             benchmark_df (pd.DataFrame): The benchmark DataFrame to save.
-            path (Path): Path to save the benchmark report. Defaults to REPORTS_DIR.
-            file_name (Optional[str]): Name of CSV file. Defaults to 'benchmark.csv'.
-            folder_name (Optional[str]): Folder name for storing the CSV file.
-                Defaults to a subfolder within "reports" named after the task.
-        """
-        save_path = path / (folder_name if folder_name else self.task)
-        os.makedirs(save_path, exist_ok=True)
-        csv_file_name = (
-            file_name
-            if file_name and file_name.endswith(".csv")
-            else f"{file_name or 'benchmark'}.csv"
-        )
-        csv_file_path = save_path / csv_file_name
-        benchmark_df.to_csv(csv_file_path, index=False)
-        print(f"Saved benchmark report to {csv_file_path}")
+            path (Union[str, Path]): Path (including filename) where CSV file will be
+                saved.
 
-    def save_learners(
-        self,
-        learners_dict: dict,
-        path: Path = Path("models"),
-        folder_name: Optional[str] = None,
-    ) -> None:
-        """Saves the learners to a specified directory.
+        Raises:
+            ValueError: If the benchmark DataFrame is empty.
+            FileNotFoundError: If the parent directory of the path does not exist.
+        """
+        path = Path(path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if benchmark_df.empty:
+            raise ValueError("Benchmark DataFrame is empty and cannot be saved.")
+
+        if not path.suffix == ".csv":
+            path = path.with_suffix(".csv")
+
+        os.makedirs(path.parent, exist_ok=True)
+        benchmark_df.to_csv(path, index=False)
+        print(f"Saved benchmark report to {path}")
+
+    @staticmethod
+    def save_learners(learners_dict: dict, path: Union[str, Path]) -> None:
+        """Saves the learners to the specified directory.
 
         Args:
             learners_dict (dict): Dictionary containing learners to save.
-            path: (Path): Path to save models. Defaults to "models".
-            folder_name (Optional[str]): Folder name for storing models.
-                Defaults to a subfolder within "models" named after the task.
+            path (Union[str, Path]): Path to the directory where models will be saved.
+
+        Raises:
+            ValueError: If the learners dictionary is empty.
         """
-        save_path = path / (folder_name if folder_name else self.task)
-        os.makedirs(save_path, exist_ok=True)
+        path = Path(path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if not learners_dict:
+            raise ValueError("Learners dictionary is empty and cannot be saved.")
+
+        os.makedirs(path, exist_ok=True)
+
         for model_name, model in learners_dict.items():
             model_file_name = f"{model_name}.pkl"
-            model_path = save_path / model_file_name
+            model_path = path / model_file_name
             joblib.dump(model, model_path)
             print(f"Saved model {model_name} to {model_path}")
 
@@ -399,9 +384,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             and inference. Defaults to False.
         random_state (int): Random state for resampling. Defaults to 0.
         path (Path): Path to the directory containing processed data files.
-            Defaults to Path("data/processed").
-        name (str): File name for the processed data file. Defaults to
-            "processed_data.csv".
+            Defaults to Path("data/processed/processed_data.csv").
 
     Attributes:
         learners_dict (Dict): Contains metadata about trained models.
@@ -426,6 +409,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         X_test (pd.DataFrame): Test features.
         y_test (pd.Series): Test labels.
         base_target (Optional[np.ndarray]): Baseline target for evaluations.
+        baseline (Baseline): Basline class for model analysis.
         evaluator (ModelEvaluator): Evaluator for model metrics and feature importance.
         inference_engine (ModelInference): Model inference manager.
         trainer (Trainer): Trainer for model evaluation and optimization.
@@ -500,8 +484,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         aggregate: bool = True,
         verbose: bool = False,
         random_state: int = 0,
-        path: Path = Path("data/processed"),
-        name: str = "processed_data.csv",
+        path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup.
 
@@ -515,9 +498,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 and inference. Defaults to False.
             random_state (int): Random state for resampling. Defaults to 0.
             path (Path): Path to the directory containing processed data files.
-                Defaults to Path("data/processed").
-            name (str): File name for the processed data file. Defaults to
-                "processed_data.csv".
+                Defaults to Path("data/processed/processed_data.csv").
+
         """
         super().__init__(
             learners_dict=learners_dict,
@@ -526,7 +508,6 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             verbose=verbose,
             random_state=random_state,
             path=path,
-            name=name,
         )
 
     def wrapped_evaluation(
@@ -534,6 +515,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         cm: bool = True,
         cm_base: bool = True,
         brier_groups: bool = True,
+        calibration: bool = True,
         tight_layout: bool = False,
     ) -> None:
         """Runs evaluation on the best-ranked model.
@@ -543,6 +525,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             cm_base (bool): Plot confusion matrix vs value before treatment.
                 Defaults to True.
             brier_groups (bool): Calculate Brier score groups. Defaults to True.
+            calibration (bool): Plots model calibration. Defaults to True.
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
         """
@@ -564,6 +547,44 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 )
         if brier_groups:
             self.evaluator.brier_score_groups(tight_layout=tight_layout, task=self.task)
+        if calibration:
+            self.evaluator.calibration_plot(task=self.task, tight_layout=tight_layout)
+
+    def compare_bss(
+        self,
+        base: Optional[str] = None,
+        revaluation: Optional[str] = None,
+        true_preds: bool = False,
+        brier_threshold: Optional[float] = None,
+        tight_layout: bool = False,
+    ) -> None:
+        """Compares Brier Skill Score of model with baseline on test set.
+
+        Args:
+            base (Optional[str]): Baseline variable for comparison. Defaults to None.
+            revaluation (Optional[str]): Revaluation variable. Defaults to None.
+            true_preds (bool): Subset by correct predictions. Defaults to False.
+            brier_threshold (Optional[float]): Filters observations ny Brier score
+                threshold. Defaults to None.
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
+        """
+        baseline_models, _, _ = self.baseline.train_baselines()
+        self.evaluator.X, self.evaluator.y, patients = self._test_filters(
+            X=self.evaluator.X,
+            y=self.evaluator.y,
+            base=base,
+            revaluation=revaluation,
+            true_preds=true_preds,
+            brier_threshold=brier_threshold,
+        )
+        self.evaluator.bss_comparison(
+            baseline_models=baseline_models,
+            classification=self.classification,
+            num_patients=patients,
+            tight_layout=tight_layout,
+        )
+        self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
     def evaluate_cluster(
         self,
@@ -594,12 +615,15 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
         """
-        self.evaluator.X, self.evaluator.y = self._test_filters(
+        self.evaluator.X, self.evaluator.y, patients = self._test_filters(
+            X=self.evaluator.X,
+            y=self.evaluator.y,
             base=base,
             revaluation=revaluation,
             true_preds=true_preds,
             brier_threshold=brier_threshold,
         )
+        print(f"Number of patients in test set: {patients}")
         self.evaluator.analyze_brier_within_clusters(
             n_clusters=n_cluster, tight_layout=tight_layout
         )
@@ -630,12 +654,15 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             brier_threshold (Optional[float]): Filters observations ny Brier score
                 threshold. Defaults to None.
         """
-        self.evaluator.X, self.evaluator.y = self._test_filters(
+        self.evaluator.X, self.evaluator.y, patients = self._test_filters(
+            X=self.evaluator.X,
+            y=self.evaluator.y,
             base=base,
             revaluation=revaluation,
             true_preds=true_preds,
             brier_threshold=brier_threshold,
         )
+        print(f"Number of patients in test set: {patients}")
         self.evaluator.evaluate_feature_importance(fi_types=fi_types)
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 

@@ -31,8 +31,7 @@ class Model(BaseConfig):
     hyperparameter optimization (HPO) configurations.
 
     Inherits:
-        - `BaseConfig`: Provides base configuration settings, including random
-            state and model parameters.
+        - `BaseConfig`: Provides base configuration settings.
 
     Args:
         learner (str): The machine learning algorithm to use. Options include:

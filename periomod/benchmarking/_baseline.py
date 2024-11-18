@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import pandas as pd
 from sklearn.dummy import DummyClassifier
@@ -10,6 +10,46 @@ from ..base import BaseConfig
 from ..data import ProcessedDataLoader
 from ..resampling import Resampler
 from ..training import final_metrics, get_probs
+
+column_order_binary = [
+    "Model",
+    "F1 Score",
+    "Precision",
+    "Recall",
+    "Accuracy",
+    "Brier Score",
+    "Brier Skill Score",
+    "ROC AUC Score",
+    "Confusion Matrix",
+]
+
+column_order_multiclass = [
+    "Model",
+    "Macro F1",
+    "Accuracy",
+    "Class F1 Scores",
+    "Multiclass Brier Score",
+    "Brier Skill Score",
+]
+
+
+def _brier_skill_score(row, baseline_brier, ref_brier, metric_column):
+    """Calculates the Brier Skill Score (BSS) for a given row.
+
+    Args:
+        row (pd.Series): The row from the DataFrame.
+        baseline_brier (float): Brier score of the baseline (Dummy Classifier).
+        ref_brier (float): Brier score of the reference model (Logistic Regression).
+        metric_column (str): Column name for the Brier Score.
+
+    Returns:
+        float or None: The computed BSS, or None for the Dummy Classifier.
+    """
+    if row["Model"] == "Dummy Classifier":
+        return None
+    if row["Model"] == "Logistic Regression":
+        return 1 - (row[metric_column] / baseline_brier)
+    return 1 - (row[metric_column] / ref_brier)
 
 
 class Baseline(BaseConfig):
@@ -35,8 +75,7 @@ class Baseline(BaseConfig):
             If not provided, default models are initialized.
         n_jobs (int): Number of parallel jobs. Defaults to -1.
         path (Path): Path to the directory containing processed data files.
-        name (str): File name for the processed data file. Defaults to
-            "processed_data.csv".
+            Defaults to Path("data/processed/processed_data.csv").
 
     Attributes:
         classification (str): Specifies classification type ('binary' or
@@ -52,9 +91,9 @@ class Baseline(BaseConfig):
             represented as a tuple containing the model's name and the initialized
             model object.
         path (Path): Path to the directory containing processed data files.
-        name (str): File name for the processed data file.
 
     Methods:
+        train_baselines: Trains and returns baseline models with test data.
         baseline: Trains and evaluates each model in the models list, returning
             a DataFrame with evaluation metrics.
 
@@ -84,27 +123,9 @@ class Baseline(BaseConfig):
         dummy_strategy: str = "prior",
         models: Union[List[Tuple[str, object]], None] = None,
         n_jobs: int = -1,
-        path: Path = Path("data/processed"),
-        name: str = "processed_data.csv",
+        path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
-        """Initializes the Baseline class with default or user-specified models.
-
-        Args:
-            task (str): Task name used to determine the classification type.
-            encoding (str): Encoding type for categorical columns.
-            random_state (int, optional): Random seed for reproducibility.
-                Defaults to 0.
-            lr_solver (str, optional): Solver used by Logistic Regression. Defaults to
-                'saga'.
-            dummy_strategy (str, optional): Strategy for DummyClassifier, defaults to
-                'prior'.
-            models (List[Tuple[str, object]], optional): List of models to benchmark.
-                If not provided, default models are initialized.
-            n_jobs (int): Number of parallel jobs. Defaults to -1.
-            path (Path): Path to the directory containing processed data files.
-            name (str): File name for the processed data file. Defaults to
-                "processed_data.csv".
-        """
+        """Initializes the Baseline class with default or user-specified models."""
         if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
             self.classification = "binary"
         elif task == "pdgrouprevaluation":
@@ -122,7 +143,6 @@ class Baseline(BaseConfig):
         self.lr_solver = lr_solver
         self.random_state = random_state
         self.path = path
-        self.name = name
         self.default_models: Union[list[str], None]
 
         if models is None:
@@ -151,6 +171,75 @@ class Baseline(BaseConfig):
             self.models = models
             self.default_models = None
 
+    @staticmethod
+    def _bss_helper(
+        results_df: pd.DataFrame, classification: str
+    ) -> Tuple[pd.DataFrame, List[str]]:
+        """Calculates Brier Skill Score (BSS) and determines column order.
+
+        Args:
+            results_df (pd.DataFrame): DataFrame containing evaluation metrics.
+            classification (str): Classification type ('binary' or 'multiclass').
+
+        Returns:
+            Tuple[pd.DataFrame, List[str]]: Updated DataFrame with BSS and column order.
+        """
+        if classification == "binary":
+            metric_column = "Brier Score"
+            column_order = column_order_binary
+        elif classification == "multiclass":
+            metric_column = "Multiclass Brier Score"
+            column_order = column_order_multiclass
+            if "Class F1 Scores" in results_df.columns:
+                results_df["Class F1 Scores"] = results_df["Class F1 Scores"].apply(
+                    lambda scores: [round(score, 4) for score in scores]
+                )
+        else:
+            raise ValueError(f"Unsupported classification type: {classification}")
+
+        if metric_column in results_df.columns:
+            dummy_brier = results_df.loc[
+                results_df["Model"] == "Dummy Classifier", metric_column
+            ].iloc[0]
+            logreg_brier = results_df.loc[
+                results_df["Model"] == "Logistic Regression", metric_column
+            ].iloc[0]
+            results_df["Brier Skill Score"] = results_df.apply(
+                lambda row: _brier_skill_score(
+                    row, dummy_brier, logreg_brier, metric_column
+                ),
+                axis=1,
+            ).round(4)
+
+        return results_df, column_order
+
+    def train_baselines(
+        self,
+    ) -> Tuple[Dict[Tuple[str, str], Any], pd.DataFrame, pd.Series]:
+        """Trains each model in the models list and returns related data splits.
+
+        Returns:
+            Tuple:
+                - Dictionary containing trained models.
+                - Testing feature set (X_test).
+                - Testing labels (y_test).
+        """
+        df = self.dataloader.load_data(path=self.path)
+        df = self.dataloader.transform_data(df=df)
+        train_df, test_df = self.resampler.split_train_test_df(
+            df=df, seed=self.random_state
+        )
+        X_train, y_train, X_test, y_test = self.resampler.split_x_y(
+            train_df=train_df, test_df=test_df
+        )
+
+        trained_models = {}
+        for model_name, model in self.models:
+            model.fit(X_train, y_train)
+            trained_models[(model_name, "Baseline")] = model
+
+        return trained_models, X_test, y_test
+
     def baseline(self) -> pd.DataFrame:
         """Trains and evaluates each model in the models list on the given dataset.
 
@@ -162,24 +251,17 @@ class Baseline(BaseConfig):
             DataFrame: A DataFrame containing the evaluation metrics for each
                 baseline model, with model names as row indices.
         """
-        df = self.dataloader.load_data(path=self.path, name=self.name)
-        df = self.dataloader.transform_data(df=df)
-        train_df, test_df = self.resampler.split_train_test_df(
-            df=df, seed=self.random_state
-        )
-        X_train, y_train, X_test, y_test = self.resampler.split_x_y(
-            train_df=train_df, test_df=test_df
-        )
-
+        trained_models, X_test, y_test = self.train_baselines()
         results = []
-        model_names = []
-        trained_models = {}
 
         for model_name, model in self.models:
-            model.fit(X_train, y_train)
-            preds = model.predict(X_test)
+            preds = trained_models[(model_name, "Baseline")].predict(X_test)
             probs = (
-                get_probs(model=model, classification=self.classification, X=X_test)
+                get_probs(
+                    model=trained_models[(model_name, "Baseline")],
+                    classification=self.classification,
+                    X=X_test,
+                )
                 if hasattr(model, "predict_proba")
                 else None
             )
@@ -191,10 +273,21 @@ class Baseline(BaseConfig):
             )
             metrics["Model"] = model_name
             results.append(metrics)
-            model_names.append(model_name)
-            trained_models[(model_name, "Baseline")] = model
 
-        results_df = pd.DataFrame(results)
+        results_df = pd.DataFrame(results).drop(
+            columns=["Best Threshold"], errors="ignore"
+        )
+
+        results_df, column_order = self._bss_helper(
+            results_df, classification=self.classification
+        )
+
+        existing_columns = [col for col in column_order if col in results_df.columns]
+        results_df = results_df[
+            existing_columns
+            + [col for col in results_df.columns if col not in existing_columns]
+        ].round(4)
+
         if self.default_models is not None:
             baseline_order = [
                 "Dummy Classifier",

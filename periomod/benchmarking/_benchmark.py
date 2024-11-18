@@ -305,8 +305,7 @@ class Benchmarker(BaseBenchmark):
         verbose (bool): If True, enables detailed logging during benchmarking.
             Defaults to True.
         path (Path): Path to the directory containing processed data files.
-        name (str): File name for the processed data file. Defaults to
-            "processed_data.csv".
+            Defaults to Path("data/processed/processed_data.csv").
 
     Attributes:
         task (str): The specified task for evaluation.
@@ -386,8 +385,7 @@ class Benchmarker(BaseBenchmark):
         mlp_flag: bool = True,
         threshold_tuning: bool = True,
         verbose: bool = True,
-        path: Path = Path("data/processed"),
-        name: str = "processed_data.csv",
+        path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initialize the Experiment with different tasks, learners, etc.
 
@@ -422,8 +420,7 @@ class Benchmarker(BaseBenchmark):
             verbose (bool): If True, enables detailed logging during benchmarking.
                 Defaults to True.
             path (Path): Path to the directory containing processed data files.
-            name (str): File name for the processed data file. Defaults to
-                "processed_data.csv".
+                Defaults to Path("data/processed/processed_data.csv").
         """
         super().__init__(
             task=task,
@@ -446,7 +443,6 @@ class Benchmarker(BaseBenchmark):
             threshold_tuning=threshold_tuning,
             verbose=verbose,
             path=path,
-            name=name,
         )
         self.data_cache = self._load_data_for_tasks()
 
@@ -462,7 +458,7 @@ class Benchmarker(BaseBenchmark):
 
             if cache_key not in data_cache:
                 dataloader = ProcessedDataLoader(task=self.task, encoding=encoding)
-                df = dataloader.load_data(path=self.path, name=self.name)
+                df = dataloader.load_data(path=self.path)
                 transformed_df = dataloader.transform_data(df)
                 data_cache[cache_key] = transformed_df
 

@@ -380,7 +380,11 @@ class DescriptivesPlotter:
             name (str): Filename for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        value_counts = self.df[outcome].value_counts()
+        df_temp = self.df
+        if outcome == "improvement" and "pdgroupbase" in self.df.columns:
+            df_temp = df_temp.query("pdgroupbase in [1, 2]")
+
+        value_counts = df_temp[outcome].value_counts()
         x_values = value_counts.index.astype(str)
         heights = value_counts.values
 
@@ -407,13 +411,12 @@ class DescriptivesPlotter:
         for spine in ax.spines.values():
             spine.set_linewidth(1)
         ax.tick_params(width=1)
-
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
         if save:
             if name is None:
-                raise ValueError("'name' argument must required when 'save' is True.")
+                raise ValueError("'name' argument is required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
         plt.show()

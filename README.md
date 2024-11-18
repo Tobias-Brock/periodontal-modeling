@@ -1,6 +1,6 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
 ![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
-![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
+![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 
@@ -38,7 +38,7 @@
 - `xgboost==2.1.1`
 
 
-Ensure you have Python 3.11 installed. Install the package via pip:
+Ensure you have Python 3 installed. You may preferebly setup a new environment with Python 3.10 or 3.11. Install the package with all its dependencies via pip:
 
 ```bash
 pip install periodontal-modeling
@@ -86,12 +86,12 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 engine = StaticProcessEngine()
-df = engine.load_data(path="data/raw", name="Periodontitis_ML_Dataset.xlsx")
+df = engine.load_data(path="data/raw/Periodontitis_ML_Dataset.xlsx")
 df = engine.process_data(df)
-engine.save_data(df=df, path="data/processed", name="processed_data.csv")
+engine.save_data(df=df, path="data/processed/processed_data.csv")
 ```
 
-The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement".
+The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement". Note: When using the loading methods within a notebook it is recommended to set absolute paths for the path arguments for data loading and saving.
 
 ```python
 from periomod.data import ProcessedDataLoader
@@ -100,9 +100,9 @@ from periomod.data import ProcessedDataLoader
 dataloader = ProcessedDataLoader(
     task="pocketclosure", encoding="one_hot", encode=True, scale=True
 )
-df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 df = dataloader.transform_data(df=df)
-dataloader.save_data(df=df, path="data/training", name="training_data.csv")
+dataloader.save_data(df=df, path="data/training/training_data.csv")
 ```
 
 ### Descriptives Module
@@ -113,7 +113,7 @@ dataloader.save_data(df=df, path="data/training", name="training_data.csv")
 from periomod.data import ProcessedDataLoader
 from periomod.descriptives import DescriptivesPlotter
 
-df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 
 # instantiate plotter with dataframe
 plotter = DescriptivesPlotter(df)
@@ -130,7 +130,7 @@ The `Resampler` class allows for straightforward grouped splitting operations. I
 from periomod.data import ProcessedDataLoader
 from periomod.resampling import Resampler
 
-df = dataloader.load_data(path="data/training", name="training_data.csv")
+df = dataloader.load_data(path="data/processed/training_data.csv")
 
 resampler = Resampler(classification="binary", encoding="one_hot")
 train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)
@@ -325,7 +325,7 @@ from periomod.data import ProcessedDataLoader
 
 # Load a dataframe with the correct target and encoding selected
 dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
-df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 df = dataloader.transform_data(df=df)
 
 experiment = Experiment(
@@ -361,8 +361,7 @@ benchmarker = Benchmarker(
     encodings=["one_hot", "target"],
     sampling=[None, "upsampling", "downsampling"],
     factor=2,
-    path="/data/processed",
-    name="processed_data.csv",
+    path="/data/processed/processed_data.csv",
 )
 
 # Running all benchmarks
@@ -390,8 +389,7 @@ benchmarker = BenchmarkWrapper(
     criteria=["f1", "brier_score"],
     sampling=["upsampling"],
     factor=2,
-    path="/data/processed",
-    name="processed_data.csv",
+    path="/data/processed/processed_data.csv",
 )
 
 # Run baseline benchmarking
@@ -403,15 +401,11 @@ benchmark, learners = benchmarker.wrapped_benchmark()
 # Save the benchmark results
 benchmarker.save_benchmark(
     benchmark_df=benchmark,
-    path="reports",
-    file_name="benchmark.csv",
-    folder_name="experiment",
+    path="reports/experiment/benchmark.csv",
 )
 
 # Save the trained learners
-benchmarker.save_learners(
-    learners_dict=learners, path="models", folder_name="experiment"
-)
+benchmarker.save_learners(learners_dict=learners, path="models/experiment")
 ```
 
 The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomod.inference` modules.
@@ -420,12 +414,12 @@ The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomo
 from periomod.base import Patient, patient_to_dataframe
 from periomod.wrapper import EvaluatorWrapper, load_benchmark, load_learners
 
-benchmark = load_benchmark(file_name="benchmark.csv", folder_name="experiment")
-learners = load_learners(path="models", folder_name="experiments")
+benchmark = load_benchmark(path="reports/experiment/benchmark.csv")
+learners = load_learners(path="models/experiments")
 
 # Initialize the evaluator with learners from BenchmarkWrapper and specified criterion
 evaluator = EvaluatorWrapper(
-    learners_dict=learners, criterion="f1", path="data/processed"
+    learners_dict=learners, criterion="f1", path="data/processed/processed_data.csv"
 )
 
 # Evaluate the model and generate plots
