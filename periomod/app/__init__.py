@@ -2,6 +2,7 @@
 
 from periomod.app._app_helpers import (  # noqa: I001
     _app_inference,
+    _baseline_wrapper,
     _benchmarks_wrapper,
     _brier_score_wrapper,
     _collect_data,
@@ -11,6 +12,7 @@ from periomod.app._app_helpers import (  # noqa: I001
     _load_data_wrapper,
     _plot_cluster,
     _plot_cluster_wrapper,
+    _plot_calibration,
     _plot_cm,
     _plot_fi,
     _plot_fi_wrapper,
@@ -35,6 +37,7 @@ __all__ = [
     "perioapp",
     "all_teeth",
     "_app_inference",
+    "_baseline_wrapper",
     "_benchmarks_wrapper",
     "_brier_score_wrapper",
     "_load_data_engine",
@@ -42,6 +45,7 @@ __all__ = [
     "_process_data",
     "_save_data",
     "_load_data_wrapper",
+    "_plot_calibration",
     "_plot_cluster",
     "_plot_cluster_wrapper",
     "_plot_cm",

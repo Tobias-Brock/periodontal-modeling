@@ -17,6 +17,7 @@ import gradio as gr
 
 from periomod.app import (
     _app_inference,
+    _baseline_wrapper,
     _benchmarks_wrapper,
     _brier_score_wrapper,
     _collect_data,
@@ -24,6 +25,7 @@ from periomod.app import (
     _handle_tooth_selection,
     _load_data_engine,
     _load_data_wrapper,
+    _plot_calibration,
     _plot_cluster_wrapper,
     _plot_cm,
     _plot_fi_wrapper,
@@ -314,7 +316,7 @@ with gr.Blocks() as perioapp:
         with gr.Tab("Benchmarking"):
             path_input = gr.Textbox(
                 label="File Path",
-                value="data/processed" + "/" + "processed_data.csv",
+                value="data/processed/processed_data.csv",
                 info="Specify the path to the processed data file for benchmarking.",
             )
 
@@ -343,30 +345,30 @@ with gr.Blocks() as perioapp:
                 )
 
             with gr.Row():
-                tuning_methods_input = gr.CheckboxGroup(
+                tuning_methods_input = gr.Radio(
                     label="Tuning Methods",
                     choices=["Holdout", "Cross-Validation"],
-                    value=["Holdout"],
+                    value="Holdout",
                     info="Choose the validation strategy to tune models.",
                 )
-                hpo_methods_input = gr.CheckboxGroup(
+                hpo_methods_input = gr.Radio(
                     label="HPO Methods",
                     choices=["HEBO", "Random Search"],
-                    value=["HEBO"],
+                    value="HEBO",
                     info="Select hyperparameter optimization method(s).",
                 )
-                criteria_input = gr.CheckboxGroup(
+                criteria_input = gr.Radio(
                     label="Criteria",
                     choices=["F1 Score", "Brier Score", "Macro F1 Score"],
-                    value=["F1 Score"],
+                    value="F1 Score",
                     info="Choose evaluation metrics to assess model performance.",
                 )
 
             with gr.Row():
-                encodings_input = gr.CheckboxGroup(
+                encodings_input = gr.Radio(
                     label="Encoding",
                     choices=["One-hot", "Target"],
-                    value=["One-hot"],
+                    value="One-hot",
                     info="Select encoding type(s) for categorical features.",
                 )
                 sampling_input = gr.CheckboxGroup(
@@ -385,7 +387,7 @@ with gr.Blocks() as perioapp:
                 n_configs_input = gr.Number(
                     label="Num Configs",
                     value=3,
-                    info="Enter number of configurations for hyperparameter tuning.",
+                    info="Enter number of iterations for hyperparameter tuning.",
                 )
                 cv_folds_input = gr.Number(
                     label="CV Folds",
@@ -441,9 +443,11 @@ with gr.Blocks() as perioapp:
                     info="Enable or disable threshold tuning for classification tasks.",
                 )
 
-            run_button = gr.Button("Run Benchmark")
+            run_baseline = gr.Button("Run Baseline")
+            baseline_output = gr.Dataframe(label="Baseline Results")
+            run_benchmark = gr.Button("Run Benchmark")
 
-            results_output = gr.Dataframe(label="Benchmark Results")
+            benchmark_output = gr.Dataframe(label="Benchmark Results")
             metrics_plot_output = gr.Plot(label="Metrics Comparison")
 
             path_input.change(
@@ -451,7 +455,17 @@ with gr.Blocks() as perioapp:
             )
             task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
 
-            run_button.click(
+            run_baseline.click(
+                fn=_baseline_wrapper,
+                inputs=[
+                    task_input,
+                    encodings_input,
+                    path_input,
+                ],
+                outputs=[baseline_output],
+            )
+
+            run_benchmark.click(
                 fn=_benchmarks_wrapper,
                 inputs=[
                     task_input,
@@ -474,7 +488,7 @@ with gr.Blocks() as perioapp:
                     n_jobs_input,
                     path_input,
                 ],
-                outputs=[results_output, metrics_plot_output, models_state],
+                outputs=[benchmark_output, metrics_plot_output, models_state],
             )
 
         with gr.Tab("Evaluation"):
@@ -530,11 +544,14 @@ with gr.Blocks() as perioapp:
             generate_brier_scores_button = gr.Button("Generate Brier Scores")
             brier_score_plot = gr.Plot()
 
+            generate_calibration_button = gr.Button("Generate Calibration Plot")
+            calibration_plot = gr.Plot()
+
             with gr.Row():
-                importance_type_input = gr.CheckboxGroup(
+                importance_type_input = gr.Radio(
                     label="Importance Types",
                     choices=["shap", "permutation", "standard"],
-                    value=["shap"],
+                    value="shap",
                 )
                 aggregate_fi_input = gr.Checkbox(
                     label="Aggregate Features",
@@ -608,6 +625,18 @@ with gr.Blocks() as perioapp:
                     task_input,
                 ],
                 outputs=brier_score_plot,
+            )
+
+            generate_calibration_button.click(
+                fn=_plot_calibration,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
+                outputs=calibration_plot,
             )
 
             generate_feature_importance_button.click(

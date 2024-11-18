@@ -62,6 +62,7 @@ nav:
   - periomod.evaluation:
       - Overview: "reference/evaluation/index.md"
       - BaseModelEvaluator: "reference/evaluation/basemodelevaluator.md"
+      - EvaluatorMethods: "reference/evaluation/evaluatormethods.md"
       - ModelEvaluator: "reference/evaluation/modelevaluator.md"
   - periomod.inference:
       - Overview: "reference/inference/index.md"

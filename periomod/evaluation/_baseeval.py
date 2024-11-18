@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import Rectangle
@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.calibration import calibration_curve
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, confusion_matrix
@@ -14,7 +15,7 @@ from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 
 from ..base import BaseConfig
-from ..training import get_probs
+from ..training import brier_loss_multi, get_probs
 
 
 def _is_one_hot_encoded(feature: str) -> bool:
@@ -63,24 +64,25 @@ def _label_mapping(task: Optional[str]) -> dict:
         raise ValueError(f"Task: {task} invalid.")
 
 
-class BaseModelEvaluator(BaseConfig, ABC):
-    """Abstract base class for evaluating machine learning model performance.
+task_map = {
+    "pocketclosure": "Pocket closure",
+    "pocketclosureinf": "Pocket closure PdBaseline > 3",
+    "improvement": "Pocket improvement",
+    "pdgrouprevaluation": "Pocket groups",
+}
 
-    This class provides methods for calculating model performance metrics,
-    plotting confusion matrices, and evaluating feature importance, with options
-    for handling one-hot encoded features and aggregating SHAP values.
+
+class EvaluatorMethods(BaseConfig):
+    """Base class that contains methods for ModelEvalutor.
 
     Inherits:
-        - `BaseLoader`: Provides loading and saving capabilities for processed data.
-        - `ABC`: Specifies abstract methods for subclasses to implement.
+        - `BaseConfig`: Provides base configuration settings.
 
     Args:
         X (pd.DataFrame): The test dataset features.
         y (pd.Series): The test dataset labels.
-        model (Optional[sklearn.base.BaseEstimator]): A trained sklearn model instance
+        model (sklearn.base.BaseEstimator): A trained sklearn model instance
             for single-model evaluation.
-        models (Optional[List[sklearn.base.BaseEstimator]]): A list of trained models
-            for evaluation.
         encoding (Optional[str]): Encoding type for categorical features, e.g.,
             'one_hot' or 'target', used for labeling and grouping in plots.
         aggregate (bool): If True, aggregates the importance values of multi-category
@@ -91,8 +93,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         y (pd.Series): Holds the test dataset labels for evaluation.
         model (Optional[sklearn.base.BaseEstimator]): The primary model instance used
             for evaluation, if single-model evaluation is performed.
-        models (List[sklearn.base.BaseEstimator]): List of trained models for
-            evaluation, if applicable.
         encoding (Optional[str]): Indicates the encoding type used, which impacts
             plot titles and feature grouping in evaluations.
         aggregate (bool): Indicates whether to aggregate importance values of
@@ -106,13 +106,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         model_predictions: Generates model predictions for evaluator's feature
             set, applying threshold-based binarization if specified, and returns
             predictions as a series indexed by instance.
-        brier_score_groups: Calculates Brier score within specified groups.
-        plot_confusion_matrix: Generates a styled confusion matrix heatmap
-            for the test data and model predictions.
-        evaluate_feature_importance: Abstract method for evaluating feature
-            importance across models.
-        analyze_brier_within_clusters: Abstract method for analyzing Brier
-            score distribution within clusters.
     """
 
     def __init__(
@@ -124,18 +117,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
             LogisticRegression,
             MLPClassifier,
             XGBClassifier,
-            None,
-        ],
-        models: Union[
-            List[
-                Union[
-                    RandomForestClassifier,
-                    LogisticRegression,
-                    MLPClassifier,
-                    XGBClassifier,
-                ]
-            ],
-            None,
         ],
         encoding: Optional[str],
         aggregate: bool,
@@ -145,7 +126,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         self.X = X
         self.y = y
         self.model = model
-        self.models = models if models is not None else []
         self.encoding = encoding
         self.aggregate = aggregate
 
@@ -155,11 +135,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         Returns:
             Series: Brier scores for each instance.
         """
-        if not hasattr(self.model, "predict_proba"):
-            raise ValueError("The provided model cannot predict probabilities.")
-        if self.model is None:
-            raise ValueError("No model is available for predictions.")
-
         probas = self.model.predict_proba(self.X)
 
         if probas.shape[1] == 1:
@@ -183,9 +158,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         Returns:
             pred: Predicted labels as a series.
         """
-        if not self.model:
-            raise ValueError("No model available for predictions.")
-
         if (
             hasattr(self.model, "best_threshold")
             and self.model.best_threshold is not None
@@ -202,6 +174,241 @@ class BaseModelEvaluator(BaseConfig, ABC):
             pred = pd.Series(self.model.predict(self.X), index=self.X.index)
 
         return pred
+
+    def _feature_mapping(self, features: List[str]) -> List[str]:
+        """Maps a list of feature names to their original labels.
+
+        Args:
+            features (List[str]): List of feature names to be mapped.
+
+        Returns:
+            List[str]: List of mapped feature names, with original labels applied
+                where available.
+        """
+        return [self.feature_mapping.get(feature, feature) for feature in features]
+
+    @staticmethod
+    def _aggregate_one_hot_importances(
+        fi_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Aggregate importance scores of one-hot encoded variables.
+
+        Args:
+            fi_df (pd.DataFrame): DataFrame with features and their
+                importance scores.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with aggregated importance scores.
+        """
+        base_names = fi_df["Feature"].apply(_get_base_name)
+        aggregated_importances = (
+            fi_df.groupby(base_names)["Importance"].sum().reset_index()
+        )
+        aggregated_importances.columns = ["Feature", "Importance"]
+        original_features = fi_df["Feature"][
+            ~fi_df["Feature"].apply(_is_one_hot_encoded)
+        ].unique()
+
+        aggregated_or_original = (
+            pd.concat(
+                [
+                    aggregated_importances,
+                    fi_df[fi_df["Feature"].isin(original_features)],
+                ]
+            )
+            .drop_duplicates()
+            .sort_values(by="Importance", ascending=False)
+        )
+
+        return aggregated_or_original.reset_index(drop=True)
+
+    @staticmethod
+    def _aggregate_shap_one_hot(
+        shap_values: np.ndarray, feature_names: List[str]
+    ) -> Tuple[np.ndarray, List[str]]:
+        """Aggregate SHAP values of one-hot encoded variables.
+
+        Args:
+            shap_values (np.ndarray): SHAP values.
+            feature_names (List[str]): List of features corresponding to SHAP values.
+
+        Returns:
+            Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
+            feature names.
+        """
+        if shap_values.ndim == 3:
+            shap_values = shap_values.mean(axis=2)
+
+        shap_df = pd.DataFrame(shap_values, columns=feature_names)
+        base_names = [_get_base_name(feature=feature) for feature in shap_df.columns]
+        feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
+        aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
+        return aggregated_shap_df.values, list(aggregated_shap_df.columns)
+
+    @staticmethod
+    def _aggregate_one_hot_features_for_clustering(X: pd.DataFrame) -> pd.DataFrame:
+        """Aggregate one-hot encoded features for clustering.
+
+        Args:
+            X (pd.DataFrame): Input DataFrame with one-hot encoded features.
+
+        Returns:
+            pd.DataFrame: DataFrame with aggregated one-hot encoded features.
+        """
+        X_copy = X.copy()
+        one_hot_encoded_cols = [
+            col for col in X_copy.columns if _is_one_hot_encoded(feature=col)
+        ]
+        base_names = {col: _get_base_name(feature=col) for col in one_hot_encoded_cols}
+        aggregated_data = X_copy.groupby(base_names, axis=1).sum()
+        non_one_hot_cols = [
+            col for col in X_copy.columns if col not in one_hot_encoded_cols
+        ]
+        return pd.concat([X_copy[non_one_hot_cols], aggregated_data], axis=1)
+
+
+class BaseModelEvaluator(EvaluatorMethods, ABC):
+    """Abstract base class for evaluating machine learning model performance.
+
+    This class provides methods for calculating model performance metrics,
+    plotting confusion matrices, and evaluating feature importance, with options
+    for handling one-hot encoded features and aggregating SHAP values.
+
+    Inherits:
+        - `EvaluatorMethods`: Provides prediction and encoding methods.
+        - `ABC`: Specifies abstract methods for subclasses to implement.
+
+    Args:
+        X (pd.DataFrame): The test dataset features.
+        y (pd.Series): The test dataset labels.
+        model (sklearn.base.BaseEstimator): A trained sklearn model instance
+            for single-model evaluation.
+        encoding (Optional[str]): Encoding type for categorical features, e.g.,
+            'one_hot' or 'target', used for labeling and grouping in plots.
+        aggregate (bool): If True, aggregates the importance values of multi-category
+            encoded features for interpretability.
+
+    Attributes:
+        X (pd.DataFrame): Holds the test dataset features for evaluation.
+        y (pd.Series): Holds the test dataset labels for evaluation.
+        model (Optional[sklearn.base.BaseEstimator]): The primary model instance used
+            for evaluation, if single-model evaluation is performed.
+        encoding (Optional[str]): Indicates the encoding type used, which impacts
+            plot titles and feature grouping in evaluations.
+        aggregate (bool): Indicates whether to aggregate importance values of
+            multi-category encoded features, enhancing interpretability in feature
+            importance plots.
+
+    Methods:
+        calibration_plot: Plots calibration plot for model probabilities.
+        brier_score_groups: Calculates Brier score within specified groups.
+        bss_comparison: Compares Brier Skill Score of model with baseline.
+        plot_confusion_matrix: Generates a styled confusion matrix heatmap
+            for the test data and model predictions.
+
+    Inherited Methods:
+        - `brier_scores`: Calculates Brier score for each instance in the evaluator's
+            dataset based on the model's predicted probabilities. Returns series of
+            Brier scores indexed by instance.
+        - `model_predictions`: Generates model predictions for evaluator's feature
+            set, applying threshold-based binarization if specified, and returns
+            predictions as a series indexed by instance.
+
+    Abstract Methods:
+        - `evaluate_feature_importance`: Abstract method for evaluating feature
+            importance across models.
+        - `analyze_brier_within_clusters`: Abstract method for analyzing Brier
+            score distribution within clusters.
+    """
+
+    def __init__(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model: Union[
+            RandomForestClassifier,
+            LogisticRegression,
+            MLPClassifier,
+            XGBClassifier,
+        ],
+        encoding: Optional[str],
+        aggregate: bool,
+    ) -> None:
+        """Initialize the FeatureImportance class."""
+        super().__init__(X=X, y=y, model=model, encoding=encoding, aggregate=aggregate)
+
+    def calibration_plot(
+        self,
+        n_bins: int = 10,
+        tight_layout: bool = False,
+        task: Optional[str] = None,
+    ) -> None:
+        """Generates calibration plots for the model's predicted probabilities.
+
+        Creates a calibration plot for binary classification or one for each
+        class in a multiclass setup.
+
+        Args:
+            n_bins (int): Number of bins for plotting.
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
+            task (Optional[str]): Task name to apply label mapping for the plot.
+                Defaults to None.
+
+        Raises:
+            ValueError: If the model does not support probability predictions.
+        """
+        classification = "binary" if self.y.nunique() == 2 else "multiclass"
+        probas = get_probs(self.model, classification=classification, X=self.X)
+        if task is not None:
+            plot_title = (
+                f"Calibration Plot ({task_map.get(task, 'Binary')})"
+                if classification == "binary"
+                else f"Calibration Plot ({task_map.get(task, 'Multiclass Task')})"
+            )
+        else:
+            plot_title = "Calibration Plot"
+
+        if classification == "multiclass":
+            num_classes = probas.shape[1]
+            plt.figure(figsize=(6, 4), dpi=300)
+            for class_idx in range(num_classes):
+                class_probas = probas[:, class_idx]
+                binarized_y = (self.y == class_idx).astype(int)
+                prob_true, prob_pred = calibration_curve(
+                    binarized_y, class_probas, n_bins=n_bins, strategy="uniform"
+                )
+                plt.plot(prob_pred, prob_true, marker="o", label=f"Class {class_idx}")
+            plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
+            plt.xlabel("Mean Predicted Probability", fontsize=12)
+            plt.ylabel("Fraction of Positives", fontsize=12)
+            plt.title(plot_title, fontsize=12)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.ylim(0, 1)
+            plt.xlim(0, 1)
+            plt.legend(frameon=False)
+            if tight_layout:
+                plt.tight_layout()
+            plt.show()
+        else:
+            prob_true, prob_pred = calibration_curve(
+                self.y, probas, n_bins=n_bins, strategy="uniform"
+            )
+            plt.figure(figsize=(6, 4), dpi=300)
+            plt.plot(prob_pred, prob_true, marker="o", label="Model")
+            plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
+            plt.xlabel("Mean Predicted Probability", fontsize=12)
+            plt.ylabel("Fraction of Positives", fontsize=12)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.title(plot_title, fontsize=12)
+            plt.ylim(0, 1)
+            plt.xlim(0, 1)
+            plt.legend(frameon=False)
+            if tight_layout:
+                plt.tight_layout()
+            plt.show()
 
     def brier_score_groups(
         self,
@@ -226,7 +433,7 @@ class BaseModelEvaluator(BaseConfig, ABC):
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
-        plt.figure(figsize=(4, 4), dpi=300)
+        plt.figure(figsize=(6, 4), dpi=300)
         sns.violinplot(
             x=group_by,
             y="Brier_Score",
@@ -235,14 +442,120 @@ class BaseModelEvaluator(BaseConfig, ABC):
             color="#078294",
             inner_kws={"box_width": 4, "whis_width": 0.5},
         )
-        if tight_layout:
-            plt.tight_layout()
         sns.despine(top=True, right=True)
         plt.title("Distribution of Brier Scores", fontsize=14)
         plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
         plt.ylabel("Brier Score", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        if tight_layout:
+            plt.tight_layout()
+        plt.show()
+
+    def bss_comparison(
+        self,
+        baseline_models: Dict[Tuple[str, str], Any],
+        classification: str,
+        tight_layout: bool = False,
+        num_patients: Optional[int] = None,
+    ) -> None:
+        """Compares the Brier Skill Scores (BSS) of the model with baseline models.
+
+        Args:
+            baseline_models (Dict[Tuple[str, str], Any]): A dictionary containing
+                the baseline models. Keys are tuples of model name and type, and
+                values are the trained model objects.
+            classification (str): Classification type ('binary' or 'multiclass').
+            tight_layout (bool): If True, applies tight layout to the plot.
+                Defaults to False.
+            num_patients (Optional[int]): Number of unique patients in the test set.
+                Defaults to None.
+
+        Raises:
+            ValueError: If the model or any baseline model cannot predict probabilities.
+        """
+        trained_probs = (
+            get_probs(self.model, classification=classification, X=self.X)
+            if hasattr(self.model, "predict_proba")
+            else None
+        )
+
+        if classification == "binary":
+            trained_brier = brier_score_loss(y_true=self.y, y_proba=trained_probs)
+        elif classification == "multiclass":
+            trained_brier = brier_loss_multi(y=self.y, probs=trained_probs)
+        else:
+            raise ValueError(f"Unsupported classification type: {classification}")
+
+        bss_data = []
+        brier_scores = [{"Model": "Tuned Model", "Brier Score": trained_brier}]
+
+        for model_name, model in baseline_models.items():
+            baseline_probs = (
+                get_probs(model, classification=classification, X=self.X)
+                if hasattr(model, "predict_proba")
+                else None
+            )
+            if classification == "binary":
+                baseline_brier = brier_score_loss(y_true=self.y, y_proba=baseline_probs)
+            else:
+                baseline_brier = brier_loss_multi(y=self.y, probs=baseline_probs)
+
+            bss = 1 - (trained_brier / baseline_brier)
+            bss_data.append({"Model": model_name[0], "Brier Skill Score": bss})
+            brier_scores.append({"Model": model_name[0], "Brier Score": baseline_brier})
+
+        bss_df, brier_df = pd.DataFrame(bss_data), pd.DataFrame(brier_scores)
+
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=300)
+
+        if num_patients is not None:
+            fig.suptitle(f"Number of Patients in Test Set: {num_patients}", fontsize=16)
+
+        plot_data = [
+            {
+                "df": brier_df,
+                "column": "Brier Score",
+                "color": "#d9544f",
+                "title": "Tuned Model and Baselines",
+                "ylabel": "Brier Score",
+            },
+            {
+                "df": bss_df,
+                "column": "Brier Skill Score",
+                "color": "#078294",
+                "title": "Brier Skill Scores with Baseline Reference",
+                "ylabel": "Brier Skill Score",
+            },
+        ]
+
+        for ax, plot in zip(axes, plot_data, strict=False):
+            bars = ax.bar(
+                plot["df"]["Model"],
+                plot["df"][plot["column"]],
+                color=plot["color"],
+                edgecolor="black",
+                linewidth=1,
+            )
+            ax.set_title(plot["title"], fontsize=14)
+            ax.set_ylabel(plot["ylabel"], fontsize=12)
+            ax.tick_params(axis="x", rotation=45, labelsize=10)
+            ax.tick_params(axis="y", labelsize=10)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height,
+                    f"{height:.4f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                )
+
+        if tight_layout:
+            plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for suptitle
         plt.show()
 
     def plot_confusion_matrix(
@@ -339,97 +652,6 @@ class BaseModelEvaluator(BaseConfig, ABC):
         if tight_layout:
             plt.tight_layout()
         plt.show()
-
-    def _feature_mapping(self, features: List[str]) -> List[str]:
-        """Maps a list of feature names to their original labels.
-
-        Args:
-            features (List[str]): List of feature names to be mapped.
-
-        Returns:
-            List[str]: List of mapped feature names, with original labels applied
-                where available.
-        """
-        return [self.feature_mapping.get(feature, feature) for feature in features]
-
-    @staticmethod
-    def _aggregate_one_hot_importances(
-        fi_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Aggregate importance scores of one-hot encoded variables.
-
-        Args:
-            fi_df (pd.DataFrame): DataFrame with features and their
-                importance scores.
-
-        Returns:
-            pd.DataFrame: Updated DataFrame with aggregated importance scores.
-        """
-        base_names = fi_df["Feature"].apply(_get_base_name)
-        aggregated_importances = (
-            fi_df.groupby(base_names)["Importance"].sum().reset_index()
-        )
-        aggregated_importances.columns = ["Feature", "Importance"]
-        original_features = fi_df["Feature"][
-            ~fi_df["Feature"].apply(_is_one_hot_encoded)
-        ].unique()
-
-        aggregated_or_original = (
-            pd.concat(
-                [
-                    aggregated_importances,
-                    fi_df[fi_df["Feature"].isin(original_features)],
-                ]
-            )
-            .drop_duplicates()
-            .sort_values(by="Importance", ascending=False)
-        )
-
-        return aggregated_or_original.reset_index(drop=True)
-
-    @staticmethod
-    def _aggregate_shap_one_hot(
-        shap_values: np.ndarray, feature_names: List[str]
-    ) -> Tuple[np.ndarray, List[str]]:
-        """Aggregate SHAP values of one-hot encoded variables.
-
-        Args:
-            shap_values (np.ndarray): SHAP values.
-            feature_names (List[str]): List of features corresponding to SHAP values.
-
-        Returns:
-            Tuple[np.ndarray, List[str]]: Aggregated SHAP values and updated list of
-            feature names.
-        """
-        if shap_values.ndim == 3:
-            shap_values = shap_values.mean(axis=2)
-
-        shap_df = pd.DataFrame(shap_values, columns=feature_names)
-        base_names = [_get_base_name(feature=feature) for feature in shap_df.columns]
-        feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
-        aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
-        return aggregated_shap_df.values, list(aggregated_shap_df.columns)
-
-    @staticmethod
-    def _aggregate_one_hot_features_for_clustering(X: pd.DataFrame) -> pd.DataFrame:
-        """Aggregate one-hot encoded features for clustering.
-
-        Args:
-            X (pd.DataFrame): Input DataFrame with one-hot encoded features.
-
-        Returns:
-            pd.DataFrame: DataFrame with aggregated one-hot encoded features.
-        """
-        X_copy = X.copy()
-        one_hot_encoded_cols = [
-            col for col in X_copy.columns if _is_one_hot_encoded(feature=col)
-        ]
-        base_names = {col: _get_base_name(feature=col) for col in one_hot_encoded_cols}
-        aggregated_data = X_copy.groupby(base_names, axis=1).sum()
-        non_one_hot_cols = [
-            col for col in X_copy.columns if col not in one_hot_encoded_cols
-        ]
-        return pd.concat([X_copy[non_one_hot_cols], aggregated_data], axis=1)
 
     @abstractmethod
     def evaluate_feature_importance(self, importance_types: List[str]):
