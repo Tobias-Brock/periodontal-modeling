@@ -35,9 +35,9 @@ class BaseTrainer(BaseValidator, ABC):
         tuning (Optional[str]): Specifies the tuning method ('holdout' or
             'cv') or None.
         hpo (Optional[str]): Specifies the hyperparameter optimization method.
-        mlp_training (bool): Flag to indicate if a separate MLP training
+        mlp_training (Optional[bool]): Flag to indicate if a separate MLP training
             procedure with early stopping is to be used.
-        threshold_tuning (bool): Determines if threshold tuning is performed
+        threshold_tuning (Optional[bool]): Determines if threshold tuning is performed
             for binary classification when the criterion is "f1".
 
     Attributes:
@@ -46,9 +46,10 @@ class BaseTrainer(BaseValidator, ABC):
             ('f1', 'brier_score' or 'macro_f1').
         tuning (Optional[str]): Tuning method ('holdout' or 'cv') or None.
         hpo (Optional[str]): Hyperparameter optimization method if specified.
-        mlp_training (bool): Indicates if MLP training with early stopping is applied.
-        threshold_tuning (bool): Specifies if threshold tuning is performed for
-            binary classification when the criterion is 'f1'.
+        mlp_training (Optional[bool]): Indicates if MLP training with early stopping is
+            applied.
+        threshold_tuning (Optional[bool]): Specifies if threshold tuning is performed
+            for binary classification when the criterion is 'f1'.
 
     Methods:
         evaluate: Determines model performance based on the specified
@@ -74,8 +75,8 @@ class BaseTrainer(BaseValidator, ABC):
         criterion: str,
         tuning: Optional[str],
         hpo: Optional[str],
-        mlp_training: bool,
-        threshold_tuning: bool,
+        mlp_training: Optional[bool],
+        threshold_tuning: Optional[bool],
     ) -> None:
         """Initializes the Trainer with classification type and criterion."""
         super().__init__(
@@ -88,7 +89,7 @@ class BaseTrainer(BaseValidator, ABC):
         self,
         y: np.ndarray,
         probs: np.ndarray,
-        threshold: bool = True,
+        threshold: Optional[bool] = None,
     ) -> Tuple[float, Optional[float]]:
         """Evaluates model performance based on the classification criterion.
 
@@ -100,6 +101,7 @@ class BaseTrainer(BaseValidator, ABC):
                 For binary classification, the probability for the positive class.
                 For multiclass, a 2D array with probabilities.
             threshold (bool): Flag for threshold tuning when tuning with F1.
+                Defaults to None.
 
         Returns:
             Tuple: Score and optimal threshold (if for binary).
@@ -114,7 +116,7 @@ class BaseTrainer(BaseValidator, ABC):
         self,
         y: np.ndarray,
         probs: np.ndarray,
-        threshold: bool = True,
+        threshold: Optional[bool] = None,
     ) -> Tuple[float, Optional[float]]:
         """Evaluates binary classification metrics based on probabilities.
 
@@ -122,6 +124,7 @@ class BaseTrainer(BaseValidator, ABC):
             y (np.ndarray): True labels for the validation data.
             probs (np.ndarray): Probability predictions for the positive class.
             threshold (bool): Flag for threshold tuning when tuning with F1.
+                Defaults to None.
 
         Returns:
             Tuple: Score and optimal threshold (if applicable).

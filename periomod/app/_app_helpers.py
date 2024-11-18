@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 from ..base import Patient, Side, Tooth, patient_to_df
 from ..benchmarking import Baseline, Benchmarker
@@ -311,9 +312,147 @@ def _baseline_wrapper(task: str, encoding: str, path: str) -> pd.DataFrame:
     return Baseline(task=task, encoding=encoding, path=Path(path)).baseline()
 
 
+def _update_tuning_method_fields(tuning_method: str) -> Tuple[Any, Any, Any]:
+    """Update fields based on the selected tuning method.
+
+    Args:
+        tuning_method (str): The selected tuning method ("Cross-Validation"
+            or "Holdout").
+
+    Returns:
+        Tuple[Any, Any, Any]: Updates for cv_folds_input, cv_seed_input,
+            val_size_input.
+    """
+    if tuning_method == "Cross-Validation":
+        return (
+            gr.update(interactive=True, value=10),  # cv_folds_input
+            gr.update(interactive=True, value=0),  # cv_seed_input
+            gr.update(interactive=False, value=None),  # val_size_input
+        )
+    elif tuning_method == "Holdout":
+        return (
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=True, value=0.2),
+        )
+    else:
+        # Default case
+        return (
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+        )
+
+
+def _update_hpo_method_fields(tuning_method: str, hpo_method: str) -> Any:
+    """Update racing_folds_input based on tuning and HPO methods.
+
+    Args:
+        tuning_method (str): The selected tuning method.
+        hpo_method (str): The selected hyperparameter optimization method.
+
+    Returns:
+        Any: Update for racing_folds_input.
+    """
+    if tuning_method == "Cross-Validation" and hpo_method == "Random Search":
+        return gr.update(interactive=True, value=5)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_learners_fields(learners: List[str]) -> Any:
+    """Update mlp_flag_input based on selected learners.
+
+    Args:
+        learners (List[str]): List of selected learners.
+
+    Returns:
+        Any: Update for mlp_flag_input.
+    """
+    if "Multilayer Perceptron" in learners:
+        return gr.update(interactive=True, value=True)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_criteria_fields(criteria: str) -> Any:
+    """Update threshold_tuning_input based on selected criteria.
+
+    Args:
+        criteria (str): The selected evaluation criteria.
+
+    Returns:
+        Any: Update for threshold_tuning_input.
+    """
+    if criteria == "F1 Score":
+        return gr.update(interactive=True, value=True)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_task_fields(task: str) -> Any:
+    """Update criteria_input choices based on selected task.
+
+    Args:
+        task (str): The selected task.
+
+    Returns:
+        Any: Update for criteria_input.
+    """
+    if task == "Pocket groups":
+        return gr.update(
+            choices=["Macro F1 Score", "Brier Score"], value="Macro F1 Score"
+        )
+    else:
+        return gr.update(choices=["F1 Score", "Brier Score"], value="F1 Score")
+
+
+def _initialize_benchmark(
+    tuning_method_value: str,
+    hpo_method_value: str,
+    learners_value: List[str],
+    criteria_value: str,
+    task_value: str,
+) -> Tuple[Any, Any, Any, Any, Any, Any, Any]:
+    """Initialize component states based on their default values.
+
+    Args:
+        tuning_method_value (str): The selected tuning method.
+        hpo_method_value (str): The selected hyperparameter optimization method.
+        learners_value (List[str]): List of selected learners.
+        criteria_value (str): The selected evaluation criteria.
+        task_value (str): The selected task.
+
+    Returns:
+        Tuple[Any, Any, Any, Any, Any, Any, Any]: Updates for cv_folds_input,
+            cv_seed_input, val_size_input, racing_folds_input, mlp_flag_input,
+            threshold_tuning_input, criteria_input.
+    """
+    tuning_updates = _update_tuning_method_fields(tuning_method_value)
+    cv_folds_update = tuning_updates[0]
+    cv_seed_update = tuning_updates[1]
+    val_size_update = tuning_updates[2]
+    racing_folds_update = _update_hpo_method_fields(
+        tuning_method_value, hpo_method_value
+    )
+    mlp_flag_update = _update_learners_fields(learners_value)
+    threshold_tuning_update = _update_criteria_fields(criteria_value)
+    criteria_update = _update_task_fields(task_value)
+
+    return (
+        cv_folds_update,
+        cv_seed_update,
+        val_size_update,
+        racing_folds_update,
+        mlp_flag_update,
+        threshold_tuning_update,
+        criteria_update,
+    )
+
+
 def _run_benchmarks(
     task: str,
-    learners: list,
+    learners: List[str],
     tuning_method: str,
     hpo_method: str,
     criterion: str,
@@ -321,14 +460,14 @@ def _run_benchmarks(
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
-    cv_folds: int,
-    racing_folds: int,
+    cv_folds: Optional[int],
+    racing_folds: Optional[int],
     test_seed: int,
     test_size: float,
-    val_size: float,
-    cv_seed: int,
-    mlp_flag: bool,
-    threshold_tuning: bool,
+    val_size: Optional[float],
+    cv_seed: Optional[int],
+    mlp_flag: Optional[bool],
+    threshold_tuning: Optional[bool],
     n_jobs: int,
     path: str,
 ) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
@@ -349,14 +488,14 @@ def _run_benchmarks(
         factor (Optional[float]): Factor to control the resampling process, if
             applicable.
         n_configs (int): Number of configurations for hyperparameter tuning.
-        cv_folds (int): Number of cross-validation folds.
-        racing_folds (int): Number of folds to use for racing during random
+        cv_folds (Optional[int]): Number of cross-validation folds.
+        racing_folds (Optional[int]): Number of folds to use for racing during random
             search (RS).
         test_seed (int): Seed for random train-test split.
         test_size (float): Proportion of data used for testing.
-        val_size (float): Proportion of data for validation in holdout.
+        val_size (Optional[float]): Proportion of data for validation in holdout.
         cv_seed (int): Seed for cross-validation splits.
-        mlp_flag (bool): Enables MLP training with early stopping.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
@@ -379,6 +518,14 @@ def _run_benchmarks(
     )
     factor = None if factor == "" or factor is None else float(factor)
 
+    factor = float(factor) if factor is not None else None
+    cv_folds = int(cv_folds) if cv_folds is not None else None
+    racing_folds = int(racing_folds) if racing_folds is not None else None
+    val_size = float(val_size) if val_size is not None else None
+    cv_seed = int(cv_seed) if cv_seed is not None else None
+    mlp_flag = bool(mlp_flag) if mlp_flag is not None else None
+    threshold_tuning = bool(threshold_tuning) if threshold_tuning is not None else None
+
     benchmarker = Benchmarker(
         task=task,
         learners=learners,
@@ -390,7 +537,7 @@ def _run_benchmarks(
         factor=factor,
         n_configs=int(n_configs),
         cv_folds=cv_folds,
-        racing_folds=int(racing_folds),
+        racing_folds=racing_folds,
         test_size=test_size,
         test_seed=test_seed,
         val_size=val_size,
@@ -422,27 +569,29 @@ def _run_benchmarks(
     if not metrics_to_plot:
         raise ValueError("No matching metrics found in results to plot.")
 
-    plt.figure(figsize=(6, 4), dpi=300)
-    ax = df_results.plot(
-        x="Learner",
-        y=metrics_to_plot,
-        kind="bar",
-        ax=plt.gca(),
-        edgecolor="black",
-        linewidth=1,
+    df_long = df_results.melt(
+        id_vars="Learner",
+        value_vars=metrics_to_plot,
+        var_name="Metric",
+        value_name="Score",
+    )
+
+    plt.figure(figsize=(8, 6), dpi=300)
+    ax = sns.barplot(
+        data=df_long, x="Metric", y="Score", hue="Learner", edgecolor="black"
     )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    plt.title("Benchmark Metrics for Each Learner", fontsize=12)
-    plt.xlabel("Learner", fontsize=12)
+    plt.title("Benchmark Metrics Comparison by Metric", fontsize=12)
+    plt.xlabel("Metric", fontsize=12)
     plt.ylabel("Score", fontsize=12)
     plt.ylim(0, 1)
-    ax.tick_params(axis="both", which="major", labelsize=12)
-    plt.xticks(rotation=45)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     plt.legend(
-        title="Metrics",
+        title="Learner",
         loc="upper left",
         bbox_to_anchor=(1, 1),
         fontsize=10,

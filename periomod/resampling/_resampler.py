@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -79,14 +79,15 @@ class Resampler(BaseResampler):
         self,
         df: pd.DataFrame,
         seed: int = 0,
-        test_size: float = 0.2,
+        test_size: Optional[float] = 0.2,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Splits the dataset into train_df and test_df based on group identifiers.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
             seed (int): Random seed for splitting. Defaults to 0.
-            test_size (float): Size of grouped train test split. Defaults to 0.2.
+            test_size (Optional[float]): Size of grouped train test split.
+                Defaults to 0.2.
 
         Returns:
             Tuple: Tuple containing the training and test DataFrames
@@ -167,8 +168,8 @@ class Resampler(BaseResampler):
     def cv_folds(
         self,
         df: pd.DataFrame,
-        seed: int = 0,
-        n_folds: int = 10,
+        seed: Optional[int] = 0,
+        n_folds: Optional[int] = 10,
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
     ) -> Tuple[list, list]:
@@ -178,8 +179,9 @@ class Resampler(BaseResampler):
 
         Args:
             df (pd.DataFrame): Input DataFrame.
-            seed (int): Random seed for reproducibility. Defaults to 0.
-            n_folds ([int): Number of folds for cross-validation. Defaults to 10.
+            seed (Optional[int]): Random seed for reproducibility. Defaults to 0.
+            n_folds (Optional[[int]): Number of folds for cross-validation.
+                Defaults to 10.
             sampling (str, optional): Sampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for resampling, applied to upsample,

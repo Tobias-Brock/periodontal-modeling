@@ -89,20 +89,21 @@ class BenchmarkWrapper(BaseBenchmark):
         n_jobs (int): Number of parallel jobs for processing.
         cv_folds (int): Number of folds for cross-validation. Defaults to 10.
         racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-            Defaults to 5.
+            Defaults to None.
         test_seed (int): Random seed for test splitting. Defaults to 0.
         test_size (float): Proportion of data used for testing. Defaults to
             0.2.
-        val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+        val_size (Optional[float]): Size of validation set in holdout tuning.
+            Defaults to 0.2.
         cv_seed (int): Random seed for cross-validation. Defaults to 0
-        mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
-        threshold_tuning (bool): Enables threshold tuning for binary classification.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+            Defaults to True.
+        threshold_tuning (Optional[bool]): Enables threshold tuning for binary
+            classification. Defaults to None.
         verbose (bool): If True, enables detailed logging during benchmarking.
             Defaults to False.
         path (Path): Path to the directory containing processed data files.
             Defaults to Path("data/processed").
-        name (str): File name for the processed data file. Defaults to
-            "processed_data.csv".
 
     Attributes:
         task (str): The specified task for evaluation.
@@ -125,7 +126,6 @@ class BenchmarkWrapper(BaseBenchmark):
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         verbose (bool): Enables detailed logging during benchmarking.
         path (Path): Directory path for processed data.
-        name (str): File name for processed data.
         classification (str): 'binary' or 'multiclass' based on the task.
 
     Methods:
@@ -174,24 +174,24 @@ class BenchmarkWrapper(BaseBenchmark):
     def __init__(
         self,
         task: str,
-        encodings: List[str],
         learners: List[str],
         tuning_methods: List[str],
         hpo_methods: List[str],
         criteria: List[str],
+        encodings: List[str],
         sampling: Optional[List[Union[str, None]]] = None,
         factor: Optional[float] = None,
         n_configs: int = 10,
         n_jobs: int = 1,
-        verbose: bool = False,
-        cv_folds: int = 10,
-        racing_folds: Optional[int] = 5,
+        cv_folds: Optional[int] = 10,
+        racing_folds: Optional[int] = None,
         test_seed: int = 0,
         test_size: float = 0.2,
-        val_size: float = 0.2,
-        cv_seed: int = 0,
-        mlp_flag: bool = True,
-        threshold_tuning: bool = True,
+        val_size: Optional[float] = 0.2,
+        cv_seed: Optional[int] = 0,
+        mlp_flag: Optional[bool] = None,
+        threshold_tuning: Optional[bool] = None,
+        verbose: bool = True,
         path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes the BenchmarkWrapper.
@@ -201,31 +201,35 @@ class BenchmarkWrapper(BaseBenchmark):
                 'improvement', or 'pdgrouprevaluation'.).
             learners (List[str]): List of learners to benchmark ('xgb', 'rf', 'lr' or
                 'mlp').
-            tuning_methods (List[str]): Tuning methods ('holdout', 'cv').
+            tuning_methods (List[str]): Tuning methods for each learner
+                ('holdout', 'cv').
             hpo_methods (List[str]): HPO methods ('hebo' or 'rs').
             criteria (List[str]): List of evaluation criteria ('f1', 'macro_f1',
                 'brier_score').
             encodings (List[str]): List of encodings ('one_hot' or 'target').
-            sampling (Optional[List[str]]): Sampling strategies for class imbalance.
-                Includes None, 'upsampling', 'downsampling', and 'smote'.
+            sampling (Optional[List[str]]): Sampling strategies to handle class
+                imbalance. Includes None, 'upsampling', 'downsampling', and 'smote'.
             factor (Optional[float]): Factor to apply during resampling.
             n_configs (int): Number of configurations for hyperparameter tuning.
                 Defaults to 10.
             n_jobs (int): Number of parallel jobs for processing.
             cv_folds (int): Number of folds for cross-validation. Defaults to 10.
             racing_folds (Optional[int]): Number of racing folds for Random Search (RS).
-                Defaults to 5.
+                Defaults to None.
             test_seed (int): Random seed for test splitting. Defaults to 0.
             test_size (float): Proportion of data used for testing. Defaults to
                 0.2.
-            val_size (float): Size of validation set in holdout tuning. Defaults to 0.2.
+            val_size (Optional[float]): Size of validation set in holdout tuning.
+                Defaults to 0.2.
             cv_seed (int): Random seed for cross-validation. Defaults to 0
-            mlp_flag (bool): Enables MLP training with early stopping. Defaults to True.
-            threshold_tuning (bool): Enables threshold tuning for binary classification.
+            mlp_flag (Optional[bool]): Enables MLP training with early stopping.
+                Defaults to True.
+            threshold_tuning (Optional[bool]): Enables threshold tuning for binary
+                classification. Defaults to None.
             verbose (bool): If True, enables detailed logging during benchmarking.
                 Defaults to False.
             path (Path): Path to the directory containing processed data files.
-                Defaults to Path("data/processed/processed_data.csv")
+                Defaults to Path("data/processed").
         """
         super().__init__(
             task=task,
