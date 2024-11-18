@@ -413,8 +413,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
     def brier_score_groups(
         self,
         group_by: str = "y",
-        tight_layout: bool = False,
         task: Optional[str] = None,
+        tight_layout: bool = False,
     ) -> None:
         """Calculates and displays Brier score within groups.
 
@@ -434,6 +434,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
         plt.figure(figsize=(6, 4), dpi=300)
+        plt.figure(figsize=(6, 4), dpi=300)
         sns.violinplot(
             x=group_by,
             y="Brier_Score",
@@ -443,9 +444,10 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             inner_kws={"box_width": 4, "whis_width": 0.5},
         )
         sns.despine(top=True, right=True)
-        plt.title("Distribution of Brier Scores", fontsize=14)
+        plt.title("Distribution of Brier Scores", fontsize=12)
         plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
         plt.ylabel("Brier Score", fontsize=12)
+        plt.ylim(0, 1)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         if tight_layout:
