@@ -31,9 +31,9 @@ class Trainer(BaseTrainer):
         tuning (Optional[str]): Specifies the tuning method ('holdout' or
             'cv') or None.
         hpo (Optional[str]): Specifies the hyperparameter optimization method.
-        mlp_training (bool): Flag to indicate if a separate MLP training
-            procedure with early stopping is to be used.
-        threshold_tuning (bool): Determines if threshold tuning is performed
+        mlp_training (Optional[bool]): Flag to indicate if a separate MLP training
+            procedure with early stopping is to be used. Defaults to True
+        threshold_tuning (Optional[bool]): Determines if threshold tuning is performed
             for binary classification when the criterion is "f1".
 
     Attributes:
@@ -42,9 +42,10 @@ class Trainer(BaseTrainer):
             ('f1', 'brier_score' or 'macro_f1').
         tuning (Optional[str]): Tuning method ('holdout' or 'cv') or None.
         hpo (Optional[str]): Hyperparameter optimization method if specified.
-        mlp_training (bool): Indicates if MLP training with early stopping is applied.
-        threshold_tuning (bool): Specifies if threshold tuning is performed for
-            binary classification when the criterion is 'f1'.
+        mlp_training (Optional[bool]): Indicates if MLP training with early stopping is
+            applied. Defaults to None.
+        threshold_tuning (Optional[bool]): Specifies if threshold tuning is performed
+            for binary classification when the criterion is 'f1'. Defaults to Noen.
 
     Methods:
         train: Trains a machine learning model, handling custom logic for
@@ -99,8 +100,8 @@ class Trainer(BaseTrainer):
         criterion: str,
         tuning: Optional[str],
         hpo: Optional[str],
-        mlp_training: bool = True,
-        threshold_tuning: bool = True,
+        mlp_training: Optional[bool] = None,
+        threshold_tuning: Optional[bool] = None,
     ) -> None:
         """Initializes the Trainer with classification type and criterion."""
         super().__init__(

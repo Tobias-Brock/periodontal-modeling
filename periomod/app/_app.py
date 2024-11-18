@@ -23,6 +23,7 @@ from periomod.app import (
     _collect_data,
     _display_data,
     _handle_tooth_selection,
+    _initialize_benchmark,
     _load_data_engine,
     _load_data_wrapper,
     _plot_calibration,
@@ -37,9 +38,14 @@ from periomod.app import (
     _process_data,
     _run_jackknife_inference,
     _save_data,
+    _update_criteria_fields,
+    _update_hpo_method_fields,
+    _update_learners_fields,
     _update_model_dropdown,
     _update_side_state,
+    _update_task_fields,
     _update_tooth_state,
+    _update_tuning_method_fields,
     all_teeth,
 )
 
@@ -359,7 +365,7 @@ with gr.Blocks() as perioapp:
                 )
                 criteria_input = gr.Radio(
                     label="Criteria",
-                    choices=["F1 Score", "Brier Score", "Macro F1 Score"],
+                    choices=["F1 Score", "Brier Score"],
                     value="F1 Score",
                     info="Choose evaluation metrics to assess model performance.",
                 )
@@ -391,12 +397,14 @@ with gr.Blocks() as perioapp:
                 )
                 cv_folds_input = gr.Number(
                     label="CV Folds",
-                    value=10,
+                    value=None,
+                    interactive=False,
                     info="Specify number of folds for cross-validation.",
                 )
                 racing_folds_input = gr.Number(
                     label="Racing Folds",
-                    value=5,
+                    value=None,
+                    interactive=False,
                     info="Enter number of folds for racing in hyperparameter tuning.",
                 )
                 n_jobs_input = gr.Number(
@@ -413,7 +421,8 @@ with gr.Blocks() as perioapp:
                 )
                 cv_seed_input = gr.Number(
                     label="CV Seed",
-                    value=0,
+                    value=None,
+                    interactive=False,
                     info="Set random seed for cross-validation splitting.",
                 )
                 test_size_input = gr.Number(
@@ -426,6 +435,7 @@ with gr.Blocks() as perioapp:
                 val_size_input = gr.Number(
                     label="Val Set Size",
                     value=0.2,
+                    interactive=True,
                     minimum=0.0,
                     maximum=1.0,
                     info="Define proportion of training data for validation.",
@@ -434,12 +444,14 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 mlp_flag_input = gr.Checkbox(
                     label="Enable MLP Training with Early Stopping",
-                    value=True,
+                    value=None,
+                    interactive=False,
                     info="Enable or disable early stopping for MLP training.",
                 )
                 threshold_tuning_input = gr.Checkbox(
                     label="Enable Threshold Tuning",
                     value=True,
+                    interactive=True,
                     info="Enable or disable threshold tuning for classification tasks.",
                 )
 
@@ -450,10 +462,66 @@ with gr.Blocks() as perioapp:
             benchmark_output = gr.Dataframe(label="Benchmark Results")
             metrics_plot_output = gr.Plot(label="Metrics Comparison")
 
+            tuning_methods_input.change(
+                fn=_update_tuning_method_fields,
+                inputs=tuning_methods_input,
+                outputs=[cv_folds_input, cv_seed_input, val_size_input],
+            )
+
+            tuning_methods_input.change(
+                fn=_update_hpo_method_fields,
+                inputs=[tuning_methods_input, hpo_methods_input],
+                outputs=racing_folds_input,
+            )
+
+            hpo_methods_input.change(
+                fn=_update_hpo_method_fields,
+                inputs=[tuning_methods_input, hpo_methods_input],
+                outputs=racing_folds_input,
+            )
+
+            learners_input.change(
+                fn=_update_learners_fields,
+                inputs=learners_input,
+                outputs=mlp_flag_input,
+            )
+
+            criteria_input.change(
+                fn=_update_criteria_fields,
+                inputs=criteria_input,
+                outputs=threshold_tuning_input,
+            )
+
+            task_input.change(
+                fn=_update_task_fields,
+                inputs=task_input,
+                outputs=criteria_input,
+            )
+
             path_input.change(
                 fn=lambda x: x, inputs=path_input, outputs=processed_data_state
             )
             task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
+
+            perioapp.load(
+                _initialize_benchmark,
+                inputs=[
+                    tuning_methods_input,
+                    hpo_methods_input,
+                    learners_input,
+                    criteria_input,
+                    task_input,
+                ],
+                outputs=[
+                    cv_folds_input,
+                    cv_seed_input,
+                    val_size_input,
+                    racing_folds_input,
+                    mlp_flag_input,
+                    threshold_tuning_input,
+                    criteria_input,
+                ],
+            )
 
             run_baseline.click(
                 fn=_baseline_wrapper,
