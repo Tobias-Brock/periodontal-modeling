@@ -3,6 +3,8 @@
 ![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
+![Periomod Logo](docs/images/logo.jpg)
+
 
 # periodontal-modeling
 
@@ -21,7 +23,10 @@
 
 ## Installation
 
+
 ### Dependencies
+
+`periomod` has the following dependencies:
 
 - `gradio==4.44.1`
 - `HEBO==0.3.5`
@@ -86,7 +91,7 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 engine = StaticProcessEngine()
-df = engine.load_data(path="data/raw/Periodontitis_ML_Dataset.xlsx")
+df = engine.load_data(path="data/raw/raw_data.xlsx")
 df = engine.process_data(df)
 engine.save_data(df=df, path="data/processed/processed_data.csv")
 ```

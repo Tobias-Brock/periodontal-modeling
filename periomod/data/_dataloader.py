@@ -48,12 +48,15 @@ class ProcessedDataLoader(BaseDataLoader):
 
     Example:
         ```
-        loader = ProcessedDataLoader(
+        from periomod.data import ProcessedDataLoader
+
+        # instantiate with one-hot encoding and scale numerical variables
+        dataloader = ProcessedDataLoader(
             task="pocketclosure", encoding="one_hot", encode=True, scale=True
         )
-        data = loader.load_data()
-        data = loader.transform_data(data)
-        loader.save_data(data)
+        df = dataloader.load_data(path="data/processed/processed_data.csv")
+        df = dataloader.transform_data(df=df)
+        dataloader.save_data(df=df, path="data/training/training_data.csv")
         ```
     """
 

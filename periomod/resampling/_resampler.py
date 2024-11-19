@@ -55,7 +55,7 @@ class Resampler(BaseResampler):
         from periomod.data import ProcessedDataLoader
         from periomod.resampling import Resampler
 
-        df = dataloader.load_data(path="data/training", name="training_data.csv")
+        df = dataloader.load_data(path="data/processed/training_data.csv")
 
         resampler = Resampler(classification="binary", encoding="one_hot")
         train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)

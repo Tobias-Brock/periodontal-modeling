@@ -89,7 +89,7 @@ class Experiment(BaseExperiment):
 
         # Load a dataframe with the correct target and encoding selected
         dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
-        df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+        df = dataloader.load_data(path="data/processed/processed_data.csv")
         df = dataloader.transform_data(df=df)
 
         experiment = Experiment(
@@ -362,8 +362,7 @@ class Benchmarker(BaseBenchmark):
             test_seed=42,
             test_size=0.2,
             verbose=True,
-            path=Path("/data/processed"),
-            name="processed_data.csv",
+            path="/data/processed/processed_data.csv",
         )
 
         # Running all benchmarks
