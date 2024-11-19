@@ -325,9 +325,9 @@ def _update_tuning_method_fields(tuning_method: str) -> Tuple[Any, Any, Any]:
     """
     if tuning_method == "Cross-Validation":
         return (
-            gr.update(interactive=True, value=10),  # cv_folds_input
-            gr.update(interactive=True, value=0),  # cv_seed_input
-            gr.update(interactive=False, value=None),  # val_size_input
+            gr.update(interactive=True, value=10),
+            gr.update(interactive=True, value=0),
+            gr.update(interactive=False, value=None),
         )
     elif tuning_method == "Holdout":
         return (
@@ -336,7 +336,6 @@ def _update_tuning_method_fields(tuning_method: str) -> Tuple[Any, Any, Any]:
             gr.update(interactive=True, value=0.2),
         )
     else:
-        # Default case
         return (
             gr.update(interactive=False, value=None),
             gr.update(interactive=False, value=None),
