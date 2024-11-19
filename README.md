@@ -3,12 +3,10 @@
 ![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
-![Periomod Logo](docs/images/logo.jpg)
+![Periomod Logo](docs/images/logo_v3.jpg)
 
 
-# periodontal-modeling
-
-`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `peridontal-modeling`, or in short `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
+`peridontal-modeling`, or in short `periomod` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
 
 ## Features
 
