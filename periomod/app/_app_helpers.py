@@ -576,7 +576,7 @@ def _run_benchmarks(
         value_name="Score",
     )
 
-    plt.figure(figsize=(8, 6), dpi=300)
+    plt.figure(figsize=(5, 4), dpi=300)
     ax = sns.barplot(
         data=df_long, x="Metric", y="Score", hue="Learner", edgecolor="black"
     )
@@ -601,7 +601,9 @@ def _run_benchmarks(
     plt.tight_layout()
 
     for container in ax.containers:
-        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
+        ax.bar_label(
+            container, fmt="%.2f", label_type="edge", rotation=90, fontsize=9, padding=5
+        )
 
     metrics_plot = plt.gcf()
 
