@@ -368,16 +368,16 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
         if task is not None:
             plot_title = (
-                f"Calibration Plot ({task_map.get(task, 'Binary')})"
+                f"Calibration Plot \n {task_map.get(task, 'Binary')}"
                 if classification == "binary"
-                else f"Calibration Plot ({task_map.get(task, 'Multiclass Task')})"
+                else f"Calibration Plot \n{task_map.get(task, 'Multiclass Task')}"
             )
         else:
             plot_title = "Calibration Plot"
 
         if classification == "multiclass":
             num_classes = probas.shape[1]
-            plt.figure(figsize=(6, 4), dpi=300)
+            plt.figure(figsize=(4, 4), dpi=300)
             for class_idx in range(num_classes):
                 class_probas = probas[:, class_idx]
                 binarized_y = (self.y == class_idx).astype(int)
@@ -389,6 +389,10 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
             plt.xlabel("Mean Predicted Probability", fontsize=12)
             plt.ylabel("Fraction of Positives", fontsize=12)
+            ax = plt.gca()
+            ax.set_aspect("equal", adjustable="box")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
             plt.title(plot_title, fontsize=12)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
@@ -402,17 +406,22 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             prob_true, prob_pred = calibration_curve(
                 self.y, probas, n_bins=n_bins, strategy="uniform"
             )
-            plt.figure(figsize=(6, 4), dpi=300)
-            plt.plot(prob_pred, prob_true, marker="o", label="Model")
+            plt.figure(figsize=(4, 4), dpi=300)
+            plt.plot(prob_pred, prob_true, marker="o", label="Model", color="#078294")
             plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
             plt.xlabel("Mean Predicted Probability", fontsize=12)
             plt.ylabel("Fraction of Positives", fontsize=12)
+            ax = plt.gca()
+            ax.set_aspect("equal", adjustable="box")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
             plt.title(plot_title, fontsize=12)
             plt.ylim(0, 1)
             plt.xlim(0, 1)
             plt.legend(frameon=False)
+
             if tight_layout:
                 plt.tight_layout()
             plt.show()
@@ -440,8 +449,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         summary = data_grouped["Brier_Score"].agg(["mean", "median"]).reset_index()
         print(f"Average and Median Brier Scores by {group_by}:\n{summary}")
 
-        plt.figure(figsize=(6, 4), dpi=300)
-        plt.figure(figsize=(6, 4), dpi=300)
+        plt.figure(figsize=(4, 4), dpi=300)
+        plt.figure(figsize=(4, 4), dpi=300)
         sns.violinplot(
             x=group_by,
             y="Brier_Score",
@@ -515,59 +524,72 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             brier_scores.append({"Model": model_name[0], "Brier Score": baseline_brier})
 
         bss_df, brier_df = pd.DataFrame(bss_data), pd.DataFrame(brier_scores)
+        df1_melted = brier_df.melt(
+            id_vars=["Model"], var_name="Score", value_name="Value"
+        )
+        df2_melted = bss_df.melt(
+            id_vars=["Model"], var_name="Score", value_name="Value"
+        )
 
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=300)
+        combined_df = pd.concat([df1_melted, df2_melted], ignore_index=True)
 
-        if num_patients is not None:
-            fig.suptitle(
-                f"Number of Patients: {num_patients}; Number of sites: {len(self.y)}",
-                fontsize=16,
-            )
+        fig, axes = plt.subplots(figsize=(6, 4), dpi=300)
 
-        plot_data = [
-            {
-                "df": brier_df,
-                "column": "Brier Score",
-                "color": "#d9544f",
-                "title": "Tuned Model and Baselines",
-                "ylabel": "Brier Score",
-            },
-            {
-                "df": bss_df,
-                "column": "Brier Skill Score",
-                "color": "#078294",
-                "title": "Brier Skill Scores with Baseline Reference",
-                "ylabel": "Brier Skill Score",
-            },
+        model_order = [
+            "Tuned Model",
+            "Dummy Classifier",
+            "Logistic Regression",
+            "Random Forest",
         ]
 
-        for ax, plot in zip(axes, plot_data, strict=False):
-            bars = ax.bar(
-                plot["df"]["Model"],
-                plot["df"][plot["column"]],
-                color=plot["color"],
-                edgecolor="black",
-                linewidth=1,
-            )
-            ax.set_title(plot["title"], fontsize=14)
-            ax.set_ylabel(plot["ylabel"], fontsize=12)
-            ax.tick_params(axis="x", rotation=45, labelsize=10)
-            ax.tick_params(axis="y", labelsize=10)
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height,
-                    f"{height:.4f}",
+        g = sns.barplot(
+            data=combined_df,
+            x="Model",
+            y="Value",
+            hue="Score",
+            order=model_order,
+            linewidth=1,
+            edgecolor="black",
+        )
+
+        plt.axvline(x=0.5, color="gray", linestyle="--", linewidth=1)
+        plt.axhline(y=0, color="black", linestyle="-", linewidth=1)
+
+        plt.gca().spines["top"].set_visible(False)
+        plt.gca().spines["bottom"].set_visible(False)
+        plt.gca().spines["right"].set_visible(False)
+
+        for _, e in enumerate(g.patches):
+            if e.get_height() > 0:
+                g.annotate(
+                    f"{e.get_height():.2f}",
+                    (e.get_x() + e.get_width() / 2, e.get_height()),
                     ha="center",
-                    va="bottom",
-                    fontsize=9,
+                    va="center",
+                    fontsize=8,
+                    color="black",
+                    xytext=(0, 5),
+                    textcoords="offset points",
+                )
+            if e.get_height() < 0:
+                g.annotate(
+                    f"{e.get_height():.2f}",
+                    (e.get_x() + e.get_width() / 2, e.get_height()),
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    color="black",
+                    xytext=(0, -10),
+                    textcoords="offset points",
                 )
 
+        plt.legend(title="Metric", frameon=False, fontsize=8)
+
+        labels = [label.get_text() for label in g.get_xticklabels()]
+        g.set_xticklabels([label.replace(" ", "\n") for label in labels])
+
         if tight_layout:
-            plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust for suptitle
+            plt.tight_layout()
         plt.show()
 
     def plot_confusion_matrix(
