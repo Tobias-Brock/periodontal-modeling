@@ -1,6 +1,6 @@
-![Periomod Logo](images/logo.jpg)
+![Periomod Logo](images/logo.png)
 
-# periodontal-modeling Documentation
+# Documentation
 
 ## Overview
 
