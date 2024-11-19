@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1711.54 239.03">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #009444;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        opacity: .4;
+      }
+
+      .cls-4 {
+        fill: #231f20;
+      }
+
+      .cls-2 {
+        fill: #f7941d;
+      }
+
+      .cls-5 {
+        fill: #fff;
+      }
+
+      .cls-5, .cls-6 {
+        stroke: #231f20;
+        stroke-miterlimit: 10;
+        stroke-width: 5px;
+      }
+
+      .cls-7 {
+        letter-spacing: 0em;
+      }
+
+      .cls-8 {
+        letter-spacing: 0em;
+      }
+
+      .cls-9 {
+        font-size: 18.51px;
+      }
+
+      .cls-9, .cls-10 {
+        fill: #a7a9ac;
+        font-family: MyriadConceptRoman-Bold, 'Myriad Variable Concept';
+        font-variation-settings: 'wght' 700, 'wdth' 100;
+        font-weight: 700;
+      }
+
+      .cls-11 {
+        letter-spacing: 0em;
+      }
+
+      .cls-12 {
+        letter-spacing: 0em;
+      }
+
+      .cls-3 {
+        fill: #be1e2d;
+      }
+
+      .cls-10 {
+        font-size: 63.47px;
+      }
+
+      .cls-13 {
+        letter-spacing: 0em;
+      }
+
+      .cls-14 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-15 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-16 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-17 {
+        letter-spacing: 0em;
+      }
+
+      .cls-18 {
+        letter-spacing: 0em;
+      }
+
+      .cls-19 {
+        letter-spacing: 0em;
+      }
+
+      .cls-6 {
+        fill: none;
+      }
+
+      .cls-20 {
+        letter-spacing: 0em;
+      }
+
+      .cls-21 {
+        letter-spacing: 0em;
+      }
+
+      .cls-22 {
+        letter-spacing: .02em;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1" data-name="Layer 1">
+    <circle class="cls-5" cx="151.94" cy="116.99" r="89.98"/>
+    <path class="cls-2" d="M74.4,156.69h154.77c8-5.04,6.44-10.95,9.68-17.42H64.5c3.25,6.47,1.9,12.38,9.9,17.42Z"/>
+    <path class="cls-1" d="M61.7,124.76c0,5.01.97,9.87,2.78,14.51h174.39c1.82-4.64,2.78-9.5,2.78-14.51,0-2.63-.27-5.23-.79-7.77H62.49c-.52,2.54-.79,5.14-.79,7.77Z"/>
+    <text class="cls-10" transform="translate(265.72 128.83) scale(.99 1)"><tspan class="cls-15" x="0" y="0">P</tspan><tspan x="35.35" y="0">e</tspan><tspan class="cls-21" x="68.86" y="0">r</tspan><tspan class="cls-7" x="92.85" y="0">io</tspan><tspan class="cls-12" x="146.86" y="0">Mo</tspan><tspan x="237.55" y="0">d</tspan></text>
+    <text class="cls-9" transform="translate(268.63 149.72)"><tspan class="cls-18" x="0" y="0">P</tspan><tspan class="cls-19" x="10.59" y="0">r</tspan><tspan x="17.47" y="0">edi</tspan><tspan class="cls-22" x="43.34" y="0">c</tspan><tspan class="cls-8" x="51.99" y="0">ti</tspan><tspan class="cls-16" x="63.85" y="0">v</tspan><tspan x="73.38" y="0">e </tspan><tspan class="cls-14" x="86.89" y="0">P</tspan><tspan x="97.2" y="0">e</tspan><tspan class="cls-20" x="106.97" y="0">r</tspan><tspan x="113.97" y="0">i</tspan><tspan class="cls-11" x="119.04" y="0">o</tspan><tspan x="129.77" y="0">do</tspan><tspan class="cls-17" x="151.48" y="0">n</tspan><tspan class="cls-13" x="162.22" y="0">tal </tspan><tspan class="cls-11" x="187.61" y="0">Mo</tspan><tspan x="214.06" y="0">deling</tspan></text>
+    <path class="cls-3" d="M72.15,156.69c18.75,30.67,47.39,50.27,79.48,50.27s60.73-19.61,79.48-50.27H72.15Z"/>
+    <circle class="cls-6" cx="151.94" cy="116.99" r="89.98"/>
+  </g>
+  <g id="Layer_2" data-name="Layer 2">
+    <path class="cls-4" d="M127.19,62.22c-7.44,5.64-8.91,12.72-8.65,21.18.03,11.48,4.75,22.44,2.78,33.92-1.74,12.45-3.95,24.49-.7,36.93,1.07,4.19,4.03,11.54,9.78,10.58,4.34-1.57,4.04-9.02,4.28-13.1.5-9.23,1.65-23.05,13.82-25.45,16.16-1.72,18.31,18,16.48,28.33-.98,4.96-3.43,9.64-6.88,13.61-2.33,3.16-10.95,9.5-3.8,11.74,8.72,1.69,15.68-3.96,19.54-10.59,4-6.23,7.14-13.49,8.43-20.47,1.38-7.11,1.42-14.34,1.04-21.47-.3-5.96-1.54-11.88-1.33-17.79.07-6.34,2.38-11.48,3.13-18.09.31-2.87.34-5.81.13-8.69-.96-9.6-4.26-22.94-16.76-23.13-5.3-.09-10.35,4.16-15.49,3.61-3.1-.45-5.97-2.91-8.84-4.2-5.6-2.77-11.82-.89-16.8,2.96l-.16.13Z"/>
+  </g>
+</svg>

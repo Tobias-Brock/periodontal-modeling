@@ -120,5 +120,5 @@ filterwarnings = [
 include = [
   "LICENSE",
   "README.md",
-  "periomod/app/images/logo_app.jpg"
+  "periomod/app/images/logo_app_old.jpg"
 ]

@@ -50,7 +50,7 @@ from periomod.app import (
     all_teeth,
 )
 
-logo_path = files("periomod.app.images").joinpath("logo_app.jpg")
+logo_path = files("periomod.app.images").joinpath("logo_app_old.jpg")
 
 with gr.Blocks() as perioapp:
     gr.Image(logo_path, elem_id="logo", label="")
