@@ -38,7 +38,7 @@ class DescriptivesPlotter:
         from periomod.data import ProcessedDataLoader
         from periomod.descriptives import DescriptivesPlotter
 
-        df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+        df = dataloader.load_data(path="data/processed/processed_data.csv")
 
         # instantiate plotter with dataframe
         plotter = DescriptivesPlotter(df)

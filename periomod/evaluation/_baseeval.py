@@ -360,6 +360,12 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         """
         classification = "binary" if self.y.nunique() == 2 else "multiclass"
         probas = get_probs(self.model, classification=classification, X=self.X)
+
+        if task is not None:
+            label_mapping = _label_mapping(task)
+        else:
+            label_mapping = {i: f"Class {i}" for i in range(probas.shape[1])}
+
         if task is not None:
             plot_title = (
                 f"Calibration Plot ({task_map.get(task, 'Binary')})"
@@ -378,7 +384,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 prob_true, prob_pred = calibration_curve(
                     binarized_y, class_probas, n_bins=n_bins, strategy="uniform"
                 )
-                plt.plot(prob_pred, prob_true, marker="o", label=f"Class {class_idx}")
+                label_name = label_mapping.get(class_idx, f"Class {class_idx}")
+                plt.plot(prob_pred, prob_true, marker="o", label=label_name)
             plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
             plt.xlabel("Mean Predicted Probability", fontsize=12)
             plt.ylabel("Fraction of Positives", fontsize=12)
@@ -512,7 +519,10 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=300)
 
         if num_patients is not None:
-            fig.suptitle(f"Number of Patients in Test Set: {num_patients}", fontsize=16)
+            fig.suptitle(
+                f"Number of Patients: {num_patients}; Number of sites: {len(self.y)}",
+                fontsize=16,
+            )
 
         plot_data = [
             {

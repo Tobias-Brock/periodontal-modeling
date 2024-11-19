@@ -82,4 +82,4 @@ docker-build:
 ## Run Docker container
 .PHONY: docker-run
 docker-run:
-	docker run -p 7880:7880 periomod-image
+	docker run -p 7890:7890 periomod-image

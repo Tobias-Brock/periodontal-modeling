@@ -65,10 +65,12 @@ class StaticProcessEngine(BaseProcessor):
 
     Example:
         ```
-        engine = StaticProcessEngine(behavior=True, verbose=True)
-        df = engine.load_data()
+        from periomod.data import StaticProcessEngine
+
+        engine = StaticProcessEngine()
+        df = engine.load_data(path="data/raw/raw_data.xlsx")
         df = engine.process_data(df)
-        engine.save_data(df)
+        engine.save_data(df=df, path="data/processed/processed_data.csv")
         ```
     """
 

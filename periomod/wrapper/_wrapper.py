@@ -149,6 +149,7 @@ class BenchmarkWrapper(BaseBenchmark):
             criteria=["f1", "brier_score"],
             sampling=["upsampling"],
             factor=2,
+            path="/data/processed/processed_data.csv",
         )
 
         # Run baseline benchmarking
@@ -160,14 +161,11 @@ class BenchmarkWrapper(BaseBenchmark):
         # Save the benchmark results
         benchmarker.save_benchmark(
             benchmark_df=benchmark,
-            path="reports",
-            file_name="benchmark.csv",
-            folder_name="experiment")
+            path="reports/experiment/benchmark.csv",
+        )
 
         # Save the trained learners
-        benchmarker.save_learners(
-            learners_dict=learners, path="models", folder_name="experiment"
-            )
+        benchmarker.save_learners(learners_dict=learners, path="models/experiment")
         ```
     """
 
@@ -191,7 +189,7 @@ class BenchmarkWrapper(BaseBenchmark):
         cv_seed: Optional[int] = 0,
         mlp_flag: Optional[bool] = None,
         threshold_tuning: Optional[bool] = None,
-        verbose: bool = True,
+        verbose: bool = False,
         path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes the BenchmarkWrapper.
@@ -443,15 +441,15 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         from periomod.base import Patient, patient_to_dataframe
         from periomod.wrapper import EvaluatorWrapper, load_benchmark, load_learners
 
-        benchmark = load_benchmark(
-            file_name="benchmark.csv", folder_name="experiment"
-        )
-        learners = load_learners(path="models", folder_name="experiments")
+        benchmark = load_benchmark(path="reports/experiment/benchmark.csv")
+        learners = load_learners(path="models/experiments")
 
-        # Initialize evaluator with learners and specified criterion
+        # Initialize evaluator with learners from BenchmarkWrapper and f1 criterion
         evaluator = EvaluatorWrapper(
-            learners_dict=learners, criterion="f1", path="data/processed"
-            )
+            learners_dict=learners,
+            criterion="f1",
+            path="data/processed/processed_data.csv"
+        )
 
         # Evaluate the model and generate plots
         evaluator.wrapped_evaluation()
@@ -466,7 +464,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=-1)
 
         # Define a patient instance
-        patient = Patient(..)
+        patient = Patient()
         patient_df = patient_to_df(patient=patient)
 
         # Run inference on a specific patient's data
@@ -628,6 +626,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             brier_threshold=brier_threshold,
         )
         print(f"Number of patients in test set: {patients}")
+        print(f"Number of tooth sites: {len(self.evaluator.y)}")
         self.evaluator.analyze_brier_within_clusters(
             n_clusters=n_cluster, tight_layout=tight_layout
         )
@@ -667,6 +666,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             brier_threshold=brier_threshold,
         )
         print(f"Number of patients in test set: {patients}")
+        print(f"Number of tooth sites: {len(self.evaluator.y)}")
         self.evaluator.evaluate_feature_importance(fi_types=fi_types)
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 

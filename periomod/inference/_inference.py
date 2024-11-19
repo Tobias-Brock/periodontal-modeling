@@ -65,7 +65,7 @@ class ModelInference(BaseModelInference):
         )
 
         # Define a patient instance
-        patient = Patient(..)
+        patient = Patient()
         patient_df = patient_to_df(patient=patient)
 
         # Prepare data for inference
