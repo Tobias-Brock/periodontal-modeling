@@ -130,7 +130,7 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 engine = StaticProcessEngine()
-df = engine.load_data(path="data/raw/Periodontitis_ML_Dataset.xlsx")
+df = engine.load_data(path="data/raw/raw_data.xlsx")
 df = engine.process_data(df)
 engine.save_data(df=df, path="data/processed/processed_data.csv")
 ```
