@@ -4,14 +4,14 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "periomod"
-version = "0.1.0"
+version = {attr = "periomod.version.__version__"}
 description = "Package for short-term periodontal modeling"
 authors = [
   { name = "Tobias Brock" },
   { name = "Elias Walter" },
 ]
 
-license = { text = "CC-BY-NC-SA-4.0" }
+license = { text = "LICENSE"}
 readme = "README.md"
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -114,4 +114,11 @@ dependencies = { file = ["requirements.txt"] }
 [tool.pytest.ini_options]
 filterwarnings = [
   "ignore::DeprecationWarning"
+]
+
+[tool.flit.sdist]
+include = [
+  "LICENSE",
+  "README.md",
+  "periomod/app/images/logo_app.jpg"
 ]

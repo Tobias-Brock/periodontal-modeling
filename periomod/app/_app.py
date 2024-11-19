@@ -11,6 +11,7 @@ Example:
 """
 
 from functools import partial
+from importlib.resources import files
 from typing import Dict, List, Union
 
 import gradio as gr
@@ -49,8 +50,10 @@ from periomod.app import (
     all_teeth,
 )
 
+logo_path = files("periomod.app.images").joinpath("logo_app.jpg")
+
 with gr.Blocks() as perioapp:
-    gr.Markdown("## Periodontal Modeling")
+    gr.Image(logo_path, elem_id="logo", label="")
 
     models_state = gr.State()
     task_state = gr.State()
@@ -67,7 +70,7 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value="data/raw/Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw/raw_data.xlsx",
                     scale=1,
                     info="Specify the path to the raw data file for processing.",
                 )

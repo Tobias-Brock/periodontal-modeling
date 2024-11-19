@@ -104,13 +104,13 @@ class BaseProcessor(BaseLoader, ABC):
 
     def load_data(
         self,
-        path: Union[str, Path] = Path("data/raw/Periodontitis_ML_Dataset.xlsx"),
+        path: Union[str, Path] = Path("data/raw/raw_data.xlsx"),
     ) -> pd.DataFrame:
         """Loads the dataset and validates required columns.
 
         Args:
             path (str, optional): Directory where dataset is located.
-                Defaults to Path("data/raw/Periodontitis_ML_Dataset.xlsx").
+                Defaults to Path("data/raw/raw_data.xlsx").
 
         Returns:
             pd.DataFrame: The loaded DataFrame.
