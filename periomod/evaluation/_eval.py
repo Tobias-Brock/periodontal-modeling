@@ -200,7 +200,7 @@ class ModelEvaluator(BaseModelEvaluator):
                     ax.spines["bottom"].set_color("black")
                     ax.tick_params(axis="y", colors="black")
 
-                    plt.title(f"{model_name}: SHAP Feature Importance; {self.encoding}")
+                    plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
                 else:
@@ -251,7 +251,7 @@ class ModelEvaluator(BaseModelEvaluator):
                     ax.spines["left"].set_color("black")
                     ax.spines["bottom"].set_color("black")
                     ax.tick_params(axis="y", colors="black")
-                    plt.title(f"{model_name}: SHAP Feature Importance; {self.encoding}")
+                    plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
                 else:
@@ -273,10 +273,7 @@ class ModelEvaluator(BaseModelEvaluator):
                 else:
                     plt.bar(fi_df["Feature"], fi_df["Importance"])
 
-                plt.title(
-                    f"{model_name}: {fi_type.title()} Feature Importance; "
-                    f"{self.encoding}"
-                )
+                plt.title(f"{model_name}: {fi_type.title()} Feature Importance")
                 plt.xticks(rotation=90, fontsize=12)
                 plt.yticks(fontsize=12)
                 plt.axhline(y=0, color="black", linewidth=1)
@@ -347,7 +344,7 @@ class ModelEvaluator(BaseModelEvaluator):
             features=feature_averages.columns
         )
 
-        plt.figure(figsize=(4, 4), dpi=300)
+        plt.figure(figsize=(8, 4), dpi=300)
         plt.rcParams.update({"font.size": 12})
         sns.violinplot(
             x="Cluster",
