@@ -37,7 +37,7 @@ class InputProcessor:
         - `process_tuning(list) -> list`: Converts tuning method names to codes.
         - `process_hpo(list) -> list`: Converts HPO methods to internal codes.
         - `process_criteria(list) -> list`: Converts criteria names to codes.
-        - `process_encoding(list) -> list`: Converts encoding types to internal codes.
+        - `process_encoding(str) -> str`: Converts encoding types to internal codes.
         - `process_antibiotics(str) -> int`: Converts antibiotic treatment to code.
         - `process_gender(str) -> int`: Converts gender to binary code.
         - `process_stresslvl(str) -> int`: Converts stress level to numerical code.
@@ -213,9 +213,9 @@ class InputProcessor:
         return [cls.criteria_map[criterion]]
 
     @classmethod
-    def process_encoding(cls, encoding: str) -> list:
+    def process_encoding(cls, encoding: str) -> str:
         """Processes a single encoding string using the encodings_map."""
-        return [cls.encodings_map[encoding]]
+        return cls.encodings_map.get(encoding, encoding)
 
     @classmethod
     def process_antibotics(cls, antibiotics: str) -> int:

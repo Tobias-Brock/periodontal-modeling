@@ -308,7 +308,7 @@ def _baseline_wrapper(task: str, encoding: str, path: str) -> pd.DataFrame:
         pd.DataFrame: DataFrame containing baseline evaluation metrics.
     """
     task = InputProcessor.process_task(task=task)
-    encoding = InputProcessor.process_encoding(encoding=encoding)[0]
+    encoding = InputProcessor.process_encoding(encoding=encoding)
     return Baseline(task=task, encoding=encoding, path=Path(path)).baseline()
 
 
@@ -512,7 +512,7 @@ def _run_benchmarks(
     tuning_methods = InputProcessor.process_tuning(tuning_method=tuning_method)
     hpo_methods = InputProcessor.process_hpo(hpo_method=hpo_method)
     criteria = InputProcessor.process_criteria(criterion=criterion)
-    encodings = InputProcessor.process_encoding(encoding=encoding)
+    encodings = [InputProcessor.process_encoding(encoding=encoding)]
     sampling_benchmark: Optional[List[Union[str, None]]] = (
         [s if s != "None" else None for s in sampling] if sampling else None
     )
@@ -726,7 +726,9 @@ def _load_data_wrapper(
             X_train, y_train, X_test, y_test.
     """
     return _load_data(
-        InputProcessor.process_task(task=task), encoding=encoding, path=path
+        task=InputProcessor.process_task(task=task),
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        path=path,
     )
 
 
@@ -785,6 +787,44 @@ def _plot_calibration(
     return plt.gcf()
 
 
+def _plot_bss(
+    models: dict,
+    selected_model: str,
+    X: pd.DataFrame,
+    y: pd.Series,
+    task: str,
+    encoding: str,
+    path: str,
+) -> plt.Figure:
+    """Generates BSS plot for the given model and test data.
+
+    Args:
+        models (dict): Dictionary of trained models where the keys are model names.
+        selected_model (str): Name of the selected model from the dropdown.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
+        task (str): Task mapping for outcome labels.
+        encoding (str): Type of encoding.
+        path (str): Input path from app.
+
+    Returns:
+        plt.Figure: Calibration plot for model probabilities.
+    """
+    baseline = Baseline(
+        task=InputProcessor.process_task(task=task),
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        path=Path(path),
+    )
+    baseline_models, _, _ = baseline.train_baselines()
+    classification = "multiclass" if task == "Pocket groups" else "binary"
+    ModelEvaluator(model=models[selected_model], X=X, y=y).bss_comparison(
+        baseline_models=baseline_models,
+        classification=classification,
+        tight_layout=True,
+    )
+    return plt.gcf()
+
+
 def _plot_fi(
     model: Any,
     fi_type: str,
@@ -810,7 +850,11 @@ def _plot_fi(
         return "No model available."
 
     ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
+        model=model,
+        X=X,
+        y=y,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        aggregate=aggregate,
     ).evaluate_feature_importance(fi_types=[fi_type])
     return plt.gcf()
 
@@ -842,7 +886,11 @@ def _plot_cluster(
         return "No model available."
 
     return ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
+        model=model,
+        X=X,
+        y=y,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        aggregate=aggregate,
     ).analyze_brier_within_clusters(n_clusters=n_clusters, tight_layout=True)
 
 
@@ -1193,7 +1241,7 @@ def _app_inference(
     predict_data, patient_data = inference_engine.prepare_inference(
         task=task,
         patient_data=patient_data,
-        encoding=encoding,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
         X_train=X_train,
         y_train=y_train,
     )
@@ -1237,10 +1285,7 @@ def _run_jackknife_inference(
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
     """
-    task_processed = InputProcessor.process_task(task=task)
-    classification = (
-        "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
-    )
+    classification = "multiclass" if task == "Pocket groups" else "binary"
     model = models[selected_model]
 
     inference_engine = ModelInference(classification=classification, model=model)
@@ -1248,7 +1293,7 @@ def _run_jackknife_inference(
         model=model,
         train_df=train_df,
         patient_data=patient_data,
-        encoding=encoding,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
         inference_results=inference_results,
         alpha=alpha,
         sample_fraction=sample_fraction,

@@ -81,6 +81,14 @@ make docker-build
 make docker-run
 ```
 
+The data tab enables data loading, processing and saving. It further provides multiple plotting methods for data visualization.
+
+![App Demo](docs/images/app_data.gif)
+
+In the inference tab, patient data can be selected and submitted for predictions with a trained model. Jackknife confidence intervals can also be calculated for the predictions.
+
+![App Demo](docs/images/app_inference.gif)
+
 ### Data Module
 
 Use the `StaticProcessEngine` class to preprocess your data. This class handles data transformations and imputation.
@@ -457,6 +465,11 @@ jackknife_results, ci_plots = evaluator.wrapped_jackknife(
 This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 See the [LICENSE](./LICENSE) file for more details or read the full license at
 [Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
+
+## Correspondence
+
+Tobias Brock: t.brock@campus.lmu.de <br>
+Elias Walter: elias.walter@med.uni-muenchen.de
 
 ## Contributing
 

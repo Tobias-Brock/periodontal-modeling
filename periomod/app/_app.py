@@ -27,6 +27,7 @@ from periomod.app import (
     _initialize_benchmark,
     _load_data_engine,
     _load_data_wrapper,
+    _plot_bss,
     _plot_calibration,
     _plot_cluster_wrapper,
     _plot_cm,
@@ -53,10 +54,11 @@ from periomod.app import (
 logo_path = files("periomod.app.images").joinpath("logo_app.png")
 
 with gr.Blocks() as perioapp:
-    gr.Image(logo_path, elem_id="logo", label="")
+    gr.Image(logo_path, elem_id="logo", label="", show_download_button=False)
 
     models_state = gr.State()
     task_state = gr.State()
+    encoding_state = gr.State()
     processed_data_state = gr.State()
     train_df_state = gr.State()
     X_train_state = gr.State()
@@ -374,7 +376,7 @@ with gr.Blocks() as perioapp:
                 )
 
             with gr.Row():
-                encodings_input = gr.Radio(
+                encoding_input = gr.Radio(
                     label="Encoding",
                     choices=["One-hot", "Target"],
                     value="One-hot",
@@ -505,6 +507,9 @@ with gr.Blocks() as perioapp:
                 fn=lambda x: x, inputs=path_input, outputs=processed_data_state
             )
             task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
+            encoding_input.change(
+                fn=lambda x: x, inputs=encoding_input, outputs=encoding_state
+            )
 
             perioapp.load(
                 _initialize_benchmark,
@@ -530,7 +535,7 @@ with gr.Blocks() as perioapp:
                 fn=_baseline_wrapper,
                 inputs=[
                     task_input,
-                    encodings_input,
+                    encoding_input,
                     path_input,
                 ],
                 outputs=[baseline_output],
@@ -544,7 +549,7 @@ with gr.Blocks() as perioapp:
                     tuning_methods_input,
                     hpo_methods_input,
                     criteria_input,
-                    encodings_input,
+                    encoding_input,
                     sampling_input,
                     factor_input,
                     n_configs_input,
@@ -577,11 +582,11 @@ with gr.Blocks() as perioapp:
                     multiselect=False,
                     info="Select a model from the available trained models.",
                 )
-                encoding_input = gr.Dropdown(
+                encoding_display = gr.Textbox(
                     label="Encoding",
-                    choices=["one_hot", "target"],
-                    value="one_hot",
-                    info="Choose encoding method used for categorical variables.",
+                    value="",
+                    interactive=False,
+                    info="Displays encoding method used for categorical variables.",
                 )
             with gr.Row():
                 processed_data_display = gr.Textbox(
@@ -595,6 +600,7 @@ with gr.Blocks() as perioapp:
             load_status_output = gr.Textbox(label="Status", interactive=False)
             processed_data_display.value = path_input.value
             task_display.value = task_input.value
+            encoding_display.value = encoding_input.value
 
             models_state.change(
                 fn=_update_model_dropdown,
@@ -609,6 +615,12 @@ with gr.Blocks() as perioapp:
                 fn=lambda task: task, inputs=task_input, outputs=task_display
             )
 
+            encoding_input.change(
+                fn=lambda encoding: encoding,
+                inputs=encoding_input,
+                outputs=encoding_display,
+            )
+
             generate_confusion_matrix_button = gr.Button("Generate Confusion Matrix")
             matrix_plot = gr.Plot()
 
@@ -617,6 +629,9 @@ with gr.Blocks() as perioapp:
 
             generate_calibration_button = gr.Button("Generate Calibration Plot")
             calibration_plot = gr.Plot()
+
+            generate_bss_button = gr.Button("Generate Brier Skill Score Plot")
+            bss_plot = gr.Plot()
 
             with gr.Row():
                 importance_type_input = gr.Radio(
@@ -708,6 +723,20 @@ with gr.Blocks() as perioapp:
                     task_input,
                 ],
                 outputs=calibration_plot,
+            )
+
+            generate_bss_button.click(
+                fn=_plot_bss,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                    encoding_input,
+                    path_input,
+                ],
+                outputs=bss_plot,
             )
 
             generate_feature_importance_button.click(
@@ -996,11 +1025,11 @@ with gr.Blocks() as perioapp:
                     multiselect=False,
                     info="Choose the model to use for inference.",
                 )
-                encoding_input = gr.Dropdown(
+                encoding_display = gr.Textbox(
                     label="Encoding",
-                    choices=["one_hot", "target"],
-                    value="one_hot",
-                    info="Select the encoding method for categorical features.",
+                    value="",
+                    interactive=False,
+                    info="Displays encoding method used for categorical variables.",
                 )
             with gr.Row():
                 processed_data_display = gr.Textbox(
@@ -1013,11 +1042,17 @@ with gr.Blocks() as perioapp:
             results = gr.DataFrame(visible=False)
             processed_data_display.value = path_input.value
             task_display.value = task_input.value
+            encoding_display.value = encoding_input.value
             path_input.change(
                 fn=lambda x: x, inputs=path_input, outputs=processed_data_display
             )
             task_input.change(
                 fn=lambda task: task, inputs=task_input, outputs=task_display
+            )
+            encoding_input.change(
+                fn=lambda encoding: encoding,
+                inputs=encoding_input,
+                outputs=encoding_display,
             )
 
             task_input.change(
@@ -1128,5 +1163,24 @@ with gr.Blocks() as perioapp:
                 ],
                 outputs=[jackknife_plot],
             )
+
+        with gr.Tab("Achknowledgments"):
+            gr.Markdown(
+                """
+            ## License
+
+            © 2024 Tobias Brock, Elias Walter
+
+            This project is licensed under the Creative Commons
+            Attribution-NonCommercial-ShareAlike 4.0 International License.
+            Read the full license at [Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
+
+            ## Correspondence
+
+            Tobias Brock: t.brock@campus.lmu.de  \n
+            Elias Walter: elias.walter@med.uni-muenchen.de
+            """
+            )
+
 
 perioapp.launch(server_port=7890, server_name="0.0.0.0")

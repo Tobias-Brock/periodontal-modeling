@@ -3,7 +3,7 @@ repos:
     rev: v4.6.0
     hooks:
       - id: check-added-large-files
-        exclude: '.*\.ipynb$'
+        exclude: '.*\.(ipynb|gif)$'
       - id: check-yaml
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -31,7 +31,7 @@ repos:
       - id: blacken-docs
         name: format python code in documentation files
         additional_dependencies:
-          - black==24.8.0  # Updated to match Black version
+          - black==24.8.0
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
