@@ -21,6 +21,7 @@ class BaseConfig:
     Attributes:
         group_col (str): Column name used for group-based splitting.
         y (str): Target column name in the dataset.
+        target_state (int): Random state of target encoding.
         learner_state (int): Random state of learners.
         xgb_obj_binary (str): Objective function for binary classification in XGBoost.
         xgb_loss_binary (str): Loss function for binary classification in XGBoost.
@@ -35,6 +36,7 @@ class BaseConfig:
         patient_columns (List[str]): List of column names related to patient data.
         tooth_columns (List[str]): List of column names related to tooth data.
         side_columns (List[str]): List of column names related to side data.
+        feature_mapping (dict[str, str]): Mapping of feature names for plotting.
         cat_vars (List[str]): List of categorical variables in the dataset.
         bin_vars (List[str]): List of binary variables in the dataset.
         scale_vars (List[str]): List of numeric variables to scale in preprocessing.
@@ -54,7 +56,7 @@ class BaseConfig:
     Example:
         ```
         config = BaseConfig()
-        print(config.random_state_sampling)
+        print(config.tooth_columns)
         ```
 
     Note:
@@ -72,6 +74,7 @@ class BaseConfig:
 
         self.group_col = cfg.resample.group_col
         self.y = cfg.resample.y
+        self.target_state = cfg.resample.target_state
         self.learner_state = cfg.learner.learner_state
         self.xgb_obj_binary = cfg.learner.xgb_obj_binary
         self.xgb_loss_binary = cfg.learner.xgb_loss_binary
@@ -83,6 +86,7 @@ class BaseConfig:
         self.patient_columns = cfg.data.patient_columns
         self.tooth_columns = cfg.data.tooth_columns
         self.side_columns = cfg.data.side_columns
+        self.feature_mapping = cfg.data.feature_mapping
         self.cat_vars = cfg.data.cat_vars
         self.bin_vars = cfg.data.bin_vars
         self.scale_vars = cfg.data.scale_vars
@@ -104,6 +108,9 @@ class BaseValidator(BaseConfig):
 
     This class extends `BaseConfig` and validates classification types, evaluation
     criteria, and tuning methods.
+
+    Inherits:
+        - `BaseLoader`: Provides loading and saving capabilities for processed data.
 
     Args:
         classification (str): Type of classification, either 'binary' or 'multiclass'.
@@ -407,6 +414,12 @@ def patient_to_df(patient: Patient) -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: DataFrame where each row represents a tooth side.
+
+    Example:
+        ```
+        patient = Patient(..)
+        patient_data = patient_to_df(patient=patient)
+        ```
     """
     rows = []
     patient_dict = asdict(patient)

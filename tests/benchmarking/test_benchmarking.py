@@ -43,8 +43,7 @@ def test_benchmarker_load_data(mock_data_loader):
         test_seed=42,
         test_size=0.2,
         verbose=False,
-        path=Path("."),
-        name="data.csv",
+        path=Path("data.csv"),
     )
 
     data_cache = benchmarker._load_data_for_tasks()
@@ -84,8 +83,7 @@ def test_benchmarker_run_all_benchmarks(mock_data_loader, mock_experiment):
         test_seed=42,
         test_size=0.2,
         verbose=False,
-        path=Path("."),
-        name="data.csv",
+        path=Path("data.csv"),
     )
 
     results_df, top_models = benchmarker.run_benchmarks()

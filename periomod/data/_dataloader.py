@@ -48,12 +48,15 @@ class ProcessedDataLoader(BaseDataLoader):
 
     Example:
         ```
-        loader = ProcessedDataLoader(
+        from periomod.data import ProcessedDataLoader
+
+        # instantiate with one-hot encoding and scale numerical variables
+        dataloader = ProcessedDataLoader(
             task="pocketclosure", encoding="one_hot", encode=True, scale=True
         )
-        data = loader.load_data()
-        data = loader.transform_data(data)
-        loader.save_data(data)
+        df = dataloader.load_data(path="data/processed/processed_data.csv")
+        df = dataloader.transform_data(df=df)
+        dataloader.save_data(df=df, path="data/training/training_data.csv")
         ```
     """
 
@@ -83,6 +86,9 @@ class ProcessedDataLoader(BaseDataLoader):
             return df
 
         cat_vars = [col for col in self.all_cat_vars if col in df.columns]
+        df[cat_vars] = df[cat_vars].apply(
+            lambda col: col.astype(int) if col.dtype in [float, object] else col
+        )
 
         if self.encoding == "one_hot":
             df_reset = df.reset_index(drop=True)
@@ -115,8 +121,7 @@ class ProcessedDataLoader(BaseDataLoader):
         """
         scale_vars = [col for col in self.scale_vars if col in df.columns]
         df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
-        scaler = StandardScaler()
-        scaled_values = scaler.fit_transform(df[scale_vars])
+        scaled_values = StandardScaler().fit_transform(df[scale_vars])
         df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
         self._check_scaled_columns(df=df)
         return df
@@ -145,7 +150,6 @@ class ProcessedDataLoader(BaseDataLoader):
             df = df.query("pdgroupbase in [1, 2]")
             if self.task == "pocketclosureinf":
                 self.task = "pocketclosure"
-
         cols_to_drop = [
             col for col in self.task_cols if col != self.task and col in df.columns
         ] + self.no_train_cols

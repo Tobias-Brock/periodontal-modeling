@@ -31,7 +31,6 @@ class BaseResampler(BaseConfig, ABC):
             ('binary' or 'multiclass').
         encoding (str): Encoding method for categorical features
             ('one_hot' or 'target').
-        random_state_sampling (int): Seed used for ensuring reproducibility in sampling.
         all_cat_vars (list): List of all categorical variables in the dataset that
             can be used in target encoding.
 
@@ -68,7 +67,7 @@ class BaseResampler(BaseConfig, ABC):
         y: pd.Series,
         sampling: str,
         sampling_factor: Optional[float] = None,
-        random_state: int = 0,
+        random_state: Optional[int] = 0,
     ) -> Tuple[pd.DataFrame, pd.Series]:
         """Applies resampling strategies to the dataset.
 
@@ -81,7 +80,7 @@ class BaseResampler(BaseConfig, ABC):
                 'upsampling', 'downsampling', or None.
             sampling_factor (Optional[float]): The factor by which to upsample or
                 downsample.
-            random_state (int): Random state for sampling. Defaults to 0.
+            random_state (Optional[int]): Random state for sampling. Defaults to 0.
 
         Returns:
             Tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
@@ -150,7 +149,9 @@ class BaseResampler(BaseConfig, ABC):
         cat_vars = [col for col in self.all_cat_vars if col in X.columns]
 
         if cat_vars:
-            encoder = TargetEncoder(target_type=self.classification)
+            encoder = TargetEncoder(
+                target_type=self.classification, random_state=self.target_state
+            )
             X_encoded = encoder.fit_transform(X[cat_vars], y)
 
             if not jackknife and X_val is not None:
@@ -209,16 +210,16 @@ class BaseResampler(BaseConfig, ABC):
             )
 
     @staticmethod
-    def validate_n_folds(n_folds: int) -> None:
+    def validate_n_folds(n_folds: Optional[int]) -> None:
         """Validates the number of folds used in cross-validation.
 
         Args:
-            n_folds (int): The number of folds for cross-validation.
+            n_folds (Optional[int]): The number of folds for cross-validation.
 
         Raises:
             ValueError: If the number of folds is not a positive integer.
         """
-        if not isinstance(n_folds, int) or n_folds <= 0:
+        if not (isinstance(n_folds, int) and n_folds > 0):
             raise ValueError("'n_folds' must be a positive integer.")
 
     @staticmethod

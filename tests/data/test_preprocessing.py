@@ -26,6 +26,9 @@ def test_impute_missing_values():
             "cigarettenumber": [np.nan, 5, 10, np.nan],
             "diabetes": [np.nan, 1, 2, np.nan],
             "stresslvl": [np.nan, 3, 5, 8],
+            "toothtype": [np.nan, 1, 2, np.nan],
+            "rootnumber": [np.nan, 1, 2, np.nan],
+            "tooth": [11, 12, 43, 33],
         }
     )
     engine = StaticProcessEngine(behavior=False, verbose=False)
@@ -102,6 +105,8 @@ def test_process_data():
             "tooth": [11, 12],
             "furcationbaseline": [1, 2],
             "side": [1, 2],
+            "toothtype": (1, 2),
+            "rootnumber": (1, 1),
         }
     )
     engine = StaticProcessEngine(behavior=False, verbose=False)
@@ -124,6 +129,7 @@ def test_process_data():
         "improvement",
         "plaque",
         "furcationbaseline",
+        "toothtype",
     ]
     assert all(col in df_processed.columns for col in expected_columns)
     assert not df_processed.isnull().values.any()

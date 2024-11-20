@@ -120,13 +120,13 @@ class BaseExperiment(BaseValidator, ABC):
         n_configs: int,
         racing_folds: Optional[int],
         n_jobs: int,
-        cv_folds: int,
+        cv_folds: Optional[int],
         test_seed: int,
         test_size: float,
-        val_size: float,
-        cv_seed: int,
-        mlp_flag: bool,
-        threshold_tuning: bool,
+        val_size: Optional[float],
+        cv_seed: Optional[int],
+        mlp_flag: Optional[bool],
+        threshold_tuning: Optional[bool],
         verbose: bool,
     ) -> None:
         """Initialize the Experiment class with tuning parameters."""
@@ -295,7 +295,6 @@ class BaseBenchmark(BaseConfig):
             classification when optimizing for 'f1'.
         verbose (bool): Enables detailed logging of processes if set to True.
         path (Path): Directory path where processed data will be stored.
-        name (str): Filename for the processed data file.
 
     Attributes:
         task (str): Task used for model classification or regression evaluation.
@@ -325,7 +324,6 @@ class BaseBenchmark(BaseConfig):
             in binary classification tasks.
         verbose (bool): Flag to enable detailed logging during training and evaluation.
         path (Path): Path where processed data is saved.
-        name (str): Name assigned to the saved processed data file.
 
     """
 
@@ -341,17 +339,16 @@ class BaseBenchmark(BaseConfig):
         factor: Optional[float],
         n_configs: int,
         n_jobs: int,
-        cv_folds: int,
+        cv_folds: Optional[int],
         racing_folds: Optional[int],
         test_seed: int,
         test_size: float,
-        val_size: float,
-        cv_seed: int,
-        mlp_flag: bool,
-        threshold_tuning: bool,
+        val_size: Optional[float],
+        cv_seed: Optional[int],
+        mlp_flag: Optional[bool],
+        threshold_tuning: Optional[bool],
         verbose: bool,
         path: Path,
-        name: str,
     ) -> None:
         """Initialize the base benchmark class with common parameters."""
         super().__init__()
@@ -375,7 +372,6 @@ class BaseBenchmark(BaseConfig):
         self.mlp_flag = mlp_flag
         self.threshold_tuning = threshold_tuning
         self.path = path
-        self.name = name
         self._validate_task()
 
     def _validate_task(self) -> None:
