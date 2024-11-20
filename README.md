@@ -1,9 +1,9 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
-![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
+![PyPI](https://img.shields.io/badge/pypi-v0.1.3-orange.svg)
 ![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
-![Periomod Logo](docs/images/logo.png)
+![Periomod Logo](https://github.com/Tobias-Brock/periodontal-modeling/raw/main/docs/images/logo.png)
 
 
 `peridontal-modeling`, or in short `periomod` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
@@ -78,6 +78,8 @@ pip install periodontal-modeling
 
 ## Usage
 
+The full documentation for `periomod` is available at [periomod-documentation](https://tobias-brock.github.io/periodontal-modeling/).
+
 ### App Module
 
 The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference.
@@ -113,24 +115,24 @@ make docker-run
 #### Data Tab
 The data tab enables data loading, processing and saving. It further provides multiple plotting methods for data visualization.The Data Tab enables data loading, processing, and saving. It provides several options for exploring and visualizing the dataset, making it easy to gain insights before proceeding to modeling or benchmarks.
 
-![App Demo](docs/images/app_data.gif)
+![App Demo](https://github.com/Tobias-Brock/periodontal-modeling/raw/main/docs/images/app_data.gif)
 
 #### Benchmarking Tab
 The Benchmarking Tab allows you to perform comparisons of different machine learning models, incorporating hyperparameter tuning, sampling, resampling and different criteria. The results are displayed in a clear and interactive format and allow the comparison with a model baseline.
 
-![App Demo](docs/images/app_benchmark.gif)
+![App Demo](https://github.com/Tobias-Brock/periodontal-modeling/raw/main/docs/images/app_benchmark.gif)
 
 #### Evaluation Tab
 
 The Evaluation Tab provides detailed performance metrics and visualizations for the trained models. These include confusion matrices, calibration plots, feature importance analysis, clustering, and Brier skill scores. It offers a comprehensive overview of the model performance.
 
-![App Demo](docs/images/app_evaluation.gif)
+![App Demo](https://github.com/Tobias-Brock/periodontal-modeling/raw/main/docs/images/app_evaluation.gif)
 
 #### Inference Tab
 
 In the Inference Tab, patient data can be selected and submitted for predictions using a trained model. Additionally, Jackknife confidence intervals can be calculated to evaluate prediction stability.
 
-![App Demo](docs/images/app_inference.gif)
+![App Demo](https://github.com/Tobias-Brock/periodontal-modeling/raw/main/docs/images/app_inference.gif)
 
 ### Data Module
 
