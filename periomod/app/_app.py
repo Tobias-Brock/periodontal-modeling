@@ -53,8 +53,25 @@ from periomod.app import (
 
 logo_path = files("periomod.app.images").joinpath("logo_app.png")
 
-with gr.Blocks() as perioapp:
-    gr.Image(logo_path, elem_id="logo", label="", show_download_button=False)
+with gr.Blocks(
+    css="""
+    .hide-label > label {
+        display: none !important;
+    }
+    .no-box {
+        border: none !important;
+        box-shadow: none !important;
+    }
+"""
+) as perioapp:
+    gr.Image(
+        logo_path,
+        elem_id="logo",
+        label="",
+        show_download_button=False,
+        show_fullscreen_button=False,
+        elem_classes=["no-box", "hide-label"],
+    )
 
     models_state = gr.State()
     task_state = gr.State()
