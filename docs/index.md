@@ -45,7 +45,7 @@ Jupyter Notebooks are an excellent tool for analyzing data and running experimen
 Ensure you have Python 3 installed. You may preferebly setup a new environment with Python 3.10 or 3.11. Install the package with all its dependencies via pip:
 
 ```bash
-pip install periodontal-modeling
+pip install periomod
 ```
 
 ## Core Modules

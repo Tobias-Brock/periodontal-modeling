@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "periomod"
-version = "0.1.4"
+version = "0.1.5"
 description = "Package for short-term periodontal modeling"
 authors = [
   { name = "Tobias Brock" },
