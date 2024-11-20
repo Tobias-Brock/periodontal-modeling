@@ -66,12 +66,21 @@ def test_baseline_evaluation(mock_data_loader):
 def test_baseline_custom_models():
     """Test Baseline with custom models."""
     synthetic_df = create_synthetic_data()
+
     with patch("periomod.data.ProcessedDataLoader") as mock_data_loader:
         mock_instance = mock_data_loader.return_value
         mock_instance.load_data.return_value = synthetic_df
         mock_instance.transform_data.return_value = synthetic_df
 
         custom_models = [
+            (
+                "Dummy Classifier",
+                DummyClassifier(strategy="uniform"),
+            ),
+            (
+                "Logistic Regression",
+                LogisticRegression(solver="liblinear", random_state=42),
+            ),
             (
                 "Custom Model 1",
                 LogisticRegression(solver="liblinear", random_state=42),
@@ -93,8 +102,13 @@ def test_baseline_custom_models():
 
         assert isinstance(results_df, pd.DataFrame)
         assert not results_df.empty
-        expected_models = ["Custom Model 1", "Custom Model 2"]
-        assert results_df["Model"].tolist() == expected_models
+        expected_models = [
+            "Dummy Classifier",
+            "Logistic Regression",
+            "Custom Model 1",
+            "Custom Model 2",
+        ]
+        assert set(results_df["Model"].tolist()) == set(expected_models)
 
 
 def test_baseline_multiclass():

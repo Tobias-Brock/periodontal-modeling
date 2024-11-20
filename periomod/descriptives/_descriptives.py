@@ -35,10 +35,16 @@ class DescriptivesPlotter:
 
     Example:
         ```
+        from periomod.data import ProcessedDataLoader
+        from periomod.descriptives import DescriptivesPlotter
+
+        df = dataloader.load_data(path="data/processed/processed_data.csv")
+
+        # instantiate plotter with dataframe
         plotter = DescriptivesPlotter(df)
-        plotter.plt_matrix(vertical="depth_before", horizontal="depth_after")
-        plotter.pocket_comparison(column1="depth_before", column2="depth_after")
-        plotter.histogram_2d(column_before="depth_before", column_after="depth_after")
+        plotter.plt_matrix(vertical="pdgrouprevaluation", horizontal="pdgroupbase")
+        plotter.pocket_comparison(col1="pdbaseline", col2="pdrevaluation")
+        plotter.histogram_2d(col_before="pdbaseline", col_after="pdrevaluation")
         ```
     """
 
@@ -169,7 +175,7 @@ class DescriptivesPlotter:
         heights_2 = value_counts_2.values
 
         fig, (ax1, ax2) = plt.subplots(
-            1, 2, figsize=(8, 4), sharex=True, sharey=True, dpi=300
+            1, 2, figsize=(8, 5), sharex=True, sharey=True, dpi=300
         )
 
         ax1.bar(x_values_1, heights_1, edgecolor="black", color="#078294", linewidth=1)
@@ -207,7 +213,7 @@ class DescriptivesPlotter:
         for spine in ax2.spines.values():
             spine.set_linewidth(1)
 
-        fig.text(0.55, 0, "Pocket Depth [mm]", ha="center", fontsize=12)
+        fig.supxlabel("Pocket Depth [mm]", fontsize=12)
         plt.tight_layout()
 
         if save:
@@ -298,8 +304,7 @@ class DescriptivesPlotter:
                 va="bottom",
                 fontsize=12,
             )
-
-        fig.text(0.55, 0, "Pocket depth categories", ha="center", fontsize=12)
+        fig.supxlabel("Pocket depth categories", fontsize=12)
         plt.tight_layout()
 
         if save:
@@ -361,6 +366,7 @@ class DescriptivesPlotter:
                 raise ValueError("'name' argument must required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
+        plt.tight_layout()
         plt.show()
 
     def outcome_descriptive(
@@ -374,7 +380,11 @@ class DescriptivesPlotter:
             name (str): Filename for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
         """
-        value_counts = self.df[outcome].value_counts()
+        df_temp = self.df
+        if outcome == "improvement" and "pdgroupbase" in self.df.columns:
+            df_temp = df_temp.query("pdgroupbase in [1, 2]")
+
+        value_counts = df_temp[outcome].value_counts()
         x_values = value_counts.index.astype(str)
         heights = value_counts.values
 
@@ -401,13 +411,13 @@ class DescriptivesPlotter:
         for spine in ax.spines.values():
             spine.set_linewidth(1)
         ax.tick_params(width=1)
-
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
         if save:
             if name is None:
-                raise ValueError("'name' argument must required when 'save' is True.")
+                raise ValueError("'name' argument is required when 'save' is True.")
             plt.savefig(name + ".svg", format="svg", dpi=300)
 
+        plt.tight_layout()
         plt.show()

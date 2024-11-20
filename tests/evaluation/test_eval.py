@@ -4,15 +4,17 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
+from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.utils import shuffle
 
 from periomod.evaluation._eval import ModelEvaluator
 
@@ -152,20 +154,6 @@ def test_plot_confusion_matrix():
         evaluator.plot_confusion_matrix(normalize="invalid_option")
 
 
-def test_evaluate_feature_importance_with_multiple_models():
-    """Test evaluate_feature_importance with multiple models."""
-    X, y = create_sample_data()
-    model1 = RandomForestClassifier()
-    model1.fit(X, y)
-    model2 = LogisticRegression()
-    model2.fit(X, y)
-    models = [model1, model2]
-
-    evaluator = ModelEvaluator(X=X, y=y, models=models)
-    evaluator.evaluate_feature_importance(fi_types=["standard"])
-    plt.close("all")
-
-
 def test_model_evaluator_initialization():
     """Test initialization of ModelEvaluator."""
     X, y = create_sample_data()
@@ -177,7 +165,6 @@ def test_model_evaluator_initialization():
     assert evaluator.X.equals(X)
     assert evaluator.y.equals(y)
     assert evaluator.model == model
-    assert evaluator.models == []
 
 
 def test_aggregate_one_hot_importances():
@@ -222,3 +209,105 @@ def test_aggregate_shap_one_hot():
     print("Updated Feature Names:", updated_feature_names)
     assert all(feature in updated_feature_names for feature in expected_features)
     assert aggregated_shap_values.shape[1] == len(expected_features)
+
+
+def test_calibration_plot_binary():
+    """Test the calibration_plot method for binary classification."""
+    X, y = make_classification(n_samples=100, n_classes=2, random_state=42)
+    y = shuffle(y, random_state=42)
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
+
+    model = LogisticRegression()
+    model.fit(X, y)
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    with patch("matplotlib.pyplot.show") as mock_show:
+        evaluator.calibration_plot(n_bins=5)
+        mock_show.assert_called_once()
+
+
+def test_calibration_plot_multiclass():
+    """Test the calibration_plot method for multiclass classification."""
+    X, y = make_classification(
+        n_samples=100, n_classes=3, n_informative=5, random_state=42
+    )
+    y = shuffle(y, random_state=42)
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
+
+    model = LogisticRegression(multi_class="multinomial", solver="lbfgs")
+    model.fit(X, y)
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    with patch("matplotlib.pyplot.show") as mock_show:
+        evaluator.calibration_plot(n_bins=5)
+        mock_show.assert_called_once()
+
+
+def test_calibration_plot_task_label():
+    """Test the calibration_plot method with task label mapping."""
+    X, y = make_classification(n_samples=100, n_classes=2, random_state=42)
+    y = shuffle(y, random_state=42)
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
+
+    model = LogisticRegression()
+    model.fit(X, y)
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    with patch("matplotlib.pyplot.show") as mock_show:
+        evaluator.calibration_plot(n_bins=5, task="pocketclosure")
+        mock_show.assert_called_once()
+
+
+def test_bss_comparison_binary():
+    """Test bss_comparison method for binary classification."""
+    X, y = make_classification(n_samples=100, n_classes=2, random_state=42)
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
+
+    model = LogisticRegression()
+    model.fit(X, y)
+
+    baseline_models = {
+        ("Dummy Classifier", "Baseline"): DummyClassifier(strategy="most_frequent"),
+        ("Random Forest", "Baseline"): RandomForestClassifier(n_estimators=10),
+    }
+    for baseline_model in baseline_models.values():
+        baseline_model.fit(X, y)
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    with patch("matplotlib.pyplot.show") as mock_show:
+        evaluator.bss_comparison(
+            baseline_models=baseline_models, classification="binary", num_patients=50
+        )
+        mock_show.assert_called_once()
+
+
+def test_bss_comparison_multiclass():
+    """Test bss_comparison method for multiclass classification."""
+    X, y = make_classification(
+        n_samples=100, n_classes=3, n_informative=5, random_state=42
+    )
+    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+    y = pd.Series(y)
+
+    model = LogisticRegression(multi_class="multinomial", solver="lbfgs")
+    model.fit(X, y)
+
+    baseline_models = {
+        ("Dummy Classifier", "Baseline"): DummyClassifier(strategy="uniform"),
+        ("Random Forest", "Baseline"): RandomForestClassifier(n_estimators=10),
+    }
+    for baseline_model in baseline_models.values():
+        baseline_model.fit(X, y)
+
+    evaluator = ModelEvaluator(X=X, y=y, model=model)
+    with patch("matplotlib.pyplot.show") as mock_show:
+        evaluator.bss_comparison(
+            baseline_models=baseline_models,
+            classification="multiclass",
+            num_patients=30,
+        )
+        mock_show.assert_called_once()

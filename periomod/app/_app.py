@@ -11,19 +11,24 @@ Example:
 """
 
 from functools import partial
+from importlib.resources import files
 from typing import Dict, List, Union
 
 import gradio as gr
 
 from periomod.app import (
     _app_inference,
+    _baseline_wrapper,
     _benchmarks_wrapper,
     _brier_score_wrapper,
     _collect_data,
     _display_data,
     _handle_tooth_selection,
+    _initialize_benchmark,
     _load_data_engine,
     _load_data_wrapper,
+    _plot_bss,
+    _plot_calibration,
     _plot_cluster_wrapper,
     _plot_cm,
     _plot_fi_wrapper,
@@ -35,17 +40,43 @@ from periomod.app import (
     _process_data,
     _run_jackknife_inference,
     _save_data,
+    _update_criteria_fields,
+    _update_hpo_method_fields,
+    _update_learners_fields,
     _update_model_dropdown,
     _update_side_state,
+    _update_task_fields,
     _update_tooth_state,
+    _update_tuning_method_fields,
     all_teeth,
 )
 
-with gr.Blocks() as perioapp:
-    gr.Markdown("## Periodontal Modeling")
+logo_path = files("periomod.app.images").joinpath("logo_app.png")
+
+with gr.Blocks(
+    css="""
+    .hide-label > label {
+        display: none !important;
+    }
+    .no-box {
+        border: none !important;
+        box-shadow: none !important;
+    }
+"""
+) as perioapp:
+    gr.Image(
+        logo_path,
+        elem_id="logo",
+        label="",
+        show_download_button=False,
+        show_fullscreen_button=False,
+        elem_classes=["no-box", "hide-label"],
+    )
 
     models_state = gr.State()
     task_state = gr.State()
+    encoding_state = gr.State()
+    processed_data_state = gr.State()
     train_df_state = gr.State()
     X_train_state = gr.State()
     y_train_state = gr.State()
@@ -58,7 +89,7 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 path_input = gr.Textbox(
                     label="File Path",
-                    value="data/raw" + "/Periodontitis_ML_Dataset.xlsx",
+                    value="data/raw/raw_data.xlsx",
                     scale=1,
                     info="Specify the path to the raw data file for processing.",
                 )
@@ -77,7 +108,7 @@ with gr.Blocks() as perioapp:
 
             save_path_input = gr.Textbox(
                 label="Save Path",
-                value="data/processed" + "/processed_data.csv",
+                value="data/processed/processed_data.csv",
                 scale=1,
             )
             save_button = gr.Button("Save Data", scale=1)
@@ -313,7 +344,7 @@ with gr.Blocks() as perioapp:
         with gr.Tab("Benchmarking"):
             path_input = gr.Textbox(
                 label="File Path",
-                value="data/processed" + "/" + "processed_data.csv",
+                value="data/processed/processed_data.csv",
                 info="Specify the path to the processed data file for benchmarking.",
             )
 
@@ -342,30 +373,30 @@ with gr.Blocks() as perioapp:
                 )
 
             with gr.Row():
-                tuning_methods_input = gr.CheckboxGroup(
+                tuning_methods_input = gr.Radio(
                     label="Tuning Methods",
                     choices=["Holdout", "Cross-Validation"],
-                    value=["Holdout"],
+                    value="Holdout",
                     info="Choose the validation strategy to tune models.",
                 )
-                hpo_methods_input = gr.CheckboxGroup(
+                hpo_methods_input = gr.Radio(
                     label="HPO Methods",
                     choices=["HEBO", "Random Search"],
-                    value=["HEBO"],
+                    value="HEBO",
                     info="Select hyperparameter optimization method(s).",
                 )
-                criteria_input = gr.CheckboxGroup(
+                criteria_input = gr.Radio(
                     label="Criteria",
-                    choices=["F1 Score", "Brier Score", "Macro F1 Score"],
-                    value=["F1 Score"],
+                    choices=["F1 Score", "Brier Score"],
+                    value="F1 Score",
                     info="Choose evaluation metrics to assess model performance.",
                 )
 
             with gr.Row():
-                encodings_input = gr.CheckboxGroup(
+                encoding_input = gr.Radio(
                     label="Encoding",
                     choices=["One-hot", "Target"],
-                    value=["One-hot"],
+                    value="One-hot",
                     info="Select encoding type(s) for categorical features.",
                 )
                 sampling_input = gr.CheckboxGroup(
@@ -384,16 +415,18 @@ with gr.Blocks() as perioapp:
                 n_configs_input = gr.Number(
                     label="Num Configs",
                     value=3,
-                    info="Enter number of configurations for hyperparameter tuning.",
+                    info="Enter number of iterations for hyperparameter tuning.",
                 )
                 cv_folds_input = gr.Number(
                     label="CV Folds",
-                    value=10,
+                    value=None,
+                    interactive=False,
                     info="Specify number of folds for cross-validation.",
                 )
                 racing_folds_input = gr.Number(
                     label="Racing Folds",
-                    value=5,
+                    value=None,
+                    interactive=False,
                     info="Enter number of folds for racing in hyperparameter tuning.",
                 )
                 n_jobs_input = gr.Number(
@@ -410,7 +443,8 @@ with gr.Blocks() as perioapp:
                 )
                 cv_seed_input = gr.Number(
                     label="CV Seed",
-                    value=0,
+                    value=None,
+                    interactive=False,
                     info="Set random seed for cross-validation splitting.",
                 )
                 test_size_input = gr.Number(
@@ -423,6 +457,7 @@ with gr.Blocks() as perioapp:
                 val_size_input = gr.Number(
                     label="Val Set Size",
                     value=0.2,
+                    interactive=True,
                     minimum=0.0,
                     maximum=1.0,
                     info="Define proportion of training data for validation.",
@@ -431,23 +466,99 @@ with gr.Blocks() as perioapp:
             with gr.Row():
                 mlp_flag_input = gr.Checkbox(
                     label="Enable MLP Training with Early Stopping",
-                    value=True,
+                    value=None,
+                    interactive=False,
                     info="Enable or disable early stopping for MLP training.",
                 )
                 threshold_tuning_input = gr.Checkbox(
                     label="Enable Threshold Tuning",
                     value=True,
+                    interactive=True,
                     info="Enable or disable threshold tuning for classification tasks.",
                 )
 
-            run_button = gr.Button("Run Benchmark")
+            run_baseline = gr.Button("Run Baseline")
+            baseline_output = gr.Dataframe(label="Baseline Results")
+            run_benchmark = gr.Button("Run Benchmark")
 
-            results_output = gr.Dataframe(label="Benchmark Results")
+            benchmark_output = gr.Dataframe(label="Benchmark Results")
             metrics_plot_output = gr.Plot(label="Metrics Comparison")
 
-            task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
+            tuning_methods_input.change(
+                fn=_update_tuning_method_fields,
+                inputs=tuning_methods_input,
+                outputs=[cv_folds_input, cv_seed_input, val_size_input],
+            )
 
-            run_button.click(
+            tuning_methods_input.change(
+                fn=_update_hpo_method_fields,
+                inputs=[tuning_methods_input, hpo_methods_input],
+                outputs=racing_folds_input,
+            )
+
+            hpo_methods_input.change(
+                fn=_update_hpo_method_fields,
+                inputs=[tuning_methods_input, hpo_methods_input],
+                outputs=racing_folds_input,
+            )
+
+            learners_input.change(
+                fn=_update_learners_fields,
+                inputs=learners_input,
+                outputs=mlp_flag_input,
+            )
+
+            criteria_input.change(
+                fn=_update_criteria_fields,
+                inputs=criteria_input,
+                outputs=threshold_tuning_input,
+            )
+
+            task_input.change(
+                fn=_update_task_fields,
+                inputs=task_input,
+                outputs=criteria_input,
+            )
+
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_state
+            )
+            task_input.change(fn=lambda x: x, inputs=task_input, outputs=task_state)
+            encoding_input.change(
+                fn=lambda x: x, inputs=encoding_input, outputs=encoding_state
+            )
+
+            perioapp.load(
+                _initialize_benchmark,
+                inputs=[
+                    tuning_methods_input,
+                    hpo_methods_input,
+                    learners_input,
+                    criteria_input,
+                    task_input,
+                ],
+                outputs=[
+                    cv_folds_input,
+                    cv_seed_input,
+                    val_size_input,
+                    racing_folds_input,
+                    mlp_flag_input,
+                    threshold_tuning_input,
+                    criteria_input,
+                ],
+            )
+
+            run_baseline.click(
+                fn=_baseline_wrapper,
+                inputs=[
+                    task_input,
+                    encoding_input,
+                    path_input,
+                ],
+                outputs=[baseline_output],
+            )
+
+            run_benchmark.click(
                 fn=_benchmarks_wrapper,
                 inputs=[
                     task_input,
@@ -455,7 +566,7 @@ with gr.Blocks() as perioapp:
                     tuning_methods_input,
                     hpo_methods_input,
                     criteria_input,
-                    encodings_input,
+                    encoding_input,
                     sampling_input,
                     factor_input,
                     n_configs_input,
@@ -470,7 +581,7 @@ with gr.Blocks() as perioapp:
                     n_jobs_input,
                     path_input,
                 ],
-                outputs=[results_output, metrics_plot_output, models_state],
+                outputs=[benchmark_output, metrics_plot_output, models_state],
             )
 
         with gr.Tab("Evaluation"):
@@ -488,16 +599,25 @@ with gr.Blocks() as perioapp:
                     multiselect=False,
                     info="Select a model from the available trained models.",
                 )
-                encoding_input = gr.Dropdown(
+                encoding_display = gr.Textbox(
                     label="Encoding",
-                    choices=["one_hot", "target"],
-                    value="one_hot",
-                    info="Choose encoding method used for categorical variables.",
+                    value="",
+                    interactive=False,
+                    info="Displays encoding method used for categorical variables.",
+                )
+            with gr.Row():
+                processed_data_display = gr.Textbox(
+                    label="File Path",
+                    value="",
+                    scale=1,
+                    info="Specify the path to the processed data file for evaluation.",
                 )
 
             load_data_button = gr.Button("Load Data")
             load_status_output = gr.Textbox(label="Status", interactive=False)
-            task_display.value = task_input.value  # Keep this line
+            processed_data_display.value = path_input.value
+            task_display.value = task_input.value
+            encoding_display.value = encoding_input.value
 
             models_state.change(
                 fn=_update_model_dropdown,
@@ -505,8 +625,17 @@ with gr.Blocks() as perioapp:
                 outputs=model_dropdown,
             )
 
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_display
+            )
             task_input.change(
                 fn=lambda task: task, inputs=task_input, outputs=task_display
+            )
+
+            encoding_input.change(
+                fn=lambda encoding: encoding,
+                inputs=encoding_input,
+                outputs=encoding_display,
             )
 
             generate_confusion_matrix_button = gr.Button("Generate Confusion Matrix")
@@ -515,11 +644,17 @@ with gr.Blocks() as perioapp:
             generate_brier_scores_button = gr.Button("Generate Brier Scores")
             brier_score_plot = gr.Plot()
 
+            generate_calibration_button = gr.Button("Generate Calibration Plot")
+            calibration_plot = gr.Plot()
+
+            generate_bss_button = gr.Button("Generate Brier Skill Score Plot")
+            bss_plot = gr.Plot()
+
             with gr.Row():
-                importance_type_input = gr.CheckboxGroup(
+                importance_type_input = gr.Radio(
                     label="Importance Types",
                     choices=["shap", "permutation", "standard"],
-                    value=["shap"],
+                    value="shap",
                 )
                 aggregate_fi_input = gr.Checkbox(
                     label="Aggregate Features",
@@ -548,7 +683,7 @@ with gr.Blocks() as perioapp:
 
             load_data_button.click(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -572,17 +707,53 @@ with gr.Blocks() as perioapp:
             )
 
             generate_confusion_matrix_button.click(
-                fn=lambda models, selected_model, X_test, y_test: _plot_cm(
-                    models[selected_model], X_test, y_test
-                ),
-                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
+                fn=_plot_cm,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
                 outputs=matrix_plot,
             )
 
             generate_brier_scores_button.click(
                 fn=_brier_score_wrapper,
-                inputs=[models_state, model_dropdown, X_test_state, y_test_state],
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
                 outputs=brier_score_plot,
+            )
+
+            generate_calibration_button.click(
+                fn=_plot_calibration,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                ],
+                outputs=calibration_plot,
+            )
+
+            generate_bss_button.click(
+                fn=_plot_bss,
+                inputs=[
+                    models_state,
+                    model_dropdown,
+                    X_test_state,
+                    y_test_state,
+                    task_input,
+                    encoding_input,
+                    path_input,
+                ],
+                outputs=bss_plot,
             )
 
             generate_feature_importance_button.click(
@@ -871,23 +1042,39 @@ with gr.Blocks() as perioapp:
                     multiselect=False,
                     info="Choose the model to use for inference.",
                 )
-                encoding_input = gr.Dropdown(
+                encoding_display = gr.Textbox(
                     label="Encoding",
-                    choices=["one_hot", "target"],
-                    value="one_hot",
-                    info="Select the encoding method for categorical features.",
+                    value="",
+                    interactive=False,
+                    info="Displays encoding method used for categorical variables.",
+                )
+            with gr.Row():
+                processed_data_display = gr.Textbox(
+                    label="File Path",
+                    value="",
+                    scale=1,
+                    info="Specify the path to the processed data file for evaluation.",
                 )
 
             results = gr.DataFrame(visible=False)
-
+            processed_data_display.value = path_input.value
             task_display.value = task_input.value
+            encoding_display.value = encoding_input.value
+            path_input.change(
+                fn=lambda x: x, inputs=path_input, outputs=processed_data_display
+            )
             task_input.change(
                 fn=lambda task: task, inputs=task_input, outputs=task_display
+            )
+            encoding_input.change(
+                fn=lambda encoding: encoding,
+                inputs=encoding_input,
+                outputs=encoding_display,
             )
 
             task_input.change(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -900,7 +1087,7 @@ with gr.Blocks() as perioapp:
 
             encoding_input.change(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -963,7 +1150,7 @@ with gr.Blocks() as perioapp:
 
             load_data_button.click(
                 fn=_load_data_wrapper,
-                inputs=[task_input, encoding_input],
+                inputs=[task_input, encoding_input, path_input],
                 outputs=[
                     load_status_output,
                     train_df_state,
@@ -993,5 +1180,24 @@ with gr.Blocks() as perioapp:
                 ],
                 outputs=[jackknife_plot],
             )
+
+        with gr.Tab("Achknowledgments"):
+            gr.Markdown(
+                """
+            ## License
+
+            © 2024 Tobias Brock, Elias Walter
+
+            This project is licensed under the Creative Commons
+            Attribution-NonCommercial-ShareAlike 4.0 International License.
+            Read the full license at [Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
+
+            ## Correspondence
+
+            Tobias Brock: t.brock@campus.lmu.de  \n
+            Elias Walter: elias.walter@med.uni-muenchen.de
+            """
+            )
+
 
 perioapp.launch(server_port=7890, server_name="0.0.0.0")

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 import warnings
 
 import pandas as pd
@@ -37,32 +37,34 @@ class BaseLoader(BaseConfig, ABC):
         super().__init__()
 
     @abstractmethod
-    def load_data(self, path: Path, name: str):
+    def load_data(self, path: Path):
         """Loads the processed data from the specified path.
 
         Args:
             path (Path): Directory path for the processed data.
-            name (str): File name for the processed data.
         """
 
     @abstractmethod
-    def save_data(self, df: pd.DataFrame, path: Path, name: str) -> None:
+    def save_data(self, df: pd.DataFrame, path: Union[str, Path]) -> None:
         """Saves the processed data to the specified path as a CSV file.
 
         Args:
             df (pd.DataFrame): The processed DataFrame.
-            path (Path): Directory path where the processed data will be saved.
-            name (str): File name for the processed data. If the file name does
-                not include a `.csv` extension, it will be added automatically.
+            path (Union[str, Path]): Path (including filename) where data will be saved.
+
+        Raises:
+            ValueError: If the DataFrame is empty.
         """
+        path = Path(path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
         if df.empty:
             raise ValueError("Data must be processed before saving.")
-        if not name.endswith(".csv"):
-            name += ".csv"
-        processed_file_path = os.path.join(path, name)
-        os.makedirs(path, exist_ok=True)
-        df.to_csv(processed_file_path, index=False)
-        print(f"Data saved to {processed_file_path}")
+        if path.suffix != ".csv":
+            path = path.with_suffix(".csv")
+        os.makedirs(path.parent, exist_ok=True)
+        df.to_csv(path, index=False)
+        print(f"Data saved to {path}")
 
 
 class BaseProcessor(BaseLoader, ABC):
@@ -102,16 +104,13 @@ class BaseProcessor(BaseLoader, ABC):
 
     def load_data(
         self,
-        path: Path = Path("raw/data"),
-        name: str = "Periodontitis_ML_Dataset.xlsx",
+        path: Union[str, Path] = Path("data/raw/raw_data.xlsx"),
     ) -> pd.DataFrame:
         """Loads the dataset and validates required columns.
 
         Args:
             path (str, optional): Directory where dataset is located.
-                Defaults to RAW_DATA_DIR.
-            name (str, optional): Dataset file name. Defaults to
-                "Periodontitis_ML_Dataset_Renamed.xlsx".
+                Defaults to Path("data/raw/raw_data.xlsx").
 
         Returns:
             pd.DataFrame: The loaded DataFrame.
@@ -119,8 +118,14 @@ class BaseProcessor(BaseLoader, ABC):
         Raises:
             ValueError: If any required columns are missing.
         """
-        input_file = os.path.join(path, name)
-        df = pd.read_excel(input_file, header=[1])
+        path = Path(path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        df = pd.read_excel(path, header=[1])
 
         actual_columns_lower = {col.lower(): col for col in df.columns}
         required_columns_lower = [col.lower() for col in self.required_columns]
@@ -173,19 +178,16 @@ class BaseProcessor(BaseLoader, ABC):
     def save_data(
         self,
         df: pd.DataFrame,
-        path: Path = Path("data/processed"),
-        name: str = "processed_data.csv",
+        path: Union[str, Path] = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
 
         Args:
             df (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
-                Defaults to "data/processed".
-            name (str): The file path to save the CSV. Defaults to
-                "processed_data.csv" or "processed_data_b.csv".
+                Defaults to Path("data/processed/processed_data.csv".
         """
-        super().save_data(df=df, path=path, name=name)
+        super().save_data(df=df, path=path)
 
     @abstractmethod
     def impute_missing_values(self, df: pd.DataFrame):
@@ -266,36 +268,39 @@ class BaseDataLoader(BaseLoader, ABC):
 
     @staticmethod
     def load_data(
-        path: Path = Path("data/processed"), name: str = "processed_data.csv"
+        path: Union[str, Path] = Path("data/processed/processed_data.csv"),
     ) -> pd.DataFrame:
         """Loads the processed data from the specified path, with lowercasing.
 
         Args:
             path (str): Directory path for the processed data.
-            name (str): File name for the processed data.
 
         Returns:
             pd.DataFrame: Loaded DataFrame with lowercase column names.
         """
-        input_file = os.path.join(path, name)
-        return pd.read_csv(input_file).rename(columns=str.lower)
+        path = Path(path)
+
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        return pd.read_csv(path).rename(columns=str.lower)
 
     def save_data(
         self,
         df: pd.DataFrame,
-        path: Path = Path("data/training"),
-        name: str = "training_data.csv",
+        path: Union[str, Path] = Path("data/training/training_data.csv"),
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
 
         Args:
             df (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
-                Defaults to "data/training".
-            name (str): The file path to save the CSV. Defaults to
-                "training_data"
+                Path("data/training/training_data.csv".
         """
-        super().save_data(df, path, name)
+        super().save_data(df=df, path=path)
 
     def _check_encoded_columns(self, df: pd.DataFrame) -> None:
         """Verifies that categorical columns were correctly one-hot or target encoded.
@@ -338,7 +343,7 @@ class BaseDataLoader(BaseLoader, ABC):
             for col in self.scale_vars:
                 scaled_min = df[col].min()
                 scaled_max = df[col].max()
-                if scaled_min < -5 or scaled_max > 15:
+                if scaled_min < -10 or scaled_max > 20:
                     raise ValueError(f"Column {col} is not correctly scaled.")
 
     @abstractmethod

@@ -1,12 +1,12 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)
 ![PyPI](https://img.shields.io/badge/pypi-v0.1.0-orange.svg)
-![Codecov](https://img.shields.io/badge/codecov-90%25-brightgreen.svg)
+![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 ![Black](https://img.shields.io/badge/code%20style-black-000000.svg)
 
+![Periomod Logo](docs/images/logo.png)
 
-# periodontal-modeling
 
-`peridontal-modeling` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `peridontal-modeling`, or in short `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11.
+`peridontal-modeling`, or in short `periomod` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
 
 ## Features
 
@@ -17,11 +17,43 @@
 - **Imbalanced Data Handling**: Enables the application of SMOTE and upsampling/downsampling to balance dataset classes.
 - **Model Evaluation**: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.
 - **Inference**: Patient-level inference, jackknife resampling and confidence intervals.
-- **Interactive Frontend with Gradio**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
+- **Interactive Gradi App**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
 
 ## Installation
 
+### Getting Started
+
+If you're not familiar with Python or programming, the following resources can help you get started with installing Python, managing environments, and setting up tools like Jupyter Notebooks:
+
+#### Installing Python
+1. **Official Python Website**: Download and install Python from the [official Python website](https://www.python.org/downloads/).
+   - Make sure to download Python 3.10 or 3.11.
+   - During installation, check the box to add Python to your system's PATH.
+
+2. **Python Installation Guide**: Follow this [step-by-step guide](https://realpython.com/installing-python/) for detailed instructions on setting up Python on your system.
+
+#### Installing Conda
+Conda is an environment and package manager that makes it easy to install dependencies and manage Python environments.
+
+1. **Miniconda**: Download and install [Miniconda](https://docs.conda.io/en/latest/miniconda.html), a lightweight version of Conda.
+2. **Full Anaconda Distribution**: Alternatively, install the [Anaconda Distribution](https://www.anaconda.com/), which includes Conda and many pre-installed libraries.
+
+You can create a virtual environment with conda:
+
+```bash
+conda create -n periomod python=3.11
+conda activate periomod
+```
+
+#### Setting Up Jupyter Notebooks
+Jupyter Notebooks are an excellent tool for analyzing data and running experiments interactively.
+
+- [Learn Jupyter Basics: Refer to the Jupyter Notebook Beginner’s Guide to learn how to use it.](https://realpython.com/jupyter-notebook-introduction/)
+
+
 ### Dependencies
+
+`periomod` has the following dependencies:
 
 - `gradio==4.44.1`
 - `HEBO==0.3.5`
@@ -37,8 +69,8 @@
 - `shap==0.46.0`
 - `xgboost==2.1.1`
 
-
-Ensure you have Python 3.11 installed. Install the package via pip:
+#### Installing periomod
+Ensure you have Python 3 installed. You may preferebly setup a new environment with Python 3.10 or 3.11. Install the package with all its dependencies via pip:
 
 ```bash
 pip install periodontal-modeling
@@ -77,6 +109,28 @@ Alternatively, the following `make` commands are available to build and run the 
 make docker-build
 make docker-run
 ```
+### App Features
+#### Data Tab
+The data tab enables data loading, processing and saving. It further provides multiple plotting methods for data visualization.The Data Tab enables data loading, processing, and saving. It provides several options for exploring and visualizing the dataset, making it easy to gain insights before proceeding to modeling or benchmarks.
+
+![App Demo](docs/images/app_data.gif)
+
+#### Benchmarking Tab
+The Benchmarking Tab allows you to perform comparisons of different machine learning models, incorporating hyperparameter tuning, sampling, resampling and different criteria. The results are displayed in a clear and interactive format and allow the comparison with a model baseline.
+
+![App Demo](docs/images/app_benchmark.gif)
+
+#### Evaluation Tab
+
+The Evaluation Tab provides detailed performance metrics and visualizations for the trained models. These include confusion matrices, calibration plots, feature importance analysis, clustering, and Brier skill scores. It offers a comprehensive overview of the model performance.
+
+![App Demo](docs/images/app_evaluation.gif)
+
+#### Inference Tab
+
+In the Inference Tab, patient data can be selected and submitted for predictions using a trained model. Additionally, Jackknife confidence intervals can be calculated to evaluate prediction stability.
+
+![App Demo](docs/images/app_inference.gif)
 
 ### Data Module
 
@@ -85,15 +139,13 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 ```python
 from periomod.data import StaticProcessEngine
 
-# do not include behavior columns for processing data
-# activate verbose outputs during processing
-engine = StaticProcessEngine(behavior=False, verbose=True)
-df = engine.load_data(path="data/raw", name="Periodontitis_ML_Dataset.xlsx")
+engine = StaticProcessEngine()
+df = engine.load_data(path="data/raw/raw_data.xlsx")
 df = engine.process_data(df)
-engine.save_data(df=df, path="data/processed", name="processed_data.csv")
+engine.save_data(df=df, path="data/processed/processed_data.csv")
 ```
 
-The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement".
+The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement". Note: When using the loading methods within a notebook it is recommended to set absolute paths for the path arguments for data loading and saving.
 
 ```python
 from periomod.data import ProcessedDataLoader
@@ -102,31 +154,37 @@ from periomod.data import ProcessedDataLoader
 dataloader = ProcessedDataLoader(
     task="pocketclosure", encoding="one_hot", encode=True, scale=True
 )
-df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 df = dataloader.transform_data(df=df)
-dataloader.save_data(df=df, path="data/training", name="training_data.csv")
+dataloader.save_data(df=df, path="data/training/training_data.csv")
 ```
 
 ### Descriptives Module
 
-`DesctiptivesPlotter` can be used to plot descriptive plots for target columns before and after treatment.
+`DesctiptivesPlotter` can be used to plot descriptive plots for target columns before and after treatment. It should be applied on a processed dataframe.
 
 ```python
+from periomod.data import ProcessedDataLoader
 from periomod.descriptives import DescriptivesPlotter
+
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 
 # instantiate plotter with dataframe
 plotter = DescriptivesPlotter(df)
-plotter.plt_matrix(vertical="depth_before", horizontal="depth_after")
-plotter.pocket_comparison(col1="depth_before", col2="depth_after")
-plotter.histogram_2d(col_before="depth_before", col_after="depth_after")
+plotter.plt_matrix(vertical="pdgrouprevaluation", horizontal="pdgroupbase")
+plotter.pocket_comparison(col1="pdbaseline", col2="pdrevaluation")
+plotter.histogram_2d(col_before="pdbaseline", col_after="pdrevaluation")
 ```
 
 ### Resampling Module
 
-The `Resampler` class allows for straightforward grouped splitting operations. It also includes different sampling strategies to treat the minority classes.
+The `Resampler` class allows for straightforward grouped splitting operations. It also includes different sampling strategies to treat the minority classes. It can be applied on the training data.
 
 ```python
+from periomod.data import ProcessedDataLoader
 from periomod.resampling import Resampler
+
+df = dataloader.load_data(path="data/processed/training_data.csv")
 
 resampler = Resampler(classification="binary", encoding="one_hot")
 train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)
@@ -143,7 +201,7 @@ outer_splits, cv_folds_indices = resampler.cv_folds(
 
 ### Training Module
 
-`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning in the case of binary classification and when the criterion "f1" is selected.
+`Trainer` contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning in the case of binary classification and when the criterion "f1" is selected. The `Resampler`can be used to split the data for training.
 
 ```python
 from periomod.training import Trainer
@@ -200,19 +258,17 @@ tuner = HEBOTuner(
     criterion="f1",
     tuning="holdout",
     hpo="hebo",
-    n_configs=10,
+    n_configs=20,
     n_jobs=-1,
-    verbose=True,
     trainer=trainer,
-    mlp_training=True,
-    threshold_tuning=True,
 )
 
+# Running holdout-based tuning
 best_params, best_threshold = tuner.holdout(
     learner="rf", X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
 )
 
-# Using cross-validation
+# Running cross-validation tuning
 best_params, best_threshold = tuner.cv(learner="rf", outer_splits=cross_val_splits)
 ```
 `RandomSearchTuner` implements random search tuning by sampling parameters at random from specified ranges. Also, allows for racing when cross-validation is used as tuning technique.
@@ -237,10 +293,7 @@ tuner = RandomSearchTuner(
     hpo="rs",
     n_configs=15,
     n_jobs=4,
-    verbose=True,
     trainer=trainer,
-    mlp_training=True,
-    threshold_tuning=True,
 )
 
 # Running holdout-based tuning
@@ -278,19 +331,24 @@ brier_plot, heatmap_plot, clustered_data = evaluator.analyze_brier_within_cluste
 The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also available.
 
 ```python
+from periomod.base import Patient, patient_to_dataframe
 from periomod.inference import ModelInference
 
 model_inference = ModelInference(
     classification="binary", model=trained_model, verbose=True
 )
 
+# Define a patient instance
+patient = Patient()
+patient_df = patient_to_df(patient=patient)
+
 # Prepare data for inference
 prepared_data, patient_data = model_inference.prepare_inference(
-    task="classification_task",
+    task="pocketclosure",
     patient_data=patient_df,
     encoding="one_hot",
-    X_train=train_df,
-    y_train=target_series,
+    X_train=X_train,
+    y_train=y_train,
 )
 
 # Run inference on patient data
@@ -320,10 +378,8 @@ from periomod.benchmarking import Experiment
 from periomod.data import ProcessedDataLoader
 
 # Load a dataframe with the correct target and encoding selected
-dataloader = ProcessedDataLoader(
-    task="pocketclosure", encoding="one_hot", encode=True, scale=True
-)
-df = dataloader.load_data(path="data/processed", name="processed_data.csv")
+dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
+df = dataloader.load_data(path="data/processed/processed_data.csv")
 df = dataloader.transform_data(df=df)
 
 experiment = Experiment(
@@ -359,6 +415,7 @@ benchmarker = Benchmarker(
     encodings=["one_hot", "target"],
     sampling=[None, "upsampling", "downsampling"],
     factor=2,
+    path="/data/processed/processed_data.csv",
 )
 
 # Running all benchmarks
@@ -386,29 +443,44 @@ benchmarker = BenchmarkWrapper(
     criteria=["f1", "brier_score"],
     sampling=["upsampling"],
     factor=2,
+    path="/data/processed/processed_data.csv",
 )
 
 # Run baseline benchmarking
 baseline_df = benchmarker.baseline()
 
 # Run full benchmark and retrieve results
-benchmark_results, learners_used = benchmarker.wrapped_benchmark()
+benchmark, learners = benchmarker.wrapped_benchmark()
 
 # Save the benchmark results
-benchmarker.save_benchmark(baseline_df, path="reports")
+benchmarker.save_benchmark(
+    benchmark_df=benchmark,
+    path="reports/experiment/benchmark.csv",
+)
 
 # Save the trained learners
-benchmarker.save_learners(learners_dict=learners_used, path="models")
+benchmarker.save_learners(learners_dict=learners, path="models/experiment")
 ```
+
 The `EvaluatorWrapper` contains methods of the `periomod.evaluation`and `periomod.inference` modules.
+
 ```python
-# Initialize the evaluator with required parameters
+from periomod.base import Patient, patient_to_dataframe
+from periomod.wrapper import EvaluatorWrapper, load_benchmark, load_learners
+
+benchmark = load_benchmark(path="reports/experiment/benchmark.csv")
+learners = load_learners(path="models/experiments")
+
+# Initialize the evaluator with learners from BenchmarkWrapper and specified criterion
 evaluator = EvaluatorWrapper(
-    learners_dict=my_learners, criterion="f1", aggregate=True, verbose=True
+    learners_dict=learners, criterion="f1", path="data/processed/processed_data.csv"
 )
 
 # Evaluate the model and generate plots
-evaluator.wrapped_evaluation(cm=True, brier_groups=True)
+evaluator.wrapped_evaluation()
+
+# Perform cluster analysis on predictions with brier score smaller than threshold
+evaluator.evaluate_cluster(brier_threshold=0.15)
 
 # Calculate feature importance
 evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
@@ -416,8 +488,12 @@ evaluator.evaluate_feature_importance(fi_types=["shap", "permutation"])
 # Train and average over multiple random splits
 avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=-1)
 
+# Define a patient instance
+patient = Patient()
+patient_df = patient_to_df(patient=patient)
+
 # Run inference on a specific patient's data
-predict_data, output, results = evaluator.wrapped_patient_inference(patient=my_patient)
+predict_data, output, results = evaluator.wrapped_patient_inference(patient=patient)
 
 # Execute jackknife resampling for robust inference
 jackknife_results, ci_plots = evaluator.wrapped_jackknife(
@@ -432,6 +508,11 @@ jackknife_results, ci_plots = evaluator.wrapped_jackknife(
 This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 See the [LICENSE](./LICENSE) file for more details or read the full license at
 [Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
+
+## Correspondence
+
+Tobias Brock: t.brock@campus.lmu.de <br>
+Elias Walter: elias.walter@med.uni-muenchen.de
 
 ## Contributing
 

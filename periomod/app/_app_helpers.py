@@ -6,9 +6,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import gradio as gr
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 from ..base import Patient, Side, Tooth, patient_to_df
-from ..benchmarking import Benchmarker
+from ..benchmarking import Baseline, Benchmarker
 from ..data import ProcessedDataLoader, StaticProcessEngine
 from ..descriptives import DescriptivesPlotter
 from ..evaluation import ModelEvaluator
@@ -65,9 +66,8 @@ def _load_data_engine(
         updates for each dropdown component.
     """
     global data_df
-    data_path = Path(path)
     engine = StaticProcessEngine(behavior=False)
-    data_df = engine.load_data(path=data_path.parent, name=data_path.name)
+    data_df = engine.load_data(path=Path(path))
     columns = data_df.columns.tolist()
     dropdown_update = gr.update(choices=columns)
     return (
@@ -180,7 +180,7 @@ def _save_data(save_path: Union[str, Path]) -> str:
     if isinstance(save_path, str):
         save_path = Path(save_path)
 
-    engine.save_data(data_df, path=save_path.parent, name=save_path.name)
+    engine.save_data(data_df, path=save_path)
     return f"Data saved successfully to {save_path}"
 
 
@@ -296,24 +296,177 @@ def _plot_outcome_descriptive(outcome: str, title: str) -> Union[plt.Figure, str
     return plt.gcf()
 
 
+def _baseline_wrapper(task: str, encoding: str, path: str) -> pd.DataFrame:
+    """Wraps the initialization and execution of the Baseline class.
+
+    Args:
+        task (str): Task name to be processed by the input processor.
+        encoding (str): Encoding type to be processed by the input processor.
+        path (str): Directory path for data loading.
+
+    Returns:
+        pd.DataFrame: DataFrame containing baseline evaluation metrics.
+    """
+    task = InputProcessor.process_task(task=task)
+    encoding = InputProcessor.process_encoding(encoding=encoding)
+    return Baseline(task=task, encoding=encoding, path=Path(path)).baseline()
+
+
+def _update_tuning_method_fields(tuning_method: str) -> Tuple[Any, Any, Any]:
+    """Update fields based on the selected tuning method.
+
+    Args:
+        tuning_method (str): The selected tuning method ("Cross-Validation"
+            or "Holdout").
+
+    Returns:
+        Tuple[Any, Any, Any]: Updates for cv_folds_input, cv_seed_input,
+            val_size_input.
+    """
+    if tuning_method == "Cross-Validation":
+        return (
+            gr.update(interactive=True, value=10),
+            gr.update(interactive=True, value=0),
+            gr.update(interactive=False, value=None),
+        )
+    elif tuning_method == "Holdout":
+        return (
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=True, value=0.2),
+        )
+    else:
+        return (
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+            gr.update(interactive=False, value=None),
+        )
+
+
+def _update_hpo_method_fields(tuning_method: str, hpo_method: str) -> Any:
+    """Update racing_folds_input based on tuning and HPO methods.
+
+    Args:
+        tuning_method (str): The selected tuning method.
+        hpo_method (str): The selected hyperparameter optimization method.
+
+    Returns:
+        Any: Update for racing_folds_input.
+    """
+    if tuning_method == "Cross-Validation" and hpo_method == "Random Search":
+        return gr.update(interactive=True, value=5)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_learners_fields(learners: List[str]) -> Any:
+    """Update mlp_flag_input based on selected learners.
+
+    Args:
+        learners (List[str]): List of selected learners.
+
+    Returns:
+        Any: Update for mlp_flag_input.
+    """
+    if "Multilayer Perceptron" in learners:
+        return gr.update(interactive=True, value=True)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_criteria_fields(criteria: str) -> Any:
+    """Update threshold_tuning_input based on selected criteria.
+
+    Args:
+        criteria (str): The selected evaluation criteria.
+
+    Returns:
+        Any: Update for threshold_tuning_input.
+    """
+    if criteria == "F1 Score":
+        return gr.update(interactive=True, value=True)
+    else:
+        return gr.update(interactive=False, value=None)
+
+
+def _update_task_fields(task: str) -> Any:
+    """Update criteria_input choices based on selected task.
+
+    Args:
+        task (str): The selected task.
+
+    Returns:
+        Any: Update for criteria_input.
+    """
+    if task == "Pocket groups":
+        return gr.update(
+            choices=["Macro F1 Score", "Brier Score"], value="Macro F1 Score"
+        )
+    else:
+        return gr.update(choices=["F1 Score", "Brier Score"], value="F1 Score")
+
+
+def _initialize_benchmark(
+    tuning_method_value: str,
+    hpo_method_value: str,
+    learners_value: List[str],
+    criteria_value: str,
+    task_value: str,
+) -> Tuple[Any, Any, Any, Any, Any, Any, Any]:
+    """Initialize component states based on their default values.
+
+    Args:
+        tuning_method_value (str): The selected tuning method.
+        hpo_method_value (str): The selected hyperparameter optimization method.
+        learners_value (List[str]): List of selected learners.
+        criteria_value (str): The selected evaluation criteria.
+        task_value (str): The selected task.
+
+    Returns:
+        Tuple[Any, Any, Any, Any, Any, Any, Any]: Updates for cv_folds_input,
+            cv_seed_input, val_size_input, racing_folds_input, mlp_flag_input,
+            threshold_tuning_input, criteria_input.
+    """
+    tuning_updates = _update_tuning_method_fields(tuning_method_value)
+    cv_folds_update = tuning_updates[0]
+    cv_seed_update = tuning_updates[1]
+    val_size_update = tuning_updates[2]
+    racing_folds_update = _update_hpo_method_fields(
+        tuning_method_value, hpo_method_value
+    )
+    mlp_flag_update = _update_learners_fields(learners_value)
+    threshold_tuning_update = _update_criteria_fields(criteria_value)
+    criteria_update = _update_task_fields(task_value)
+
+    return (
+        cv_folds_update,
+        cv_seed_update,
+        val_size_update,
+        racing_folds_update,
+        mlp_flag_update,
+        threshold_tuning_update,
+        criteria_update,
+    )
+
+
 def _run_benchmarks(
     task: str,
-    learners: list,
-    tuning_methods: list,
-    hpo_methods: list,
-    criteria: list,
-    encoding: list,
+    learners: List[str],
+    tuning_method: str,
+    hpo_method: str,
+    criterion: str,
+    encoding: str,
     sampling: Optional[List[Optional[str]]],
     factor: Optional[float],
     n_configs: int,
-    cv_folds: int,
-    racing_folds: int,
+    cv_folds: Optional[int],
+    racing_folds: Optional[int],
     test_seed: int,
     test_size: float,
-    val_size: float,
-    cv_seed: int,
-    mlp_flag: bool,
-    threshold_tuning: bool,
+    val_size: Optional[float],
+    cv_seed: Optional[int],
+    mlp_flag: Optional[bool],
+    threshold_tuning: Optional[bool],
     n_jobs: int,
     path: str,
 ) -> Tuple[Optional[pd.DataFrame], Optional[plt.Figure], Optional[plt.Figure]]:
@@ -324,24 +477,24 @@ def _run_benchmarks(
             or 'improve').
         learners (list): List of learners to be evaluated (e.g., ['xgb',
             'logreg']).
-        tuning_methods (list): List of tuning methods to apply ('holdout', 'cv').
-        hpo_methods (list): List of hyperparameter optimization (HPO) methods
+        tuning_method (str): Tuning method to apply ('holdout', 'cv').
+        hpo_method (str): Hyperparameter optimization (HPO) method
             ('hebo', 'rs').
-        criteria (list): List of evaluation criteria ('f1', 'brier_score', etc.).
-        encoding (list): List of encoding methods to apply to categorical data
+        criterion (str): Evaluation criteria ('f1', 'brier_score', etc.).
+        encoding (str): Encoding methods to apply to categorical data
             ('one_hot', 'target').
         sampling (Optional[List[Optional[str]]]): Sampling strategy to use, if any.
         factor (Optional[float]): Factor to control the resampling process, if
             applicable.
         n_configs (int): Number of configurations for hyperparameter tuning.
-        cv_folds (int): Number of cross-validation folds.
-        racing_folds (int): Number of folds to use for racing during random
+        cv_folds (Optional[int]): Number of cross-validation folds.
+        racing_folds (Optional[int]): Number of folds to use for racing during random
             search (RS).
         test_seed (int): Seed for random train-test split.
         test_size (float): Proportion of data used for testing.
-        val_size (float): Proportion of data for validation in holdout.
+        val_size (Optional[float]): Proportion of data for validation in holdout.
         cv_seed (int): Seed for cross-validation splits.
-        mlp_flag (bool): Enables MLP training with early stopping.
+        mlp_flag (Optional[bool]): Enables MLP training with early stopping.
         threshold_tuning (bool): Enables threshold tuning for binary classification.
         n_jobs (int): Number of parallel jobs to run during evaluation.
         path (str): The file path where data is stored.
@@ -355,24 +508,22 @@ def _run_benchmarks(
     """
     task = InputProcessor.process_task(task=task)
     learners = InputProcessor.process_learners(learners=learners)
-    tuning_methods = InputProcessor.process_tuning(tuning_methods=tuning_methods)
-    hpo_methods = InputProcessor.process_hpo(hpo_methods=hpo_methods)
-    criteria = InputProcessor.process_criteria(criteria=criteria)
-    encodings = InputProcessor.process_encoding(encodings=encoding)
-
-    encodings = [e for e in encoding if e in ["One-hot", "Target"]]
-    if not encodings:
-        raise ValueError("No valid encodings provided.")
-    encodings = InputProcessor.process_encoding(encodings=encodings)
-
+    tuning_methods = InputProcessor.process_tuning(tuning_method=tuning_method)
+    hpo_methods = InputProcessor.process_hpo(hpo_method=hpo_method)
+    criteria = InputProcessor.process_criteria(criterion=criterion)
+    encodings = [InputProcessor.process_encoding(encoding=encoding)]
     sampling_benchmark: Optional[List[Union[str, None]]] = (
         [s if s != "None" else None for s in sampling] if sampling else None
     )
     factor = None if factor == "" or factor is None else float(factor)
 
-    data_path = Path(path)
-    file_path = data_path.parent
-    file_name = data_path.name
+    factor = float(factor) if factor is not None else None
+    cv_folds = int(cv_folds) if cv_folds is not None else None
+    racing_folds = int(racing_folds) if racing_folds is not None else None
+    val_size = float(val_size) if val_size is not None else None
+    cv_seed = int(cv_seed) if cv_seed is not None else None
+    mlp_flag = bool(mlp_flag) if mlp_flag is not None else None
+    threshold_tuning = bool(threshold_tuning) if threshold_tuning is not None else None
 
     benchmarker = Benchmarker(
         task=task,
@@ -385,7 +536,7 @@ def _run_benchmarks(
         factor=factor,
         n_configs=int(n_configs),
         cv_folds=cv_folds,
-        racing_folds=int(racing_folds),
+        racing_folds=racing_folds,
         test_size=test_size,
         test_seed=test_seed,
         val_size=val_size,
@@ -393,8 +544,7 @@ def _run_benchmarks(
         mlp_flag=mlp_flag,
         threshold_tuning=threshold_tuning,
         n_jobs=int(n_jobs),
-        path=Path(file_path),
-        name=file_name,
+        path=Path(path),
     )
 
     df_results, learners_dict = benchmarker.run_benchmarks()
@@ -418,23 +568,41 @@ def _run_benchmarks(
     if not metrics_to_plot:
         raise ValueError("No matching metrics found in results to plot.")
 
-    plt.figure(figsize=(8, 6), dpi=300)
-    ax = df_results.plot(
-        x="Learner",
-        y=metrics_to_plot,
-        kind="bar",
-        ax=plt.gca(),
+    df_long = df_results.melt(
+        id_vars="Learner",
+        value_vars=metrics_to_plot,
+        var_name="Metric",
+        value_name="Score",
     )
 
-    plt.title("Benchmark Metrics for Each Learner")
-    plt.xlabel("Learner")
-    plt.ylabel("Score")
-    plt.xticks(rotation=45)
-    plt.legend(title="Metrics")
+    plt.figure(figsize=(5, 4), dpi=300)
+    ax = sns.barplot(
+        data=df_long, x="Metric", y="Score", hue="Learner", edgecolor="black"
+    )
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.title("Benchmark Metrics Comparison by Metric", fontsize=12)
+    plt.xlabel("Metric", fontsize=12)
+    plt.ylabel("Score", fontsize=12)
+    plt.ylim(0, 1)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.legend(
+        title="Learner",
+        loc="upper left",
+        bbox_to_anchor=(1, 1),
+        fontsize=10,
+        title_fontsize=10,
+        frameon=False,
+    )
     plt.tight_layout()
 
     for container in ax.containers:
-        ax.bar_label(container, fmt="%.2f", label_type="edge")
+        ax.bar_label(
+            container, fmt="%.2f", label_type="edge", rotation=90, fontsize=9, padding=5
+        )
 
     metrics_plot = plt.gcf()
 
@@ -474,10 +642,10 @@ def _benchmarks_wrapper(*args: Any) -> Any:
     (
         task,
         learners,
-        tuning_methods,
-        hpo_methods,
-        criteria,
-        encodings,
+        tuning_method,
+        hpo_method,
+        criterion,
+        encoding,
         sampling,
         factor,
         n_configs,
@@ -496,10 +664,10 @@ def _benchmarks_wrapper(*args: Any) -> Any:
     return _run_benchmarks(
         task=task,
         learners=learners,
-        tuning_methods=tuning_methods,
-        hpo_methods=hpo_methods,
-        criteria=criteria,
-        encoding=encodings,
+        tuning_method=tuning_method,
+        hpo_method=hpo_method,
+        criterion=criterion,
+        encoding=encoding,
         sampling=sampling,
         factor=factor,
         n_configs=n_configs,
@@ -517,24 +685,23 @@ def _benchmarks_wrapper(*args: Any) -> Any:
 
 
 def _load_data(
-    task: str, encoding: str
+    task: str, encoding: str, path: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Load and prepare the dataset for training and testing.
 
     Args:
         task (str): Task name (e.g., 'Pocket closure').
         encoding (str): Type of encoding to use (e.g., 'one_hot', 'target').
+        path (str): Input path for dataloading.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
     classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
-
     dataloader = ProcessedDataLoader(task=task, encoding=encoding)
-    df = dataloader.load_data()
+    df = dataloader.load_data(path=Path(path))
     df_transformed = dataloader.transform_data(df=df)
-
     resampler = Resampler(classification, encoding)
 
     train_df, test_df = resampler.split_train_test_df(df=df_transformed)
@@ -546,19 +713,24 @@ def _load_data(
 
 
 def _load_data_wrapper(
-    task: str, encoding: str
+    task: str, encoding: str, path: str
 ) -> Tuple[str, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Wraooer to load data.
 
     Args:
         task (str)): Task input from UI.
         encoding (str): Encoding type.
+        path (str): Input path for dataloading.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
             X_train, y_train, X_test, y_test.
     """
-    return _load_data(InputProcessor.process_task(task=task), encoding=encoding)
+    return _load_data(
+        task=InputProcessor.process_task(task=task),
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        path=path,
+    )
 
 
 def _update_model_dropdown(models: Dict[str, Any]) -> dict:
@@ -574,24 +746,89 @@ def _update_model_dropdown(models: Dict[str, Any]) -> dict:
     return gr.update(choices=model_keys, value=model_keys[0] if model_keys else None)
 
 
-def _plot_cm(model: Any, X_test: pd.DataFrame, y_test: pd.Series) -> plt.Figure:
+def _plot_cm(
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series, task: str
+) -> plt.Figure:
     """Generates a confusion matrix plot for the given model and test data.
 
     Args:
-        model (Any): Trained model for generating predictions.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): True labels for the test set.
+        models (dict): Dictionary of trained models where the keys are model names.
+        selected_model (str): Name of the selected model from the dropdown.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
+        task (str): Task mapping for outcome labels.
 
     Returns:
         plt.Figure: Confusion matrix heatmap plot.
     """
-    ModelEvaluator(model=model, X=X_test, y=y_test).plot_confusion_matrix()
+    ModelEvaluator(model=models[selected_model], X=X, y=y).plot_confusion_matrix(
+        task=InputProcessor.process_task(task=task)
+    )
+    return plt.gcf()
+
+
+def _plot_calibration(
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series, task: str
+) -> plt.Figure:
+    """Generates a calibration plot for the given model and test data.
+
+    Args:
+        models (dict): Dictionary of trained models where the keys are model names.
+        selected_model (str): Name of the selected model from the dropdown.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
+        task (str): Task mapping for outcome labels.
+
+    Returns:
+        plt.Figure: Calibration plot for model probabilities.
+    """
+    ModelEvaluator(model=models[selected_model], X=X, y=y).calibration_plot(
+        task=InputProcessor.process_task(task=task), tight_layout=True
+    )
+    return plt.gcf()
+
+
+def _plot_bss(
+    models: dict,
+    selected_model: str,
+    X: pd.DataFrame,
+    y: pd.Series,
+    task: str,
+    encoding: str,
+    path: str,
+) -> plt.Figure:
+    """Generates BSS plot for the given model and test data.
+
+    Args:
+        models (dict): Dictionary of trained models where the keys are model names.
+        selected_model (str): Name of the selected model from the dropdown.
+        X (pd.DataFrame): Test features.
+        y (pd.Series): True labels for the test set.
+        task (str): Task mapping for outcome labels.
+        encoding (str): Type of encoding.
+        path (str): Input path from app.
+
+    Returns:
+        plt.Figure: Calibration plot for model probabilities.
+    """
+    baseline = Baseline(
+        task=InputProcessor.process_task(task=task),
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        path=Path(path),
+    )
+    baseline_models, _, _ = baseline.train_baselines()
+    classification = "multiclass" if task == "Pocket groups" else "binary"
+    ModelEvaluator(model=models[selected_model], X=X, y=y).bss_comparison(
+        baseline_models=baseline_models,
+        classification=classification,
+        tight_layout=True,
+    )
     return plt.gcf()
 
 
 def _plot_fi(
     model: Any,
-    fi_types: List[str],
+    fi_type: str,
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
@@ -601,7 +838,7 @@ def _plot_fi(
 
     Args:
         model (Any): Trained model for feature importance extraction.
-        fi_types (List[str]): List of feature importance types to plot.
+        fi_type (str): List of feature importance types to plot.
         X (pd.DataFrame): Test features.
         y (pd.Series): True labels for the test set.
         encoding (str): The encoding method used during preprocessing.
@@ -614,8 +851,12 @@ def _plot_fi(
         return "No model available."
 
     ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
-    ).evaluate_feature_importance(fi_types=fi_types)
+        model=model,
+        X=X,
+        y=y,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        aggregate=aggregate,
+    ).evaluate_feature_importance(fi_types=[fi_type])
     return plt.gcf()
 
 
@@ -646,12 +887,16 @@ def _plot_cluster(
         return "No model available."
 
     return ModelEvaluator(
-        model=model, X=X, y=y, encoding=encoding, aggregate=aggregate
+        model=model,
+        X=X,
+        y=y,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
+        aggregate=aggregate,
     ).analyze_brier_within_clusters(n_clusters=n_clusters, tight_layout=True)
 
 
 def _brier_score_wrapper(
-    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series
+    models: dict, selected_model: str, X: pd.DataFrame, y: pd.Series, task: str
 ) -> plt.Figure:
     """Wrapper function to generate Brier score plots.
 
@@ -660,12 +905,13 @@ def _brier_score_wrapper(
         selected_model (str): Name of the selected model from the dropdown.
         X (pd.DataFrame): Test dataset containing input features.
         y (pd.Series): Test dataset containing true labels.
+        task (str): Task mapping for outcome labels.
 
     Returns:
         plt.Figure: Matplotlib figure showing the Brier score plot.
     """
     ModelEvaluator(model=models[selected_model], X=X, y=y).brier_score_groups(
-        tight_layout=True
+        task=InputProcessor.process_task(task=task), tight_layout=True
     )
     return plt.gcf()
 
@@ -673,7 +919,7 @@ def _brier_score_wrapper(
 def _plot_fi_wrapper(
     models: dict,
     selected_model: str,
-    fi_types: List[str],
+    fi_type: str,
     X: pd.DataFrame,
     y: pd.Series,
     encoding: str,
@@ -684,7 +930,7 @@ def _plot_fi_wrapper(
     Args:
         models (dict): Dictionary containing models.
         selected_model (str): The key to access the selected model in the dict.
-        fi_types (List[str]): List of importance types.
+        fi_type (str): List of importance types.
         X (pd.DataFrame): Test dataset containing input features.
         y (pd.Series): Test dataset containing true labels.
         encoding (str): The encoding method used.
@@ -695,7 +941,7 @@ def _plot_fi_wrapper(
     """
     return _plot_fi(
         model=models[selected_model],
-        fi_types=fi_types,
+        fi_type=fi_type,
         X=X,
         y=y,
         encoding=encoding,
@@ -996,7 +1242,7 @@ def _app_inference(
     predict_data, patient_data = inference_engine.prepare_inference(
         task=task,
         patient_data=patient_data,
-        encoding=encoding,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
         X_train=X_train,
         y_train=y_train,
     )
@@ -1040,10 +1286,7 @@ def _run_jackknife_inference(
     Returns:
         Tuple[pd.DataFrame, plt.Figure]: Jackknife results and the plot.
     """
-    task_processed = InputProcessor.process_task(task=task)
-    classification = (
-        "multiclass" if task_processed == "pdgrouprevaluation" else "binary"
-    )
+    classification = "multiclass" if task == "Pocket groups" else "binary"
     model = models[selected_model]
 
     inference_engine = ModelInference(classification=classification, model=model)
@@ -1051,7 +1294,7 @@ def _run_jackknife_inference(
         model=model,
         train_df=train_df,
         patient_data=patient_data,
-        encoding=encoding,
+        encoding=InputProcessor.process_encoding(encoding=encoding),
         inference_results=inference_results,
         alpha=alpha,
         sample_fraction=sample_fraction,

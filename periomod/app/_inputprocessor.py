@@ -37,7 +37,7 @@ class InputProcessor:
         - `process_tuning(list) -> list`: Converts tuning method names to codes.
         - `process_hpo(list) -> list`: Converts HPO methods to internal codes.
         - `process_criteria(list) -> list`: Converts criteria names to codes.
-        - `process_encoding(list) -> list`: Converts encoding types to internal codes.
+        - `process_encoding(str) -> str`: Converts encoding types to internal codes.
         - `process_antibiotics(str) -> int`: Converts antibiotic treatment to code.
         - `process_gender(str) -> int`: Converts gender to binary code.
         - `process_stresslvl(str) -> int`: Converts stress level to numerical code.
@@ -198,20 +198,24 @@ class InputProcessor:
         return [cls.learner_map[learner] for learner in learners]
 
     @classmethod
-    def process_tuning(cls, tuning_methods: list) -> list:
-        return [cls.tuning_map[tuning] for tuning in tuning_methods]
+    def process_tuning(cls, tuning_method: str) -> list:
+        """Processes a single tuning method string using the tuning_map."""
+        return [cls.tuning_map[tuning_method]]
 
     @classmethod
-    def process_hpo(cls, hpo_methods: list) -> list:
-        return [cls.hpo_map[hpo] for hpo in hpo_methods]
+    def process_hpo(cls, hpo_method: str) -> list:
+        """Processes a single HPO method string using the hpo_map."""
+        return [cls.hpo_map[hpo_method]]
 
     @classmethod
-    def process_criteria(cls, criteria: list) -> list:
-        return [cls.criteria_map[criterion] for criterion in criteria]
+    def process_criteria(cls, criterion: str) -> list:
+        """Processes a single criterion string using the criteria_map."""
+        return [cls.criteria_map[criterion]]
 
     @classmethod
-    def process_encoding(cls, encodings: list) -> list:
-        return [cls.encodings_map[encoding] for encoding in encodings]
+    def process_encoding(cls, encoding: str) -> str:
+        """Processes a single encoding string using the encodings_map."""
+        return cls.encodings_map.get(encoding, encoding)
 
     @classmethod
     def process_antibotics(cls, antibiotics: str) -> int:
@@ -287,6 +291,7 @@ class InputProcessor:
         else:
             return prediction_output
 
-        prediction_output["prediction"] = prediction_output["prediction"].astype(int)
-        prediction_output["prediction"] = prediction_output["prediction"].map(mapping)
+        prediction_output["prediction"] = (
+            prediction_output["prediction"].astype(int).map(mapping)
+        )
         return prediction_output

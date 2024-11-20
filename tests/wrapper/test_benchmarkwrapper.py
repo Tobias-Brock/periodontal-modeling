@@ -22,8 +22,7 @@ def test_benchmark_wrapper_initialization():
         n_configs=10,
         n_jobs=4,
         verbose=True,
-        path=Path("data"),
-        name="processed_data.csv",
+        path=Path("data/processed_data.csv"),
     )
 
     assert wrapper.task == "pocketclosure"
@@ -37,8 +36,7 @@ def test_benchmark_wrapper_initialization():
     assert wrapper.n_configs == 10
     assert wrapper.n_jobs == 4
     assert wrapper.verbose is True
-    assert wrapper.path == Path("data")
-    assert wrapper.name == "processed_data.csv"
+    assert wrapper.path == Path("data/processed_data.csv")
     assert wrapper.classification == "binary"
 
 
@@ -107,14 +105,12 @@ def test_benchmark_wrapper_save_benchmark(mock_to_csv, mock_makedirs):
     )
 
     benchmark_df = pd.DataFrame({"Model": ["lr"], "Accuracy": [0.8]})
-    wrapper.save_benchmark(benchmark_df, path=Path("reports"), file_name="test.csv")
+    path = Path("reports/pocketclosure/test.csv").resolve()  # Normalize path
 
-    mock_makedirs.assert_called_once_with(
-        Path("reports") / "pocketclosure", exist_ok=True
-    )
-    mock_to_csv.assert_called_once_with(
-        Path("reports") / "pocketclosure" / "test.csv", index=False
-    )
+    wrapper.save_benchmark(benchmark_df, path=path)
+
+    mock_to_csv.assert_called_once_with(path, index=False)
+    mock_makedirs.assert_called_once_with(path.parent, exist_ok=True)
 
 
 @patch("os.makedirs")
@@ -131,13 +127,12 @@ def test_benchmark_wrapper_save_learners(mock_joblib_dump, mock_makedirs):
     )
 
     learners_dict = {"lr_model": MagicMock()}
+    path = Path("models/pocketclosure").resolve()  # Normalize path
 
-    wrapper.save_learners(learners_dict, path=Path("models"))
+    wrapper.save_learners(learners_dict, path=path)
 
-    mock_makedirs.assert_called_once_with(
-        Path("models") / "pocketclosure", exist_ok=True
-    )
+    mock_makedirs.assert_called_once_with(path, exist_ok=True)
     mock_joblib_dump.assert_called_once()
     args, _ = mock_joblib_dump.call_args
     assert args[0] == learners_dict["lr_model"]
-    assert args[1] == Path("models") / "pocketclosure" / "lr_model.pkl"
+    assert args[1] == path / "lr_model.pkl"

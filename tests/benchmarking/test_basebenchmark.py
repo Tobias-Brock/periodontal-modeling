@@ -157,8 +157,7 @@ def test_base_benchmark_initialization():
         mlp_flag=False,
         threshold_tuning=True,
         verbose=False,
-        path=Path("."),
-        name="data.csv",
+        path=Path("data.csv"),
     )
 
     assert benchmark.task == "pocketclosure"
@@ -179,5 +178,4 @@ def test_base_benchmark_initialization():
     assert benchmark.mlp_flag is False
     assert benchmark.threshold_tuning is True
     assert benchmark.verbose is False
-    assert benchmark.path == Path(".")
-    assert benchmark.name == "data.csv"
+    assert benchmark.path == Path("data.csv")
