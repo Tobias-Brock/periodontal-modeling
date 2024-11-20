@@ -12,6 +12,36 @@ This documentation includes detailed information on the functionality, setup, an
 
 ## Installation
 
+### Getting Started
+
+If you're not familiar with Python or programming, the following resources can help you get started with installing Python, managing environments, and setting up tools like Jupyter Notebooks:
+
+#### Installing Python
+1. **Official Python Website**: Download and install Python from the [official Python website](https://www.python.org/downloads/).
+   - Make sure to download Python 3.10 or 3.11.
+   - During installation, check the box to add Python to your system's PATH.
+
+2. **Python Installation Guide**: Follow this [step-by-step guide](https://realpython.com/installing-python/) for detailed instructions on setting up Python on your system.
+
+#### Installing Conda
+Conda is an environment and package manager that makes it easy to install dependencies and manage Python environments.
+
+1. **Miniconda**: Download and install [Miniconda](https://docs.conda.io/en/latest/miniconda.html), a lightweight version of Conda.
+2. **Full Anaconda Distribution**: Alternatively, install the [Anaconda Distribution](https://www.anaconda.com/), which includes Conda and many pre-installed libraries.
+
+You can create a virtual environment with conda:
+
+```bash
+conda create -n periomod python=3.11
+conda activate periomod
+```
+
+#### Setting Up Jupyter Notebooks
+Jupyter Notebooks are an excellent tool for analyzing data and running experiments interactively.
+
+- [Learn Jupyter Basics: Refer to the Jupyter Notebook Beginner’s Guide to learn how to use it.](https://realpython.com/jupyter-notebook-introduction/)
+
+#### Installing periomod
 Ensure you have Python 3 installed. You may preferebly setup a new environment with Python 3.10 or 3.11. Install the package with all its dependencies via pip:
 
 ```bash
@@ -86,7 +116,7 @@ The **Wrapper** module simplifies the benchmarking and evaluation setup, consoli
 - **Imbalanced Data Handling**: Enables the application of SMOTE and upsampling/downsampling to balance dataset classes.
 - **Model Evaluation**: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.
 - **Inference**: Patient-level inference, jackknife resampling and confidence intervals.
-- **Interactive Frontend with Gradio**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
+- **Interactive Gradio App**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
 
 ## Usage
 
@@ -121,6 +151,29 @@ Alternatively, the following `make` commands are available to build and run the 
 make docker-build
 make docker-run
 ```
+
+### App Features
+#### Data Tab
+The data tab enables data loading, processing and saving. It further provides multiple plotting methods for data visualization.The Data Tab enables data loading, processing, and saving. It provides several options for exploring and visualizing the dataset, making it easy to gain insights before proceeding to modeling or benchmarks.
+
+![App Demo](images/app_data.gif)
+
+#### Benchmarking Tab
+The Benchmarking Tab allows you to perform comparisons of different machine learning models, incorporating hyperparameter tuning, sampling, resampling and different criteria. The results are displayed in a clear and interactive format and allow the comparison with a model baseline.
+
+![App Demo](images/app_benchmark.gif)
+
+#### Evaluation Tab
+
+The Evaluation Tab provides detailed performance metrics and visualizations for the trained models. These include confusion matrices, calibration plots, feature importance analysis, clustering, and Brier skill scores. It offers a comprehensive overview of the model performance.
+
+![App Demo](images/app_evaluation.gif)
+
+#### Inference Tab
+
+In the Inference Tab, patient data can be selected and submitted for predictions using a trained model. Additionally, Jackknife confidence intervals can be calculated to evaluate prediction stability.
+
+![App Demo](images/app_inference.gif)
 
 ### Data Module
 

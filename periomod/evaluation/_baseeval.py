@@ -363,10 +363,6 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
         if task is not None:
             label_mapping = _label_mapping(task)
-        else:
-            label_mapping = {i: f"Class {i}" for i in range(probas.shape[1])}
-
-        if task is not None:
             plot_title = (
                 f"Calibration Plot \n {task_map.get(task, 'Binary')}"
                 if classification == "binary"
@@ -374,6 +370,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             )
         else:
             plot_title = "Calibration Plot"
+            label_name = None
 
         if classification == "multiclass":
             num_classes = probas.shape[1]
@@ -384,7 +381,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 prob_true, prob_pred = calibration_curve(
                     binarized_y, class_probas, n_bins=n_bins, strategy="uniform"
                 )
-                label_name = label_mapping.get(class_idx, f"Class {class_idx}")
+                if task is not None:
+                    label_name = label_mapping.get(class_idx, f"Class {class_idx}")
                 plt.plot(prob_pred, prob_true, marker="o", label=label_name)
             plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
             plt.xlabel("Mean Predicted Probability", fontsize=12)
@@ -533,7 +531,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
         combined_df = pd.concat([df1_melted, df2_melted], ignore_index=True)
 
-        fig, axes = plt.subplots(figsize=(6, 4), dpi=300)
+        fig, axes = plt.subplots(figsize=(8, 4), dpi=300)
 
         model_order = [
             "Tuned Model",
@@ -583,7 +581,20 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                     textcoords="offset points",
                 )
 
-        plt.legend(title="Metric", frameon=False, fontsize=8)
+        plt.legend(
+            title="Metric",
+            frameon=False,
+            fontsize=10,
+            bbox_to_anchor=(1.05, 0.5),
+            loc="upper left",
+        )
+        if num_patients is not None:
+            plt.title(
+                f"Baseline Comparison \n"
+                f"Number of Patients {num_patients}; Number of Sites: {len(self.y)}"
+            )
+        else:
+            plt.title(f"Baseline Comparison \n Number of Sites: {len(self.y)}")
 
         labels = [label.get_text() for label in g.get_xticklabels()]
         g.set_xticklabels([label.replace(" ", "\n") for label in labels])
