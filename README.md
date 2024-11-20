@@ -1,5 +1,5 @@
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-v0.1.4-orange.svg)](https://pypi.org/project/periomod/)
+[![PyPI](https://img.shields.io/badge/pypi-v0.1.5-orange.svg)](https://pypi.org/project/periomod/)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://tobias-brock.github.io/periodontal-modeling/)
 ![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
