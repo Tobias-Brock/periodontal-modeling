@@ -98,12 +98,16 @@ class ModelEvaluator(BaseModelEvaluator):
         """Initialize the FeatureImportance class."""
         super().__init__(X=X, y=y, model=model, encoding=encoding, aggregate=aggregate)
 
-    def evaluate_feature_importance(self, fi_types: List[str]) -> None:
+    def evaluate_feature_importance(
+        self, fi_types: List[str], save: bool = False, name: Optional[str] = None
+    ) -> None:
         """Evaluate the feature importance for a list of trained models.
 
         Args:
             fi_types (List[str]): Methods of feature importance evaluation:
                 'shap', 'permutation', 'standard'.
+            save (bool): If True, saves the plot as an SVG file. Defaults to False.
+            name (Optional[str]): Name of the file to save the plot. Required when
 
         Returns:
             Plot: Feature importance plot for the specified method.
@@ -203,6 +207,13 @@ class ModelEvaluator(BaseModelEvaluator):
                     plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
+                    if save:
+                        if name is None:
+                            raise ValueError(
+                                "'name' argument must required when 'save' is True."
+                            )
+                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
+
                 else:
                     fi_df_aggregated = self._aggregate_one_hot_importances(fi_df=fi_df)
                     fi_df_aggregated.sort_values(
@@ -254,6 +265,13 @@ class ModelEvaluator(BaseModelEvaluator):
                     plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
+                    if save:
+                        if name is None:
+                            raise ValueError(
+                                "'name' argument must required when 'save' is True."
+                            )
+                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
+
                 else:
                     fi_df.sort_values(by="Importance", ascending=False, inplace=True)
                     fi_df["Feature"] = self._feature_mapping(fi_df["Feature"])
@@ -283,6 +301,12 @@ class ModelEvaluator(BaseModelEvaluator):
                 ax.spines["bottom"].set_visible(False)
                 plt.ylabel("Importance", fontsize=12)
                 plt.tight_layout()
+                if save:
+                    if name is None:
+                        raise ValueError(
+                            "'name' argument must required when 'save' is True."
+                        )
+                    plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
                 plt.show()
 
     def analyze_brier_within_clusters(
@@ -369,8 +393,10 @@ class ModelEvaluator(BaseModelEvaluator):
         plt.title("Brier Score Distribution in Clusters", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+
         if tight_layout:
             plt.tight_layout()
+
         brier_plot = plt.gcf()
 
         plt.figure(figsize=(8, 4), dpi=300)
