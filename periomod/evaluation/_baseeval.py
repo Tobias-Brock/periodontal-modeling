@@ -128,6 +128,11 @@ class EvaluatorMethods(BaseConfig):
         self.model = model
         self.encoding = encoding
         self.aggregate = aggregate
+        self._set_plot_style()
+
+    def _set_plot_style(self) -> None:
+        plt.rcParams["svg.fonttype"] = "none"
+        plt.rcParams["font.family"] = "Arial"
 
     def brier_scores(self) -> pd.Series:
         """Calculates Brier scores for each instance in the evaluator's dataset.
@@ -342,6 +347,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         n_bins: int = 10,
         tight_layout: bool = False,
         task: Optional[str] = None,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Generates calibration plots for the model's predicted probabilities.
 
@@ -354,6 +361,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 Defaults to False.
             task (Optional[str]): Task name to apply label mapping for the plot.
                 Defaults to None.
+            save (bool): If True, saves the plot as a .svg file. Defaults to False.
+            name (Optional[str]): Name of the file to save. Defaults to None.
 
         Raises:
             ValueError: If the model does not support probability predictions.
@@ -399,6 +408,13 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             plt.legend(frameon=False)
             if tight_layout:
                 plt.tight_layout()
+            if save:
+                filename = (
+                    f"{name}_calibration_plot.svg"
+                    if name is not None
+                    else "calibration_plot.svg"
+                )
+                plt.savefig(filename, format="svg")
             plt.show()
         else:
             prob_true, prob_pred = calibration_curve(
@@ -422,6 +438,13 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
             if tight_layout:
                 plt.tight_layout()
+            if save:
+                filename = (
+                    f"{name}_calibration_plot.svg"
+                    if name is not None
+                    else "calibration_plot.svg"
+                )
+                plt.savefig(filename, format="svg")
             plt.show()
 
     def brier_score_groups(
@@ -429,6 +452,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         group_by: str = "y",
         task: Optional[str] = None,
         tight_layout: bool = False,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Calculates and displays Brier score within groups.
 
@@ -439,6 +464,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 Defaults to False.
             task (Optional[str]): Task name to apply label mapping for the plot.
                 Defaults to None.
+            save (bool): If True, saves the plot as a .svg file. Defaults to False.
+            name (Optional[str]): Name of the file to save. Defaults to None.
         """
         data = pd.DataFrame({group_by: self.y, "Brier_Score": self.brier_scores()})
         if task is not None:
@@ -466,6 +493,13 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         plt.yticks(fontsize=12)
         if tight_layout:
             plt.tight_layout()
+        if save:
+            filename = (
+                f"{name}_brier_score_groups.svg"
+                if name is not None
+                else "brier_score_groups.svg"
+            )
+            plt.savefig(filename, format="svg")
         plt.show()
 
     def bss_comparison(
@@ -474,6 +508,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         classification: str,
         tight_layout: bool = False,
         num_patients: Optional[int] = None,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Compares the Brier Skill Scores (BSS) of the model with baseline models.
 
@@ -486,6 +522,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 Defaults to False.
             num_patients (Optional[int]): Number of unique patients in the test set.
                 Defaults to None.
+            save (bool): If True, saves the plot as a .svg file. Defaults to False.
+            name (Optional[str]): Name of the file to save. Defaults to None.
 
         Raises:
             ValueError: If the model or any baseline model cannot predict probabilities.
@@ -601,6 +639,13 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
         if tight_layout:
             plt.tight_layout()
+        if save:
+            filename = (
+                f"{name}_bss_comparison.svg"
+                if name is not None
+                else "bss_comparison.svg"
+            )
+            plt.savefig(filename, format="svg")
         plt.show()
 
     def plot_confusion_matrix(
@@ -610,6 +655,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         normalize: str = "rows",
         tight_layout: bool = False,
         task: Optional[str] = None,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> plt.Figure:
         """Generates a styled confusion matrix for the given model and test data.
 
@@ -622,6 +669,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 Defaults to False.
             task (Optional[str]): Task name to apply label mapping for the plot.
                 Defaults to None.
+            save (bool): If True, saves the plot as a .svg file. Defaults to False.
+            name (Optional[str]): Name of the file to save. Defaults to None.
 
         Returns:
             Figure: Confusion matrix heatmap plot.
@@ -696,6 +745,13 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         plt.tick_params(axis="both", which="major", labelsize=12)
         if tight_layout:
             plt.tight_layout()
+        if save:
+            filename = (
+                f"{name}_confusion_matrix.svg"
+                if name is not None
+                else "confusion_matrix.svg"
+            )
+            plt.savefig(filename, format="svg")
         plt.show()
 
     @abstractmethod
