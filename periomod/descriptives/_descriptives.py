@@ -55,6 +55,9 @@ class DescriptivesPlotter:
             df (pd.DataFrame): DataFrame containing data for plotting.
         """
         self.df = df
+        plt.rcParams["svg.fonttype"] = "none"
+        plt.rcParams["font.family"] = "Arial"
+        plt.rcParams["axes.labelsize"] = 12
 
     def plt_matrix(
         self,
@@ -65,6 +68,7 @@ class DescriptivesPlotter:
         name: Optional[str] = None,
         normalize: str = "rows",
         save: bool = False,
+        color: str = "#078294",
     ) -> None:
         """Plots a heatmap/confusion matrix.
 
@@ -77,12 +81,14 @@ class DescriptivesPlotter:
             normalize (str, optional): Normalization method ('rows' or 'columns').
                 Defaults to 'rows'.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
+            color: Custom Color mapping for confusion matrix based on #.
+                Defaults to teal.
         """
         vertical_data = self.df[vertical]
         horizontal_data = self.df[horizontal]
         cm = confusion_matrix(vertical_data, horizontal_data)
         custom_cmap = LinearSegmentedColormap.from_list(
-            "teal_cmap", ["#FFFFFF", "#078294"]
+            "custom_cmap", ["#FFFFFF", color]
         )
 
         if normalize == "rows":
@@ -388,7 +394,7 @@ class DescriptivesPlotter:
         x_values = value_counts.index.astype(str)
         heights = value_counts.values
 
-        plt.figure(figsize=(6, 4), dpi=300)
+        plt.figure(figsize=(4, 4), dpi=300)
         bars = plt.bar(
             x_values, heights, edgecolor="black", color="#078294", linewidth=1
         )

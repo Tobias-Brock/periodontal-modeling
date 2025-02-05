@@ -480,10 +480,13 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
     def wrapped_evaluation(
         self,
         cm: bool,
+        cm_normalization: str,
         cm_base: bool,
         brier_groups: bool,
         calibration: bool,
         tight_layout: bool,
+        save: bool,
+        name: Optional[str],
     ):
         """Runs evaluation on the best-ranked model based on specified criteria.
 
@@ -491,9 +494,13 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             cm (bool): If True, plots the confusion matrix.
             cm_base (bool): If True, plots the confusion matrix against the
                 value before treatment. Only applicable for specific tasks.
+            cm_normalization (str): Normalization type for confusion matrix.
+                (rows, columns)
             brier_groups (bool): If True, calculates Brier score groups.
             calibration (bool): If True, plots model calibration.
             tight_layout (bool): If True, applies tight layout to the plot.
+            save (bool): If True, saves the plot to disk.
+            name (Optional[str]): Name for the saved plot.
         """
 
     @abstractmethod
