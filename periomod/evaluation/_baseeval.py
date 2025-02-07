@@ -53,6 +53,9 @@ def _label_mapping(task: Optional[str]) -> dict:
 
     Returns:
         dict: Dictionary with label mappings, or None if no mapping is needed.
+
+    Raises:
+        ValueError: If task is invalid.
     """
     if task in ["pocketclosure", "pocketclosureinf"]:
         return {1: "Closed", 0: "Not closed"}
@@ -215,12 +218,10 @@ class EvaluatorMethods(BaseConfig):
         ].unique()
 
         aggregated_or_original = (
-            pd.concat(
-                [
-                    aggregated_importances,
-                    fi_df[fi_df["Feature"].isin(original_features)],
-                ]
-            )
+            pd.concat([
+                aggregated_importances,
+                fi_df[fi_df["Feature"].isin(original_features)],
+            ])
             .drop_duplicates()
             .sort_values(by="Importance", ascending=False)
         )
@@ -248,7 +249,7 @@ class EvaluatorMethods(BaseConfig):
         base_names = [_get_base_name(feature=feature) for feature in shap_df.columns]
         feature_mapping = dict(zip(shap_df.columns, base_names, strict=False))
         aggregated_shap_df = shap_df.groupby(feature_mapping, axis=1).sum()
-        return aggregated_shap_df.values, list(aggregated_shap_df.columns)
+        return aggregated_shap_df.to_numpy(), list(aggregated_shap_df.columns)
 
     @staticmethod
     def _aggregate_one_hot_features_for_clustering(X: pd.DataFrame) -> pd.DataFrame:
@@ -363,9 +364,6 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
                 Defaults to None.
             save (bool): If True, saves the plot as a .svg file. Defaults to False.
             name (Optional[str]): Name of the file to save. Defaults to None.
-
-        Raises:
-            ValueError: If the model does not support probability predictions.
         """
         classification = "binary" if self.y.nunique() == 2 else "multiclass"
         probas = get_probs(self.model, classification=classification, X=self.X)
@@ -486,7 +484,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         )
         sns.despine(top=True, right=True)
         plt.title("Distribution of Brier Scores", fontsize=12)
-        plt.xlabel(f'{"y" if group_by == "y" else group_by}', fontsize=12)
+        plt.xlabel(f"{'y' if group_by == 'y' else group_by}", fontsize=12)
         plt.ylabel("Brier Score", fontsize=12)
         plt.ylim(0, 1)
         plt.xticks(fontsize=12)
@@ -569,7 +567,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
 
         combined_df = pd.concat([df1_melted, df2_melted], ignore_index=True)
 
-        fig, axes = plt.subplots(figsize=(8, 4), dpi=300)
+        plt.subplots(figsize=(8, 4), dpi=300)
 
         model_order = [
             "Tuned Model",
@@ -672,8 +670,8 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             save (bool): If True, saves the plot as a .svg file. Defaults to False.
             name (Optional[str]): Name of the file to save. Defaults to None.
 
-        Returns:
-            Figure: Confusion matrix heatmap plot.
+        Raises:
+            ValueError: If invalid value for normalize is selected.
         """
         y_true = pd.Series(col if col is not None else self.y)
         pred = self.model_predictions()
@@ -681,7 +679,7 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         if task is not None:
             label_mapping = _label_mapping(task)
             y_true = y_true.map(label_mapping)
-            pred = pd.Series(pred).map(label_mapping).values
+            pred = pd.Series(pred).map(label_mapping).to_numpy()
             labels = list(label_mapping.values())
         else:
             labels = None

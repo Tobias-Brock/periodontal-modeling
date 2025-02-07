@@ -328,6 +328,9 @@ class HEBOTuner(BaseTuner):
 
         Returns:
             float: The model's performance metric based on tuning strategy.
+
+        Raises:
+            ValueError: If outer_splits is None.
         """
         if self.tuning == "holdout":
             score, _, _ = self.trainer.train(

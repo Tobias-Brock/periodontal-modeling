@@ -48,8 +48,9 @@ from periomod.app import (
     _update_task_fields,
     _update_tooth_state,
     _update_tuning_method_fields,
-    all_teeth,
 )
+
+from ..base import all_teeth
 
 logo_path = files("periomod.app.images").joinpath("logo_app.png")
 

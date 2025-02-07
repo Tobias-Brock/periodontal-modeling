@@ -8,16 +8,27 @@ import pandas as pd
 from periomod.benchmarking import Benchmarker
 
 
-def create_synthetic_data(n_samples=100, n_features=5, classification="binary"):
-    """Generates synthetic data."""
-    data = {f"feature_{i}": range(n_samples) for i in range(n_features)}
+def create_synthetic_data(
+    n_samples=100, n_features=5, classification="binary"
+) -> pd.DataFrame:
+    """Generates synthetic data.
+
+    Args:
+        n_samples (int): Number of samples.
+        n_features (int): Number of feature columns.
+        classification (str): Classification type ("binary" or "multiclass").
+
+    Returns:
+        pd.DataFrame: A DataFrame with feature columns, a target column `y`,
+        and an `id_patient` column.
+    """
+    data = {f"feature_{i}": list(range(n_samples)) for i in range(n_features)}
     if classification == "binary":
         data["y"] = [i % 2 for i in range(n_samples)]
     else:
         data["y"] = [i % 3 for i in range(n_samples)]
     data["id_patient"] = [i // 10 for i in range(n_samples)]  # Add id_patient
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 
 @patch("periomod.benchmarking._benchmark.ProcessedDataLoader")

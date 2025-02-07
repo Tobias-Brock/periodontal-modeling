@@ -95,7 +95,6 @@ class Resampler(BaseResampler):
 
         Raises:
             ValueError: If required columns are missing from the input DataFrame.
-            TypeError: If the input DataFrame is not a pandas DataFrame.
         """
         self.validate_dataframe(df=df, required_columns=[self.y, self.group_col])
 
@@ -120,50 +119,64 @@ class Resampler(BaseResampler):
 
     def split_x_y(
         self,
-        train_df: pd.DataFrame,
-        test_df: pd.DataFrame,
+        train_df: Optional[pd.DataFrame],
+        test_df: Optional[pd.DataFrame],
         sampling: Union[str, None] = None,
         factor: Union[float, None] = None,
-    ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+    ) -> Tuple[
+        Optional[pd.DataFrame],
+        Optional[pd.Series],
+        Optional[pd.DataFrame],
+        Optional[pd.Series],
+    ]:
         """Splits the train and test DataFrames into feature and label sets.
 
         Splits into (X_train, y_train, X_test, y_test).
 
         Args:
-            train_df (pd.DataFrame): The training DataFrame.
-            test_df (pd.DataFrame): The testing DataFrame.
+            train_df (Optional[pd.DataFrame]): The training DataFrame.
+            test_df (Optional[pd.DataFrame]): The testing DataFrame.
             sampling (str, optional): Resampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote'), defaults to None.
             factor (float, optional): Factor for sampling, defaults to None.
 
         Returns:
-            Tuple: Tuple containing feature and label sets
-                (X_train, y_train, X_test, y_test).
-
-        Raises:
-            ValueError: If required columns are missing or sampling method is invalid.
+            Tuple[Optional[pd.DataFrame], Optional[pd.Series], Optional[pd.DataFrame],
+            Optional[pd.Series]]: Tuple containing feature and label sets (X_train,
+            y_train, X_test, y_test).
         """
-        X_train = train_df.drop([self.y], axis=1)
-        y_train = train_df[self.y]
-        X_test = test_df.drop([self.y], axis=1)
-        y_test = test_df[self.y]
+        X_train, y_train, X_test, y_test = None, None, None, None
 
-        if self.encoding == "target":
+        if train_df is not None:
+            X_train = train_df.drop(columns=[self.y])
+            y_train = train_df[self.y]
+
+        if test_df is not None:
+            X_test = test_df.drop(columns=[self.y])
+            y_test = test_df[self.y]
+
+        if (
+            self.encoding == "target"
+            and X_train is not None
+            and X_test is not None
+            and y_train is not None
+        ):
             X_train, X_test = self.apply_target_encoding(
                 X=X_train, X_val=X_test, y=y_train
             )
 
-        if sampling is not None:
+        if sampling is not None and X_train is not None and y_train is not None:
             X_train, y_train = self.apply_sampling(
                 X=X_train, y=y_train, sampling=sampling, sampling_factor=factor
             )
 
-        return (
-            X_train.drop([self.group_col], axis=1),
-            y_train,
-            X_test.drop([self.group_col], axis=1),
-            y_test,
-        )
+        if X_train is not None and self.group_col in X_train:
+            X_train = X_train.drop(columns=[self.group_col])
+
+        if X_test is not None and self.group_col in X_test:
+            X_test = X_test.drop(columns=[self.group_col])
+
+        return X_train, y_train, X_test, y_test
 
     def cv_folds(
         self,
@@ -193,7 +206,6 @@ class Resampler(BaseResampler):
 
         Raises:
             ValueError: If required columns are missing or folds are inconsistent.
-            TypeError: If the input DataFrame is not a pandas DataFrame.
         """
         np.random.default_rng(seed=seed)
 
@@ -226,9 +238,10 @@ class Resampler(BaseResampler):
                 )
 
             cv_folds_indices.append((train_idx, test_idx))
-            outer_splits.append(
-                ((X_train_fold, y_train_fold), (X_test_fold, y_test_fold))
-            )
+            outer_splits.append((
+                (X_train_fold, y_train_fold),
+                (X_test_fold, y_test_fold),
+            ))
 
         for original_test_data, (_, (X_test_fold, _)) in zip(
             original_validation_data, outer_splits, strict=False

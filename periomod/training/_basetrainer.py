@@ -183,6 +183,9 @@ class BaseTrainer(BaseValidator, ABC):
         Returns:
             Union: The calculated score of the model on the validation data, and
                 optionally the true labels and predicted probabilities.
+
+        Raises:
+            AttributeError: If model does not support predict_proba method.
         """
         (X_train, y_train), (X_val, y_val) = fold
         with warnings.catch_warnings():
@@ -218,6 +221,9 @@ class BaseTrainer(BaseValidator, ABC):
         Returns:
             Union: The optimal threshold for 'f1', or None if the criterion is
                 'brier_score'.
+
+        Raises:
+            ValueError: If self.criterion is not valid.
         """
         if self.criterion == "brier_score":
             return None

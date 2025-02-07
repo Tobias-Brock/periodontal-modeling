@@ -10,15 +10,18 @@ from periomod.descriptives._descriptives import DescriptivesPlotter
 
 @pytest.fixture
 def sample_dataframe():
-    """Create a sample dataframe for testing."""
-    return pd.DataFrame(
-        {
-            "depth_before": [3, 4, 5, 6, 4, 3],
-            "depth_after": [2, 3, 4, 5, 3, 2],
-            "pocketclosure": [1, 0, 1, 0, 1, 1],
-            "outcome_variable": [0, 1, 0, 1, 0, 0],
-        }
-    )
+    """Create a sample dataframe for testing.
+
+    Returns:
+        pd.DataFrame: A sample dataset with depth measurements, pocket closure,
+        and outcome variables.
+    """
+    return pd.DataFrame({
+        "depth_before": [3, 4, 5, 6, 4, 3],
+        "depth_after": [2, 3, 4, 5, 3, 2],
+        "pocketclosure": [1, 0, 1, 0, 1, 1],
+        "outcome_variable": [0, 1, 0, 1, 0, 0],
+    })
 
 
 def test_descriptives_plotter_initialization(sample_dataframe):
@@ -112,12 +115,10 @@ def test_outcome_descriptive(mock_show, sample_dataframe):
 
 def test_missing_name_when_save():
     """Test that ValueError is raised when name is None and save is True."""
-    sample_df = pd.DataFrame(
-        {
-            "depth_before": [3, 4],
-            "depth_after": [2, 3],
-        }
-    )
+    sample_df = pd.DataFrame({
+        "depth_before": [3, 4],
+        "depth_after": [2, 3],
+    })
     plotter = DescriptivesPlotter(sample_df)
     with pytest.raises(
         ValueError, match="'name' argument required when 'save' is True."
@@ -127,12 +128,10 @@ def test_missing_name_when_save():
 
 def test_invalid_normalize_value():
     """Test that ValueError is raised when normalize parameter is invalid."""
-    sample_df = pd.DataFrame(
-        {
-            "depth_before": [3, 4],
-            "depth_after": [2, 3],
-        }
-    )
+    sample_df = pd.DataFrame({
+        "depth_before": [3, 4],
+        "depth_after": [2, 3],
+    })
     plotter = DescriptivesPlotter(sample_df)
     with pytest.raises(
         ValueError, match="Invalid value for 'normalize'. Use 'rows' or 'columns'."

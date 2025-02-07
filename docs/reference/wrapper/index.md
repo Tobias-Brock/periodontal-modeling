@@ -13,3 +13,4 @@ and model extraction, encapsulating core functionality.
 | [load_benchmark](loadbenchmark.md)               | Function for loading model benchmark after training |
 | [load_learners](loadlearners.md)               | Function for loading and managing multiple learners for evaluation.      |
 | [ModelExtractor](modelextractor.md) | Class for selecting the best-ranked model based on a specified criterion. |
+| [Validator](validator.md) | Class for validating trained model on separate validation data. |

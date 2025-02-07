@@ -45,9 +45,9 @@ def brier_loss_multi(y: np.ndarray, probs: np.ndarray) -> float:
     """
     y_bin = label_binarize(y, classes=np.unique(y))
     g = y_bin.shape[1]
-    return np.mean(
-        [brier_score_loss(y_true=y_bin[:, i], y_proba=probs[:, i]) for i in range(g)]
-    ) * (g / 2)
+    return np.mean([
+        brier_score_loss(y_true=y_bin[:, i], y_proba=probs[:, i]) for i in range(g)
+    ]) * (g / 2)
 
 
 def final_metrics(
@@ -70,6 +70,9 @@ def final_metrics(
 
     Returns:
         Dict[str, Any]: Dictionary of evaluation metrics.
+
+    Raises:
+        ValueError: If the classification type is not supported.
     """
     if classification == "binary":
         f1: float = f1_score(y_true=y, y_pred=preds, pos_label=0)

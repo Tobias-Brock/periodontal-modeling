@@ -25,7 +25,7 @@ class BaseExperiment(BaseValidator, ABC):
         - `ABC`: Specifies abstract methods for subclasses to implement.
 
     Args:
-        df (pd.DataFrame): The preloaded dataset used for training and evaluation.
+        data (pd.DataFrame): The preloaded dataset used for training and evaluation.
         task (str): Task name, used to determine the classification type based on the
             Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
             'pdgrouprevaluation'.
@@ -66,7 +66,7 @@ class BaseExperiment(BaseValidator, ABC):
         task (str): The task name, used to set the evaluation objective.
         classification (str): Classification type derived from the task ('binary'
             or 'multiclass') for configuring the evaluation.
-        df (pd.DataFrame): DataFrame containing the dataset for training, validation,
+        data (pd.DataFrame): DataFrame containing the dataset for training, validation,
             and testing purposes.
         learner (str): The chosen machine learning model or algorithm for evaluation.
         encoding (str): Encoding type applied to categorical features, either
@@ -108,7 +108,7 @@ class BaseExperiment(BaseValidator, ABC):
 
     def __init__(
         self,
-        df: pd.DataFrame,
+        data: pd.DataFrame,
         task: str,
         learner: str,
         criterion: str,
@@ -135,7 +135,7 @@ class BaseExperiment(BaseValidator, ABC):
         super().__init__(
             classification=classification, criterion=criterion, tuning=tuning, hpo=hpo
         )
-        self.df = df
+        self.data = data
         self.learner = learner
         self.encoding = encoding
         self.sampling = sampling
@@ -167,6 +167,10 @@ class BaseExperiment(BaseValidator, ABC):
 
         Returns:
             str: The classification type ('binary' or 'multiclass').
+
+        Raises:
+            ValueError: If `self.task` is unknown and classification cannot be
+            determined.
         """
         if self.task in ["pocketclosure", "pocketclosureinf", "improvement"]:
             return "binary"
@@ -178,7 +182,14 @@ class BaseExperiment(BaseValidator, ABC):
             )
 
     def _initialize_tuner(self):
-        """Initialize the appropriate tuner based on the hpo method."""
+        """Initialize the appropriate tuner based on the HPO method.
+
+        Returns:
+            RandomSearchTuner | HEBOTuner: The initialized tuner instance.
+
+        Raises:
+            ValueError: If `self.hpo` is not a supported method ('rs' or 'hebo').
+        """
         if self.hpo == "rs":
             return RandomSearchTuner(
                 classification=self.classification,
@@ -221,7 +232,7 @@ class BaseExperiment(BaseValidator, ABC):
             dict: A dictionary containing the trained model and its evaluation metrics.
         """
         return self.trainer.train_final_model(
-            df=self.df,
+            df=self.data,
             resampler=self.resampler,
             model=final_model_tuple,
             sampling=self.sampling,
@@ -379,12 +390,6 @@ class BaseBenchmark(BaseConfig):
 
         Raises:
             ValueError: If `self.task` is not one of the recognized task types.
-
-        Supported task types:
-            - "pocketclosure"
-            - "pocketclosureinf"
-            - "improvement"
-            - "pdgrouprevaluation"
         """
         if self.task not in {
             "pocketclosure",

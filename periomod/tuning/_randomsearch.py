@@ -373,6 +373,9 @@ class RandomSearchTuner(BaseTuner):
 
         Returns:
             dict: Sampled hyperparameters.
+
+        Raises:
+            TypeError: If type for parameter k is not supported.
         """
         iteration_seed = (
             random_state + iteration

@@ -159,15 +159,11 @@ class BaseValidator(BaseConfig):
 
         Raises:
             ValueError: If `self.classification` is not 'binary' or 'multiclass'.
-
-        Expected classification types:
-            - 'binary'
-            - 'multiclass'
         """
         if self.classification.lower().strip() not in ["binary", "multiclass"]:
             raise ValueError(
                 f"{self.classification} is an invalid classification type. "
-                f"Choose 'binary' or 'multiclass'."
+                "Choose 'binary' or 'multiclass'."
             )
 
     def _validate_hpo(self) -> None:
@@ -175,11 +171,6 @@ class BaseValidator(BaseConfig):
 
         Raises:
             ValueError: If `self.hpo` is not None, 'rs', or 'hebo'.
-
-        Supported HPO types:
-            - None
-            - 'rs' (Random Search)
-            - 'hebo' (Heteroscedastic Bayesian Optimization)
         """
         if self.hpo not in [None, "rs", "hebo"]:
             raise ValueError(
@@ -190,17 +181,11 @@ class BaseValidator(BaseConfig):
         """Validates the evaluation criterion for model performance.
 
         Raises:
-            ValueError: If `self.criterion` is not a supported evaluation metrics.
-
-        Supported evaluation criteria:
-            - 'f1'
-            - 'macro_f1'
-            - 'brier_score'
+            ValueError: If `self.criterion` is not a supported evaluation metric.
         """
         if self.criterion not in ["f1", "macro_f1", "brier_score"]:
             raise ValueError(
-                "Unsupported criterion. Choose either 'f1', 'macro_f1', or "
-                "'brier_score'."
+                "Unsupported criterion. Choose 'f1', 'macro_f1', or 'brier_score'."
             )
 
     def _validate_tuning(self) -> None:
@@ -208,16 +193,47 @@ class BaseValidator(BaseConfig):
 
         Raises:
             ValueError: If `self.tuning` is not None, 'holdout', or 'cv'.
-
-        Supported tuning methods:
-            - None
-            - 'holdout'
-            - 'cv' (Cross-Validation)
         """
         if self.tuning not in [None, "holdout", "cv"]:
             raise ValueError(
                 "Unsupported tuning method. Choose either 'holdout' or 'cv'."
             )
+
+
+all_teeth = [
+    18,
+    17,
+    16,
+    15,
+    14,
+    13,
+    12,
+    11,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    48,
+    47,
+    46,
+    45,
+    44,
+    43,
+    42,
+    41,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+]
 
 
 @dataclass

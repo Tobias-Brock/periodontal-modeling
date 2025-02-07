@@ -95,3 +95,4 @@ nav:
       - load_benchmark: "reference/wrapper/loadbenchmark.md"
       - load_learners: "reference/wrapper/loadlearners.md"
       - ModelExtractor: "reference/wrapper/modelextractor.md"
+      - Validator: "reference/wrapper/validator.md"

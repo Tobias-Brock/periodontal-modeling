@@ -83,6 +83,10 @@ class DescriptivesPlotter:
             save (bool, optional): Save the plot as an SVG. Defaults to False.
             color: Custom Color mapping for confusion matrix based on #.
                 Defaults to teal.
+
+        Raises:
+            ValueError: If `normalize` is not 'rows' or 'columns'.
+            ValueError: If 'name' argument is not defined when 'save' is True."
         """
         vertical_data = self.df[vertical]
         horizontal_data = self.df[horizontal]
@@ -171,14 +175,17 @@ class DescriptivesPlotter:
             title_2 (str): Label for y-axis. Defaults to "Pocket depth after therapy".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
+
+        Raises:
+            ValueError: If 'name' argument is not defined when 'save' is True."
         """
         value_counts_1 = self.df[col1].value_counts()
         x_values_1 = value_counts_1.index
-        heights_1 = value_counts_1.values
+        heights_1 = value_counts_1.to_numpy()
 
         value_counts_2 = self.df[col2].value_counts()
         x_values_2 = value_counts_2.index
-        heights_2 = value_counts_2.values
+        heights_2 = value_counts_2.to_numpy()
 
         fig, (ax1, ax2) = plt.subplots(
             1, 2, figsize=(8, 5), sharex=True, sharey=True, dpi=300
@@ -247,15 +254,18 @@ class DescriptivesPlotter:
             title_2 (str): Label for y-axis. Defaults to "Pocket depth after therapy".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
+
+        Raises:
+            ValueError: If 'name' argument is not defined when 'save' is True."
         """
         value_counts = self.df[col_before].value_counts()
         x_values = value_counts.index
-        heights = value_counts.values
+        heights = value_counts.to_numpy()
         total_values = sum(heights)
 
         value_counts2 = self.df[col_after].value_counts()
         x_values2 = value_counts2.index
-        heights2 = value_counts2.values
+        heights2 = value_counts2.to_numpy()
         total_values2 = sum(heights2)
 
         fig, (ax1, ax2) = plt.subplots(
@@ -340,6 +350,9 @@ class DescriptivesPlotter:
                 "Pocket depth after therapy [mm]".
             name (str): Name for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
+
+        Raises:
+            ValueError: If 'name' argument is not defined when 'save' is True."
         """
         heatmap, _, _ = np.histogram2d(
             self.df[col_before], self.df[col_after], bins=(12, 12)
@@ -385,6 +398,9 @@ class DescriptivesPlotter:
             title (str): Title of the plot.
             name (str): Filename for saving the plot.
             save (bool, optional): Save the plot as an SVG. Defaults to False.
+
+        Raises:
+            ValueError: If 'name' argument is not defined when 'save' is True."
         """
         df_temp = self.df
         if outcome == "improvement" and "pdgroupbase" in self.df.columns:
@@ -392,7 +408,7 @@ class DescriptivesPlotter:
 
         value_counts = df_temp[outcome].value_counts()
         x_values = value_counts.index.astype(str)
-        heights = value_counts.values
+        heights = value_counts.to_numpy()
 
         plt.figure(figsize=(4, 4), dpi=300)
         bars = plt.bar(

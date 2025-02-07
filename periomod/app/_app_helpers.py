@@ -20,41 +20,6 @@ from ._inputprocessor import InputProcessor
 plotter = None
 data_df = None
 
-all_teeth = [
-    18,
-    17,
-    16,
-    15,
-    14,
-    13,
-    12,
-    11,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    48,
-    47,
-    46,
-    45,
-    44,
-    43,
-    42,
-    41,
-    31,
-    32,
-    33,
-    34,
-    35,
-    36,
-    37,
-    38,
-]
-
 
 def _load_data_engine(
     path: str,
@@ -104,7 +69,7 @@ def _process_data() -> Tuple[str, dict, dict, dict, dict, dict, dict, dict, dict
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         engine = StaticProcessEngine(behavior=False)
-        data_df = engine.process_data(df=data_df)
+        data_df = engine.process_data(data=data_df)
         plotter = DescriptivesPlotter(df=data_df)
 
     process_output = output.getvalue()
@@ -505,6 +470,9 @@ def _run_benchmarks(
             - A matplotlib figure showing performance metrics (F1 Score,
               Accuracy, etc.) for each learner.
             - A confusion matrix plot (if available).
+
+    Raises:
+        ValueError: If no matching metrics are found to plot.
     """
     task = InputProcessor.process_task(task=task)
     learners = InputProcessor.process_learners(learners=learners)
@@ -700,8 +668,8 @@ def _load_data(
     """
     classification = "multiclass" if task == "pdgrouprevaluation" else "binary"
     dataloader = ProcessedDataLoader(task=task, encoding=encoding)
-    df = dataloader.load_data(path=Path(path))
-    df_transformed = dataloader.transform_data(df=df)
+    data = dataloader.load_data(path=Path(path))
+    df_transformed = dataloader.transform_data(data=data)
     resampler = Resampler(classification, encoding)
 
     train_df, test_df = resampler.split_train_test_df(df=df_transformed)
