@@ -11,7 +11,17 @@ from periomod.tuning._randomsearch import RandomSearchTuner
 
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
-    """Creates a sample dataset for testing."""
+    """Creates a sample dataset for testing.
+
+    Args:
+        n_samples (int): Number of samples.
+        n_features (int): Number of features.
+        n_classes (int): Number of output classes.
+        random_state (int): Random seed for reproducibility.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.Series]: Feature matrix `X` and target vector `y`.
+    """
     X, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
@@ -27,7 +37,11 @@ def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42
 
 @pytest.fixture
 def sample_data():
-    """Sampling function to simulate data."""
+    """Sampling function to simulate data.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.Series]: Feature matrix `X` and target vector `y`.
+    """
     X, y = create_sample_data()
     return X, y
 
@@ -75,10 +89,10 @@ def test_randomsearch_cv(sample_data):
     resampler.group_col = "feature_0"
     resampler.all_cat_vars = []
 
-    df = X.copy()
-    df["y"] = y
+    data = X.copy()
+    data["y"] = y
 
-    outer_splits, _ = resampler.cv_folds(df=df, n_folds=3, seed=42)
+    outer_splits, _ = resampler.cv_folds(df=data, n_folds=3, seed=42)
     trainer = Trainer(
         classification="binary",
         criterion="f1",
@@ -123,7 +137,7 @@ def test_randomsearch_invalid_tuning_strategy():
             mlp_training=False,
             threshold_tuning=True,
         )
-        tuner = RandomSearchTuner(
+        RandomSearchTuner(
             classification="binary",
             criterion="f1",
             tuning="invalid_tuning",
@@ -145,10 +159,10 @@ def test_randomsearch_cv_with_racing(sample_data):
     resampler.group_col = "feature_0"
     resampler.all_cat_vars = []
 
-    df = X.copy()
-    df["y"] = y
+    data = X.copy()
+    data["y"] = y
 
-    outer_splits, _ = resampler.cv_folds(df=df, n_folds=5, seed=42)
+    outer_splits, _ = resampler.cv_folds(df=data, n_folds=5, seed=42)
     trainer = Trainer(
         classification="binary",
         criterion="f1",

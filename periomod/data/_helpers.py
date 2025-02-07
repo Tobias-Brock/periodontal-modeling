@@ -88,10 +88,10 @@ class ProcessDataHelper(BaseConfig):
     Example:
         ```
         helper = ProcessDataHelper()
-        df = helper.plaque_imputation(df)
-        df = helper.fur_imputation(df)
-        infected_count_df = helper.get_adjacent_infected_teeth_count(
-            df, patient_col="id_patient", tooth_col="tooth",
+        data = helper.plaque_imputation(data)
+        data = helper.fur_imputation(data)
+        infected_count_data = helper.get_adjacent_infected_teeth_count(
+            data, patient_col="id_patient", tooth_col="tooth",
             infection_col="infection"
         )
         ```
@@ -133,12 +133,12 @@ class ProcessDataHelper(BaseConfig):
         return np.array(self.teeth_neighbors.get(nr, "No tooth"))
 
     def get_adjacent_infected_teeth_count(
-        self, df: pd.DataFrame, patient_col: str, tooth_col: str, infection_col: str
+        self, data: pd.DataFrame, patient_col: str, tooth_col: str, infection_col: str
     ) -> pd.DataFrame:
         """Adds a new column indicating the number of adjacent infected teeth.
 
         Args:
-            df (pd.DataFrame): Dataset to process.
+            data (pd.DataFrame): Dataset to process.
             patient_col (str): Name of column containing ID for patients.
             tooth_col (str): Name of column containing teeth represented in numbers.
             infection_col (str): Name of column indicating whether a tooth is healthy.
@@ -146,22 +146,22 @@ class ProcessDataHelper(BaseConfig):
         Returns:
             pd.DataFrame: Modified dataset with new column 'infected_neighbors'.
         """
-        for patient_id, patient_data in df.groupby(patient_col):
+        for patient_id, patient_data in data.groupby(patient_col):
             infected_teeth = set(
                 patient_data[patient_data[infection_col] == 1][tooth_col]
             )
 
-            df.loc[df[patient_col] == patient_id, "infected_neighbors"] = patient_data[
-                tooth_col
-            ].apply(
-                lambda tooth, infected_teeth=infected_teeth: sum(
-                    1
-                    for neighbor in self._tooth_neighbor(nr=tooth)
-                    if neighbor in infected_teeth
+            data.loc[data[patient_col] == patient_id, "infected_neighbors"] = (
+                patient_data[tooth_col].apply(
+                    lambda tooth, infected_teeth=infected_teeth: sum(
+                        1
+                        for neighbor in self._tooth_neighbor(nr=tooth)
+                        if neighbor in infected_teeth
+                    )
                 )
             )
 
-        return df
+        return data
 
     @staticmethod
     def _plaque_values(row: pd.Series, modes_dict: dict) -> int:
@@ -192,39 +192,42 @@ class ProcessDataHelper(BaseConfig):
                 return row["plaque"]
         return 1
 
-    def plaque_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
+    def plaque_imputation(self, data: pd.DataFrame) -> pd.DataFrame:
         """Imputes values for Plaque without affecting other columns.
 
         Args:
-            df (pd.DataFrame): Input DataFrame with a 'plaque' column.
+            data (pd.DataFrame): Input DataFrame with a 'plaque' column.
 
         Returns:
             pd.DataFrame: The DataFrame with the imputed 'plaque' values.
-        """
-        df.columns = [col.lower() for col in df.columns]
 
-        if "plaque" not in df.columns:
+        Raises:
+            KeyError: If plaque column is not found in DataFrame.
+        """
+        data.columns = [col.lower() for col in data.columns]
+
+        if "plaque" not in data.columns:
             raise KeyError("'plaque' column not found in the DataFrame")
-        df["plaque"] = pd.to_numeric(df["plaque"], errors="coerce")
+        data["plaque"] = pd.to_numeric(data["plaque"], errors="coerce")
 
         conditions_baseline = [
-            df["pdbaseline"] <= 3,
-            (df["pdbaseline"] >= 4) & (df["pdbaseline"] <= 5),
-            df["pdbaseline"] >= 6,
+            data["pdbaseline"] <= 3,
+            (data["pdbaseline"] >= 4) & (data["pdbaseline"] <= 5),
+            data["pdbaseline"] >= 6,
         ]
         choices_baseline = [0, 1, 2]
-        df["pdbaseline_grouped"] = np.select(
+        data["pdbaseline_grouped"] = np.select(
             conditions_baseline, choices_baseline, default=-1
         )
 
-        patients_with_all_nas = df.groupby(self.group_col)["plaque"].apply(
+        patients_with_all_nas = data.groupby(self.group_col)["plaque"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["plaque_all_na"] = df[self.group_col].isin(
+        data["plaque_all_na"] = data[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
 
-        grouped_data = df.groupby(["tooth", "side", "pdbaseline_grouped"])
+        grouped_data = data.groupby(["tooth", "side", "pdbaseline_grouped"])
 
         modes_dict = {}
         for (tooth, side, baseline_grouped), group in grouped_data:
@@ -232,13 +235,13 @@ class ProcessDataHelper(BaseConfig):
             mode_value = modes.iloc[0] if not modes.empty else None
             modes_dict[(tooth, side, baseline_grouped)] = mode_value
 
-        df["plaque"] = df.apply(
+        data["plaque"] = data.apply(
             lambda row: self._plaque_values(row=row, modes_dict=modes_dict), axis=1
         )
 
-        df = df.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
+        data = data.drop(["pdbaseline_grouped", "plaque_all_na"], axis=1)
 
-        return df
+        return data
 
     def _fur_side(self, nr: int) -> Union[np.ndarray, str]:
         """Returns the sides for the input tooth that should have furcations.
@@ -263,6 +266,9 @@ class ProcessDataHelper(BaseConfig):
 
         Returns:
             int: Imputed value for furcationbaseline.
+
+        Raises:
+            ValueError: If NaN is found in pd- or recbaseline.
         """
         tooth_fur = [14, 16, 17, 18, 24, 26, 27, 28, 36, 37, 38, 46, 47, 48]
         if pd.isna(row["pdbaseline"]) or pd.isna(row["recbaseline"]):
@@ -289,26 +295,29 @@ class ProcessDataHelper(BaseConfig):
             else:
                 return row["furcationbaseline"]
 
-    def fur_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fur_imputation(self, data: pd.DataFrame) -> pd.DataFrame:
         """Impute the values in the FurcationBaseline column.
 
         Args:
-            df (pd.DataFrame): Input DataFrame.
+            data (pd.DataFrame): Input DataFrame.
 
         Returns:
             pd.DataFrame: The DataFrame with imputed values for 'furcationbaseline'.
+
+        Raises:
+            KeyError: If furcationbaseline is not found in DatFrame.
         """
-        if "furcationbaseline" not in df.columns:
+        if "furcationbaseline" not in data.columns:
             raise KeyError("'furcationbaseline' column not found in the DataFrame")
 
-        patients_with_all_nas = df.groupby(self.group_col)["furcationbaseline"].apply(
+        patients_with_all_nas = data.groupby(self.group_col)["furcationbaseline"].apply(
             lambda x: all(pd.isna(x))
         )
-        df["furcationbaseline_all_na"] = df[self.group_col].isin(
+        data["furcationbaseline_all_na"] = data[self.group_col].isin(
             patients_with_all_nas[patients_with_all_nas].index
         )
 
-        df["furcationbaseline"] = df.apply(self._fur_values, axis=1)
-        df = df.drop(["furcationbaseline_all_na"], axis=1)
+        data["furcationbaseline"] = data.apply(self._fur_values, axis=1)
+        data = data.drop(["furcationbaseline_all_na"], axis=1)
 
-        return df
+        return data

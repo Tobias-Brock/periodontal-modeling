@@ -140,7 +140,7 @@ def test_basemodel_extractor_encoding_detection():
         random_state=42,
     )
 
-    best_model, encoding, learner, task, factor, sampling = extractor._get_best()
+    _, encoding, _, _, _, _ = extractor._get_best()
     assert encoding == "target"
 
 
@@ -159,7 +159,7 @@ def test_basemodel_extractor_sampling_detection():
         random_state=42,
     )
 
-    best_model, encoding, learner, task, factor, sampling = extractor._get_best()
+    _, _, _, _, _, sampling = extractor._get_best()
     assert sampling == "upsampling"
 
 
@@ -219,7 +219,12 @@ def test_evaluator_wrapper_get_best():
 
 @pytest.fixture
 def mock_evaluator_wrapper():
-    """Fixture for a BaseEvaluatorWrapper instance with mocked dependencies."""
+    """Fixture for a BaseEvaluatorWrapper instance with mocked dependencies.
+
+    Returns:
+        EvaluatorWrapper: A mock instance of `EvaluatorWrapper` with dependencies
+        replaced by MagicMock.
+    """
     learners_dict = {
         "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": MagicMock()
     }
@@ -251,13 +256,11 @@ def test_initialization(mock_evaluator_wrapper):
 def test_subset_test_set(mock_evaluator_wrapper):
     """Tests the _subset_test_set method for correct subsetting."""
     wrapper = mock_evaluator_wrapper
-    wrapper.df = pd.DataFrame(
-        {
-            "pdgroupbase": [1, 2, 1, 1],
-            "pdgrouprevaluation": [2, 2, 1, 3],
-            "feature": [5, 6, 7, 8],
-        }
-    )
+    wrapper.df = pd.DataFrame({
+        "pdgroupbase": [1, 2, 1, 1],
+        "pdgrouprevaluation": [2, 2, 1, 3],
+        "feature": [5, 6, 7, 8],
+    })
     wrapper.X_test = pd.DataFrame({"feature": [5, 6, 7, 8]})
     wrapper.y_test = pd.Series([0, 1, 0, 1])
 
@@ -324,12 +327,12 @@ def test_evaluator_wrapper_prepare_data(mock_resampler_class, mock_dataloader_cl
     mock_dataloader_instance = mock_dataloader_class.return_value
     mock_resampler_instance = mock_resampler_class.return_value
 
-    mock_dataloader_instance.load_data.return_value = pd.DataFrame(
-        {"feature": [1, 2, 3]}
-    )
-    mock_dataloader_instance.transform_data.return_value = pd.DataFrame(
-        {"feature": [1, 2, 3]}
-    )
+    mock_dataloader_instance.load_data.return_value = pd.DataFrame({
+        "feature": [1, 2, 3]
+    })
+    mock_dataloader_instance.transform_data.return_value = pd.DataFrame({
+        "feature": [1, 2, 3]
+    })
     mock_resampler_instance.split_train_test_df.return_value = (
         pd.DataFrame(),
         pd.DataFrame(),
@@ -352,17 +355,7 @@ def test_evaluator_wrapper_prepare_data(mock_resampler_class, mock_dataloader_cl
         verbose=True,
     )
 
-    (
-        df,
-        df_processed,
-        train_df,
-        test_df,
-        X_train,
-        y_train,
-        X_test,
-        y_test,
-        base_target,
-    ) = wrapper._prepare_data_for_evaluation()
+    wrapper._prepare_data_for_evaluation()
 
 
 @patch("periomod.evaluation._baseeval.get_probs")
@@ -462,60 +455,56 @@ def test_evaluator_wrapper_wrapped_patient_inference(
     mock_inference_engine.return_value = mock_model_inference_instance
 
     mock_model_inference_instance.prepare_inference.return_value = (
-        pd.DataFrame(
-            {
-                "pdbaseline": [2],
-                "age": [45],
-                "bodymassindex": [23.5],
-                "recbaseline": [2],
-                "cigarettenumber": [10],
-                # Add other necessary columns
-            }
-        ),
+        pd.DataFrame({
+            "pdbaseline": [2],
+            "age": [45],
+            "bodymassindex": [23.5],
+            "recbaseline": [2],
+            "cigarettenumber": [10],
+            # Add other necessary columns
+        }),
         pd.DataFrame(),
     )
 
-    mock_model_inference_instance.patient_inference.return_value = pd.DataFrame(
-        {"Prediction": [1]}
-    )
+    mock_model_inference_instance.patient_inference.return_value = pd.DataFrame({
+        "Prediction": [1]
+    })
 
-    mock_patient_to_df.return_value = pd.DataFrame(
-        {
-            "age": [45],
-            "gender": [1],
-            "bodymassindex": [23.5],
-            "periofamilyhistory": [1],
-            "diabetes": [0],
-            "smokingtype": [2],
-            "cigarettenumber": [10],
-            "antibiotictreatment": [0],
-            "stresslvl": [2],
-            "id_patient": [1],
-            "tooth": [11],
-            "toothtype": [1],
-            "rootnumber": [1],
-            "mobility": [1],
-            "restoration": [0],
-            "percussion": [0],
-            "sensitivity": [1],
-            "furcationbaseline": [1],
-            "side": [1],
-            "pdbaseline": [2],
-            "recbaseline": [2],
-            "plaque": [1],
-            "bop": [1],
-            # Add missing columns for scaling
-            "furcation12": [0],
-            "furcation13": [0],
-            "furcation23": [0],
-            "pdbaseline_median": [2],
-            "pdbaseline_max": [2],
-            "recbaseline_median": [2],
-            "recbaseline_max": [2],
-            "furcationbaseline_median": [1],
-            "furcationbaseline_max": [1],
-        }
-    )
+    mock_patient_to_df.return_value = pd.DataFrame({
+        "age": [45],
+        "gender": [1],
+        "bodymassindex": [23.5],
+        "periofamilyhistory": [1],
+        "diabetes": [0],
+        "smokingtype": [2],
+        "cigarettenumber": [10],
+        "antibiotictreatment": [0],
+        "stresslvl": [2],
+        "id_patient": [1],
+        "tooth": [11],
+        "toothtype": [1],
+        "rootnumber": [1],
+        "mobility": [1],
+        "restoration": [0],
+        "percussion": [0],
+        "sensitivity": [1],
+        "furcationbaseline": [1],
+        "side": [1],
+        "pdbaseline": [2],
+        "recbaseline": [2],
+        "plaque": [1],
+        "bop": [1],
+        # Add missing columns for scaling
+        "furcation12": [0],
+        "furcation13": [0],
+        "furcation23": [0],
+        "pdbaseline_median": [2],
+        "pdbaseline_max": [2],
+        "recbaseline_median": [2],
+        "recbaseline_max": [2],
+        "furcationbaseline_median": [1],
+        "furcationbaseline_max": [1],
+    })
 
     learners_dict = {
         "pocketclosure_lr_cv_hebo_f1_one_hot_no_sampling_factor2_rank1_": MagicMock()
@@ -636,10 +625,18 @@ def test_wrapped_evaluation(mock_calibration, mock_brier_groups, mock_confusion_
     )
 
     mock_confusion_matrix.assert_called_once_with(
-        tight_layout=True, task="pocketclosure"
+        tight_layout=True,
+        normalize="rows",
+        task="pocketclosure",
+        save=False,
+        name="cm_predictionEval",
     )
-    mock_brier_groups.assert_called_once_with(tight_layout=True, task="pocketclosure")
-    mock_calibration.assert_called_once_with(task="pocketclosure", tight_layout=True)
+    mock_brier_groups.assert_called_once_with(
+        tight_layout=True, task="pocketclosure", save=False, name=None
+    )
+    mock_calibration.assert_called_once_with(
+        task="pocketclosure", tight_layout=True, save=False, name=None
+    )
 
 
 @patch("periomod.evaluation._eval.ModelEvaluator.bss_comparison")
@@ -676,6 +673,8 @@ def test_compare_bss(mock_test_filters, mock_train_baselines, mock_bss_compariso
         classification=wrapper.classification,
         num_patients=150,
         tight_layout=True,
+        save=False,
+        name=None,
     )
 
 
@@ -737,4 +736,6 @@ def test_evaluate_feature_importance(mock_test_filters, mock_evaluate_fi):
     )
 
     mock_test_filters.assert_called_once()
-    mock_evaluate_fi.assert_called_once_with(fi_types=["shap", "permutation"])
+    mock_evaluate_fi.assert_called_once_with(
+        fi_types=["shap", "permutation"], save=False, name=None
+    )

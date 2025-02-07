@@ -109,16 +109,14 @@ class BaseTuner(BaseValidator, ABC):
                 (for binary classification).
         """
         model_name = model.__class__.__name__
-        params_str = ", ".join(
-            [
-                (
-                    f"{key}={value:.4f}"
-                    if isinstance(value, (int, float))
-                    else f"{key}={value}"
-                )
-                for key, value in params_dict.items()
-            ]
-        )
+        params_str = ", ".join([
+            (
+                f"{key}={value:.4f}"
+                if isinstance(value, (int, float))
+                else f"{key}={value}"
+            )
+            for key, value in params_dict.items()
+        ])
         score_value = (
             f"{score:.4f}"
             if np.isscalar(score) and isinstance(score, (int, float))

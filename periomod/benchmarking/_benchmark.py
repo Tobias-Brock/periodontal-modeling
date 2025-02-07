@@ -22,7 +22,7 @@ class Experiment(BaseExperiment):
             training, and tuning configurations.
 
     Args:
-        df (pd.DataFrame): The preloaded data for the experiment.
+        data (pd.DataFrame): The preloaded data for the experiment.
         task (str): The task name used to determine classification type.
             Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
             'pdgrouprevaluation'.
@@ -57,7 +57,7 @@ class Experiment(BaseExperiment):
         verbose (bool): Enables verbose output if set to True.
 
     Attributes:
-        df (pd.DataFrame): Dataset used for training and evaluation.
+        data (pd.DataFrame): Dataset used for training and evaluation.
         task (str): Name of the task used to determine the classification type.
         learner (str): Model or algorithm name for the experiment.
         criterion (str): Criterion for performance evaluation.
@@ -89,11 +89,11 @@ class Experiment(BaseExperiment):
 
         # Load a dataframe with the correct target and encoding selected
         dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
-        df = dataloader.load_data(path="data/processed/processed_data.csv")
-        df = dataloader.transform_data(df=df)
+        data = dataloader.load_data(path="data/processed/processed_data.csv")
+        data = dataloader.transform_data(data=data)
 
         experiment = Experiment(
-            df=df,
+            data=data,
             task="pocketclosure",
             learner="rf",
             criterion="f1",
@@ -114,7 +114,7 @@ class Experiment(BaseExperiment):
 
     def __init__(
         self,
-        df: pd.DataFrame,
+        data: pd.DataFrame,
         task: str,
         learner: str,
         criterion: str,
@@ -138,7 +138,7 @@ class Experiment(BaseExperiment):
         """Initialize the Experiment class with tuning parameters.
 
         Args:
-            df (pd.DataFrame): The preloaded data for the experiment.
+            data (pd.DataFrame): The preloaded data for the experiment.
             task (str): The task name used to determine classification type.
                 Can be 'pocketclosure', 'pocketclosureinf', 'improvement', or
                 'pdgrouprevaluation'.
@@ -176,7 +176,7 @@ class Experiment(BaseExperiment):
             verbose (bool): Enables verbose output if set to True.
         """
         super().__init__(
-            df=df,
+            data=data,
             task=task,
             learner=learner,
             criterion=criterion,
@@ -203,9 +203,12 @@ class Experiment(BaseExperiment):
 
         Returns:
             dict: A dictionary containing the trained model and its evaluation metrics.
+
+        Raises:
+            ValueError: If self.tuning is invalid.
         """
         train_df, _ = self.resampler.split_train_test_df(
-            df=self.df, seed=self.test_seed, test_size=self.test_size
+            df=self.data, seed=self.test_seed, test_size=self.test_size
         )
 
         if self.tuning == "holdout":
@@ -251,7 +254,7 @@ class Experiment(BaseExperiment):
             dict: A dictionary of evaluation metrics for the final model.
         """
         outer_splits, _ = self.resampler.cv_folds(
-            df=self.df,
+            df=self.data,
             sampling=self.sampling,
             factor=self.factor,
             seed=self.cv_seed,
@@ -469,8 +472,8 @@ class Benchmarker(BaseBenchmark):
 
             if cache_key not in data_cache:
                 dataloader = ProcessedDataLoader(task=self.task, encoding=encoding)
-                df = dataloader.load_data(path=self.path)
-                transformed_df = dataloader.transform_data(df)
+                data = dataloader.load_data(path=self.path)
+                transformed_df = dataloader.transform_data(data=data)
                 data_cache[cache_key] = transformed_df
 
         return data_cache
@@ -524,10 +527,10 @@ class Benchmarker(BaseBenchmark):
                     f"Tuning: {tuning}, HPO: {hpo}, Criterion: {criterion}, "
                     f"Sampling: {sampling}, Factor: {self.factor}."
                 )
-            df = self.data_cache[(encoding)]
+            data = self.data_cache[(encoding)]
 
             exp = Experiment(
-                df=df,
+                data=data,
                 task=self.task,
                 learner=learner,
                 criterion=criterion,
@@ -558,18 +561,16 @@ class Benchmarker(BaseBenchmark):
                     k: round(v, 4) if isinstance(v, float) else v
                     for k, v in metrics.items()
                 }
-                results.append(
-                    {
-                        "Task": self.task,
-                        "Learner": learner,
-                        "Tuning": tuning,
-                        "HPO": hpo,
-                        "Criterion": criterion,
-                        "Sampling": sampling,
-                        "Factor": self.factor,
-                        **unpacked_metrics,
-                    }
-                )
+                results.append({
+                    "Task": self.task,
+                    "Learner": learner,
+                    "Tuning": tuning,
+                    "HPO": hpo,
+                    "Criterion": criterion,
+                    "Sampling": sampling,
+                    "Factor": self.factor,
+                    **unpacked_metrics,
+                })
 
                 metric_key = metric_map.get(criterion)
                 if metric_key is None:
@@ -607,9 +608,9 @@ class Benchmarker(BaseBenchmark):
                         criterion == "brier_score"
                         and criterion_value < worst_model_score
                     ):
-                        top_models_per_criterion[criterion][
-                            worst_model_idx
-                        ] = current_model_data
+                        top_models_per_criterion[criterion][worst_model_idx] = (
+                            current_model_data
+                        )
 
             except Exception as e:
                 error_message = str(e)
@@ -640,7 +641,7 @@ class Benchmarker(BaseBenchmark):
             ):
                 learners_dict_key = (
                     f"{self.task}_{learner}_{tuning}_{hpo}_{criterion}_{encoding}_"
-                    f"{sampling or 'no_sampling'}_factor{self.factor}_rank{idx+1}_"
+                    f"{sampling or 'no_sampling'}_factor{self.factor}_rank{idx + 1}_"
                     f"score{round(score, 4)}"
                 )
                 learners_dict[learners_dict_key] = model

@@ -322,7 +322,6 @@ class BenchmarkWrapper(BaseBenchmark):
 
         Raises:
             ValueError: If the benchmark DataFrame is empty.
-            FileNotFoundError: If the parent directory of the path does not exist.
         """
         path = Path(path)
         if not path.is_absolute():
@@ -385,6 +384,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         verbose (bool): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
         random_state (int): Random state for resampling. Defaults to 0.
+        test_size (float): Size of grouped train test split.
+                Defaults to 0.2.
         path (Path): Path to the directory containing processed data files.
             Defaults to Path("data/processed/processed_data.csv").
 
@@ -393,6 +394,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         criterion (str): Criterion used for model selection.
         aggregate (bool): Flag for aggregating one-hot encoded metrics.
         verbose (bool): Controls verbose in evaluation processes.
+        test_size (float): Size of grouped train test split.
         model (object): Best-ranked model based on the criterion.
         encoding (str): Encoding method ('one_hot' or 'target').
         learner (str): Type of model (learner) used in training.
@@ -486,6 +488,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         aggregate: bool = True,
         verbose: bool = False,
         random_state: int = 0,
+        test_size: float = 0.2,
         path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup.
@@ -498,7 +501,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 to True.
             verbose (bool): If True, enables verbose logging during evaluation
                 and inference. Defaults to False.
-            random_state (int): Random state for resampling. Defaults to 0.
+            random_state (int): Random state for resampling. Defaults to 0
+            test_size (float): Size of grouped train test split. Defaults to 0.2.
             path (Path): Path to the directory containing processed data files.
                 Defaults to Path("data/processed/processed_data.csv").
 
@@ -509,6 +513,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             aggregate=aggregate,
             verbose=verbose,
             random_state=random_state,
+            test_size=test_size,
             path=path,
         )
 

@@ -44,9 +44,10 @@ def test_benchmark_wrapper_initialization():
 def test_benchmark_wrapper_baseline(mock_baseline):
     """Test baseline method."""
     mock_baseline_instance = mock_baseline.return_value
-    mock_baseline_instance.baseline.return_value = pd.DataFrame(
-        {"Model": ["DummyClassifier"], "Accuracy": [0.5]}
-    )
+    mock_baseline_instance.baseline.return_value = pd.DataFrame({
+        "Model": ["DummyClassifier"],
+        "Accuracy": [0.5],
+    })
 
     wrapper = BenchmarkWrapper(
         task="pocketclosure",

@@ -54,9 +54,9 @@ class ProcessedDataLoader(BaseDataLoader):
         dataloader = ProcessedDataLoader(
             task="pocketclosure", encoding="one_hot", encode=True, scale=True
         )
-        df = dataloader.load_data(path="data/processed/processed_data.csv")
-        df = dataloader.transform_data(df=df)
-        dataloader.save_data(df=df, path="data/training/training_data.csv")
+        data = dataloader.load_data(path="data/processed/processed_data.csv")
+        data = dataloader.transform_data(data=data)
+        dataloader.save_data(data=data, path="data/training/training_data.csv")
         ```
     """
 
@@ -70,95 +70,105 @@ class ProcessedDataLoader(BaseDataLoader):
         """Initializes the ProcessedDataLoader with the specified task column."""
         super().__init__(task=task, encoding=encoding, encode=encode, scale=scale)
 
-    def encode_categorical_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def encode_categorical_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame containing categorical columns.
+            data (pd.DataFrame): The DataFrame containing categorical columns.
 
         Returns:
-            df: The DataFrame with encoded categorical columns.
+            data: The DataFrame with encoded categorical columns.
 
         Raises:
             ValueError: If an invalid encoding type is specified.
         """
         if not self.encode:
-            return df
+            return data
 
-        cat_vars = [col for col in self.all_cat_vars if col in df.columns]
-        df[cat_vars] = df[cat_vars].apply(
+        cat_vars = [col for col in self.all_cat_vars if col in data.columns]
+        data[cat_vars] = data[cat_vars].apply(
             lambda col: col.astype(int) if col.dtype in [float, object] else col
         )
 
         if self.encoding == "one_hot":
-            df_reset = df.reset_index(drop=True)
-            df_reset[cat_vars] = df_reset[cat_vars].astype(str)
+            data_reset = data.reset_index(drop=True)
+            data_reset[cat_vars] = data_reset[cat_vars].astype(str)
             encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-            encoded_columns = encoder.fit_transform(df_reset[cat_vars])
-            encoded_df = pd.DataFrame(
+            encoded_columns = encoder.fit_transform(data_reset[cat_vars])
+            encoded_data = pd.DataFrame(
                 encoded_columns, columns=encoder.get_feature_names_out(cat_vars)
             )
-            df = pd.concat([df_reset.drop(cat_vars, axis=1), encoded_df], axis=1)
+            data_encoded = pd.concat(
+                [data_reset.drop(cat_vars, axis=1), encoded_data], axis=1
+            )
         elif self.encoding == "target":
-            df["toothside"] = df["tooth"].astype(str) + "_" + df["side"].astype(str)
-            df = df.drop(columns=["tooth", "side"])
+            data["toothside"] = (
+                data["tooth"].astype(str) + "_" + data["side"].astype(str)
+            )
+            data_encoded = data.drop(columns=["tooth", "side"])
         else:
             raise ValueError(
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
-        self._check_encoded_columns(df=df)
-        return df
+        self._check_encoded_columns(data=data_encoded)
+        return data_encoded
 
-    def scale_numeric_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def scale_numeric_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Scales numeric columns in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame containing numeric columns.
+            data (pd.DataFrame): The DataFrame containing numeric columns.
 
         Returns:
-            df: The DataFrame with scaled numeric columns.
+            data: The DataFrame with scaled numeric columns.
         """
-        scale_vars = [col for col in self.scale_vars if col in df.columns]
-        df[scale_vars] = df[scale_vars].apply(pd.to_numeric, errors="coerce")
-        scaled_values = StandardScaler().fit_transform(df[scale_vars])
-        df[scale_vars] = pd.DataFrame(scaled_values, columns=scale_vars, index=df.index)
-        self._check_scaled_columns(df=df)
-        return df
+        scale_vars = [col for col in self.scale_vars if col in data.columns]
+        data[scale_vars] = data[scale_vars].apply(pd.to_numeric, errors="coerce")
+        scaled_values = StandardScaler().fit_transform(data[scale_vars])
+        data[scale_vars] = pd.DataFrame(
+            scaled_values, columns=scale_vars, index=data.index
+        )
+        self._check_scaled_columns(data=data)
+        return data
 
-    def transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Select task column and optionally, scale and encode.
 
         Args:
-            df (pd.DataFrame): The DataFrame to transform.
+            data (pd.DataFrame): The DataFrame to transform.
 
         Returns:
-            df: DataFrame with the selected task 'y'.
+            pd.DataFrame: DataFrame with the selected task 'y'.
+
+        Raises:
+            ValueError: If self.task is invalid.
         """
         if self.encode:
-            df = self.encode_categorical_columns(df=df)
+            data = self.encode_categorical_columns(data=data)
         if self.scale:
-            df = self.scale_numeric_columns(df=df)
+            data = self.scale_numeric_columns(data=data)
 
         if self.task not in self.task_cols:
             raise ValueError(f"Task '{self.task}' not supported.")
 
         if (
             self.task in ["improvement", "pocketclosureinf"]
-            and "pdgroupbase" in df.columns
+            and "pdgroupbase" in data.columns
         ):
-            df = df.query("pdgroupbase in [1, 2]")
+            data = data.query("pdgroupbase in [1, 2]")
             if self.task == "pocketclosureinf":
                 self.task = "pocketclosure"
+
         cols_to_drop = [
-            col for col in self.task_cols if col != self.task and col in df.columns
+            col for col in self.task_cols if col != self.task and col in data.columns
         ] + self.no_train_cols
 
-        df = df.drop(columns=cols_to_drop, errors="ignore").rename(
+        data = data.drop(columns=cols_to_drop, errors="ignore").rename(
             columns={self.task: "y"}
         )
 
-        if "y" not in df.columns:
+        if "y" not in data.columns:
             raise ValueError(f"task column '{self.task}' was not renamed to 'y'.")
 
-        return df
+        return data

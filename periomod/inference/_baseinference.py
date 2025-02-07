@@ -105,6 +105,10 @@ class BaseModelInference(BaseConfig, ABC):
 
         Returns:
             predict_data: A DataFrame containing the prepared data for model prediction.
+
+        Raises:
+            ValueError: If encoding is invalid.
+            ValueError: If model type is not supported for feature extraction.
         """
         base_data = raw_data.copy()
 
@@ -123,9 +127,9 @@ class BaseModelInference(BaseConfig, ABC):
                     encoded_data[f"{feature}_{i}"] = 0
 
             for idx, row in patient_data.iterrows():
-                encoded_data.at[idx, f"tooth_{row['tooth']}"] = 1
+                encoded_data.loc[idx, f"tooth_{row['tooth']}"] = 1
                 for feature in self.cat_map:
-                    encoded_data.at[idx, f"{feature}_{row[feature]}"] = 1
+                    encoded_data.loc[idx, f"{feature}_{row[feature]}"] = 1
 
                 complete_data = pd.concat(
                     [
@@ -146,7 +150,7 @@ class BaseModelInference(BaseConfig, ABC):
             complete_data = base_data.copy()
             for column in self.target_cols:
                 if column in patient_data.columns:
-                    complete_data[column] = patient_data[column].values
+                    complete_data[column] = patient_data[column].to_numpy()
         else:
             raise ValueError(f"Unsupported encoding type: {encoding}")
 
@@ -184,6 +188,9 @@ class BaseModelInference(BaseConfig, ABC):
 
         Returns:
             Tuple: Transformed patient data for prediction and patient data.
+
+        Raises:
+            ValueError: If patient data is empty.
         """
         if patient_data.empty:
             raise ValueError(
@@ -196,11 +203,11 @@ class BaseModelInference(BaseConfig, ABC):
         dataloader = ProcessedDataLoader(task, encoding)
         patient_data[self.group_col] = "inference_patient"
         raw_data = engine.create_tooth_features(
-            df=patient_data, neighbors=True, patient_id=False
+            data=patient_data, neighbors=True, patient_id=False
         )
 
         if encoding == "target":
-            raw_data = dataloader.encode_categorical_columns(df=raw_data)
+            raw_data = dataloader.encode_categorical_columns(data=raw_data)
             resampler = Resampler(self.classification, encoding)
             _, raw_data = resampler.apply_target_encoding(
                 X=X_train, X_val=raw_data, y=y_train
@@ -208,7 +215,7 @@ class BaseModelInference(BaseConfig, ABC):
 
             for key in raw_data.columns:
                 if key not in self.cat_vars and key in patient_data.columns:
-                    raw_data[key] = patient_data[key].values
+                    raw_data[key] = patient_data[key].to_numpy()
         else:
             raw_data = self.create_predict_data(
                 raw_data=raw_data, patient_data=patient_data, encoding=encoding
@@ -217,7 +224,7 @@ class BaseModelInference(BaseConfig, ABC):
         predict_data = self.create_predict_data(
             raw_data=raw_data, patient_data=patient_data, encoding=encoding
         )
-        predict_data = dataloader.scale_numeric_columns(df=predict_data)
+        predict_data = dataloader.scale_numeric_columns(data=predict_data)
 
         return predict_data, patient_data
 

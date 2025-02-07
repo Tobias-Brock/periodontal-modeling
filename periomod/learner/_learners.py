@@ -140,6 +140,9 @@ class Model(BaseConfig):
             Union: If hpo is 'rs', returns a tuple of (model, parameter grid).
                 If hpo is 'hebo', returns a tuple of (model, HEBO search space,
                 transformation function).
+
+        Raises:
+            ValueError: If hpo or öearner are unsupported types.
         """
         instance = cls(learner, classification)
         model = instance._get_model_instance()
@@ -169,7 +172,9 @@ class Model(BaseConfig):
         raise ValueError(f"Unsupported hpo type '{hpo}' or learner type '{learner}'")
 
     @classmethod
-    def get_model(cls, learner: str, classification: str) -> Union[
+    def get_model(
+        cls, learner: str, classification: str
+    ) -> Union[
         RandomForestClassifier,
         LogisticRegression,
         MLPClassifier,

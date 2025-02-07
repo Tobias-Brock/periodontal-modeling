@@ -141,16 +141,16 @@ def test_patient_to_df():
         stresslvl=2,
         teeth=[tooth],
     )
-    df = patient_to_df(patient)
-    assert isinstance(df, pd.DataFrame)
-    assert df.shape[0] == 2  # Two sides
-    assert "age" in df.columns
-    assert "tooth" in df.columns
-    assert "side" in df.columns
-    assert df.iloc[0]["age"] == 45
-    assert df.iloc[0]["tooth"] == 11
-    assert df.iloc[0]["side"] == 1
-    assert df.iloc[1]["side"] == 2
+    data = patient_to_df(patient)
+    assert isinstance(data, pd.DataFrame)
+    assert data.shape[0] == 2  # Two sides
+    assert "age" in data.columns
+    assert "tooth" in data.columns
+    assert "side" in data.columns
+    assert data.iloc[0]["age"] == 45
+    assert data.iloc[0]["tooth"] == 11
+    assert data.iloc[0]["side"] == 1
+    assert data.iloc[1]["side"] == 2
 
 
 def test_base_validator_valid():
