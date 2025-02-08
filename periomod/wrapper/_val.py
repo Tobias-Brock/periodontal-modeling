@@ -222,19 +222,18 @@ class Validator(ModelExtractor):
             probs=final_probs,
             threshold=best_threshold,
         )
-        if verbose:
-            unpacked_metrics = {
-                k: round(v, 4) if isinstance(v, float) else v
-                for k, v in metrics.items()
-            }
-            results = {
-                "Learner": self.learner,
-                "Tuning": "final",
-                "Criterion": self.criterion,
-                **unpacked_metrics,
-            }
+        unpacked_metrics = {
+            k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()
+        }
+        results = {
+            "Learner": self.learner,
+            "Tuning": "final",
+            "Criterion": self.criterion,
+            **unpacked_metrics,
+        }
 
-            df_results = pd.DataFrame([results])
+        df_results = pd.DataFrame([results])
+        if verbose:
             pd.set_option("display.max_columns", None, "display.width", 1000)
             print("\nFinal Model Metrics Summary:\n", df_results)
         return df_results
