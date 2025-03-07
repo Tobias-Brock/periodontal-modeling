@@ -350,11 +350,13 @@ class BaseDataLoader(BaseLoader, ABC):
                     raise ValueError(f"Column {col} is not correctly scaled.")
 
     @abstractmethod
-    def encode_categorical_columns(self, data: pd.DataFrame):
+    def encode_categorical_columns(self, data: pd.DataFrame, fit_encoder: bool):
         """Encodes categorical columns in the DataFrame.
 
         Args:
             data (pd.DataFrame): The DataFrame containing categorical columns.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
         """
 
     @abstractmethod
@@ -366,9 +368,11 @@ class BaseDataLoader(BaseLoader, ABC):
         """
 
     @abstractmethod
-    def transform_data(self, data: pd.DataFrame):
+    def transform_data(self, data: pd.DataFrame, fit_encoder: bool):
         """Processes and transforms the data.
 
         Args:
             data (pd.DataFrame): The DataFrame to transform.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
         """

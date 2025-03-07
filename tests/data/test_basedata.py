@@ -116,13 +116,13 @@ def test_base_data_loader_check_encoded_columns():
     """Test that _check_encoded_columns works as expected."""
 
     class ConcreteDataLoader(BaseDataLoader):
-        def encode_categorical_columns(self, df: pd.DataFrame):
+        def encode_categorical_columns(self, df: pd.DataFrame, fit_encoder: bool):
             pass
 
         def scale_numeric_columns(self, df: pd.DataFrame):
             pass
 
-        def transform_data(self, data: pd.DataFrame):
+        def transform_data(self, data: pd.DataFrame, fit_encoder: bool):
             pass
 
     with patch.object(BaseConfig, "__init__", lambda x: None):
@@ -157,13 +157,13 @@ def test_base_data_loader_check_scaled_columns():
     """Test that _check_scaled_columns works as expected."""
 
     class ConcreteDataLoader(BaseDataLoader):
-        def encode_categorical_columns(self, df: pd.DataFrame):
+        def encode_categorical_columns(self, df: pd.DataFrame, fit_encoder: bool):
             pass
 
         def scale_numeric_columns(self, df: pd.DataFrame):
             pass
 
-        def transform_data(self, df: pd.DataFrame):
+        def transform_data(self, df: pd.DataFrame, fit_encoder: bool):
             pass
 
     with patch.object(BaseConfig, "__init__", lambda x: None):
@@ -191,13 +191,13 @@ def test_base_data_loader_save_and_load_data():
     """Test that save_data and load_data methods work as expected."""
 
     class ConcreteDataLoader(BaseDataLoader):
-        def encode_categorical_columns(self, df: pd.DataFrame):
+        def encode_categorical_columns(self, df: pd.DataFrame, fit_encoder: bool):
             pass
 
         def scale_numeric_columns(self, df: pd.DataFrame):
             pass
 
-        def transform_data(self, df: pd.DataFrame):
+        def transform_data(self, df: pd.DataFrame, fit_encoder: bool):
             pass
 
     loader = ConcreteDataLoader(
