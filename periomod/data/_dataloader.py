@@ -69,15 +69,23 @@ class ProcessedDataLoader(BaseDataLoader):
     ) -> None:
         """Initializes the ProcessedDataLoader with the specified task column."""
         super().__init__(task=task, encoding=encoding, encode=encode, scale=scale)
+        if self.encoding == "one_hot":
+            self.one_hot_encoder = OneHotEncoder(
+                sparse_output=False, handle_unknown="ignore"
+            )
 
-    def encode_categorical_columns(self, data: pd.DataFrame) -> pd.DataFrame:
+    def encode_categorical_columns(
+        self, data: pd.DataFrame, fit_encoder: bool = False
+    ) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
 
         Args:
             data (pd.DataFrame): The DataFrame containing categorical columns.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
 
         Returns:
-            data: The DataFrame with encoded categorical columns.
+            pd.DataFrame: The DataFrame with encoded categorical columns.
 
         Raises:
             ValueError: If an invalid encoding type is specified.
@@ -87,30 +95,48 @@ class ProcessedDataLoader(BaseDataLoader):
 
         cat_vars = [col for col in self.all_cat_vars if col in data.columns]
         data[cat_vars] = data[cat_vars].apply(
-            lambda col: col.astype(int) if col.dtype in [float, object] else col
+            lambda col: col.astype(str) if col.dtype in [float, object] else col
         )
 
         if self.encoding == "one_hot":
             data_reset = data.reset_index(drop=True)
-            data_reset[cat_vars] = data_reset[cat_vars].astype(str)
-            encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-            encoded_columns = encoder.fit_transform(data_reset[cat_vars])
-            encoded_data = pd.DataFrame(
-                encoded_columns, columns=encoder.get_feature_names_out(cat_vars)
+
+            if fit_encoder or self.one_hot_encoder is None:
+                encoded_arr = self.one_hot_encoder.fit_transform(data_reset[cat_vars])
+                self.encoded_feature_names = self.one_hot_encoder.get_feature_names_out(
+                    cat_vars
+                )  # Store feature names
+            else:
+                encoded_arr = self.one_hot_encoder.transform(data_reset[cat_vars])
+
+            encoded_cols = self.one_hot_encoder.get_feature_names_out(cat_vars)
+            encoded_df = pd.DataFrame(
+                encoded_arr, columns=encoded_cols, index=data.index
             )
+
+            if not fit_encoder and hasattr(self, "encoded_feature_names"):
+                missing_cols = set(self.encoded_feature_names) - set(encoded_df.columns)
+                for col in missing_cols:
+                    encoded_df[col] = 0  # Add missing features as 0
+
+                encoded_df = encoded_df[list(self.encoded_feature_names)]
+
             data_encoded = pd.concat(
-                [data_reset.drop(cat_vars, axis=1), encoded_data], axis=1
+                [data_reset.drop(cat_vars, axis=1), encoded_df], axis=1
             )
+
         elif self.encoding == "target":
             data["toothside"] = (
                 data["tooth"].astype(str) + "_" + data["side"].astype(str)
             )
             data_encoded = data.drop(columns=["tooth", "side"])
+
         else:
             raise ValueError(
                 f"Invalid encoding '{self.encoding}' specified. "
                 "Choose 'one_hot', 'target', or None."
             )
+
         self._check_encoded_columns(data=data_encoded)
         return data_encoded
 
@@ -132,11 +158,15 @@ class ProcessedDataLoader(BaseDataLoader):
         self._check_scaled_columns(data=data)
         return data
 
-    def transform_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def transform_data(
+        self, data: pd.DataFrame, fit_encoder: bool = False
+    ) -> pd.DataFrame:
         """Select task column and optionally, scale and encode.
 
         Args:
             data (pd.DataFrame): The DataFrame to transform.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
 
         Returns:
             pd.DataFrame: DataFrame with the selected task 'y'.
@@ -145,7 +175,7 @@ class ProcessedDataLoader(BaseDataLoader):
             ValueError: If self.task is invalid.
         """
         if self.encode:
-            data = self.encode_categorical_columns(data=data)
+            data = self.encode_categorical_columns(data=data, fit_encoder=fit_encoder)
         if self.scale:
             data = self.scale_numeric_columns(data=data)
 

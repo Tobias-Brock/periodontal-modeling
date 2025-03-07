@@ -120,40 +120,39 @@ class Validator(ModelExtractor):
 
     def _prepare_validation_data(
         self,
-    ) -> Tuple[
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-        pd.DataFrame,
-    ]:
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Loads and prepares validation data for model evaluation.
 
         This function loads the dataset, applies necessary transformations,
         and encodes categorical variables if required.
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series]:
-                - data (pd.DataFrame): Raw validation dataset.
-                - data_processed (pd.DataFrame): Preprocessed dataset.
-                - X (pd.DataFrame): Feature matrix.
-                - y (pd.Series): Target labels.
+                Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series]:
+                    - data (pd.DataFrame): Raw validation dataset.
+                    - data_processed (pd.DataFrame): Preprocessed dataset.
+                    - X (pd.DataFrame): Feature matrix.
+                    - y (pd.Series): Target labels.
 
         Raises:
             ValueError: If model type is not supported for extraction.
         """
+        data_train = self.dataloader.load_data(path=self.path_train)
+        data_train = self.dataloader.transform_data(data=data_train, fit_encoder=True)
+
+        # 2) Load + transform (val) with fit_encoder=False
         data_val = self.dataloader.load_data(path=self.path_val)
-        data_processed = self.dataloader.transform_data(data=data_val)
+        data_processed = self.dataloader.transform_data(
+            data=data_val, fit_encoder=False
+        )
 
         X_val = data_processed.drop(columns=[self.y])
         y = data_processed[self.y]
 
+        # If using target encoding, apply target encoding logic here:
         if self.encoding == "target":
-            data_train = self.dataloader.load_data(path=self.path_train)
-            data_train = self.dataloader.transform_data(data=data_train)
             train_df, test_df = self.resampler.split_train_test_df(
                 df=data_train, seed=self.random_state, test_size=self.test_size
             )
-
             X_train, y_train, _, _ = self.resampler.split_x_y(
                 train_df=train_df, test_df=test_df
             )
@@ -162,6 +161,11 @@ class Validator(ModelExtractor):
                 X=X_train, X_val=X_val, y=y_train
             )
 
+            missing_cols = set(X_train.columns) - set(X_val.columns)
+            for col in missing_cols:
+                X_val[col] = 0  # Fill with zero if missing
+            X_val = X_val[X_train.columns]
+
         if self.encoding == "one_hot":
             if hasattr(self.model, "get_booster"):
                 expected_columns = set(self.model.get_booster().feature_names)
@@ -169,6 +173,7 @@ class Validator(ModelExtractor):
                 expected_columns = set(self.model.feature_names_in_)
             else:
                 raise ValueError("Model type not supported for feature extraction")
+
             current_columns = set(X_val.columns)
             missing_columns = expected_columns - current_columns
             for col in missing_columns:
@@ -179,12 +184,7 @@ class Validator(ModelExtractor):
         if self.group_col in X_val:
             X_val = X_val.drop(columns=[self.group_col])
 
-        return (
-            data_val,
-            data_processed,
-            X_val,
-            y,
-        )
+        return data_val, data_processed, X_val, y
 
     def perform_validation(self, verbose: bool = False) -> pd.DataFrame:
         """Runs model evaluation on the validation dataset.

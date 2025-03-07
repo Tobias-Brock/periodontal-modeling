@@ -171,6 +171,12 @@ class BaseResampler(BaseConfig, ABC):
                     X_val_encoded, columns=encoded_cols, index=X_val.index
                 )
 
+                missing_cols = set(X_encoded.columns) - set(X_val_encoded.columns)
+                for col in missing_cols:
+                    X_val_encoded[col] = 0
+
+                X_val_encoded = X_val_encoded[X_encoded.columns]
+
             X = X.drop(columns=cat_vars)
             if X_val is not None:
                 X_val = X_val.drop(columns=cat_vars)
@@ -178,6 +184,7 @@ class BaseResampler(BaseConfig, ABC):
             X = pd.concat([X, X_encoded], axis=1)
             if X_val_encoded is not None:
                 X_val = pd.concat([X_val, X_val_encoded], axis=1)
+                X_val = X_val[X.columns]
 
         return X, X_val
 
