@@ -75,14 +75,14 @@ class ProcessedDataLoader(BaseDataLoader):
             )
 
     def encode_categorical_columns(
-        self, data: pd.DataFrame, fit_encoder: bool = False
+        self, data: pd.DataFrame, fit_encoder: bool = True
     ) -> pd.DataFrame:
         """Encodes categorical columns in the DataFrame.
 
         Args:
             data (pd.DataFrame): The DataFrame containing categorical columns.
             fit_encoder (bool): Whether to fit the encoder on this dataset
-                (only for training data).
+                (only for training data). Defaults to True.
 
         Returns:
             pd.DataFrame: The DataFrame with encoded categorical columns.
@@ -159,14 +159,14 @@ class ProcessedDataLoader(BaseDataLoader):
         return data
 
     def transform_data(
-        self, data: pd.DataFrame, fit_encoder: bool = False
+        self, data: pd.DataFrame, fit_encoder: bool = True
     ) -> pd.DataFrame:
         """Select task column and optionally, scale and encode.
 
         Args:
             data (pd.DataFrame): The DataFrame to transform.
             fit_encoder (bool): Whether to fit the encoder on this dataset
-                (only for training data).
+                (only for training data). Defaults to True.
 
         Returns:
             pd.DataFrame: DataFrame with the selected task 'y'.
