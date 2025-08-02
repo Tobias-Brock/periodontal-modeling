@@ -22,7 +22,9 @@ def _impute_tooth_features(row: pd.Series) -> Tuple[int, int]:
     tooth_number = row["tooth"]
     if tooth_number in [11, 12, 21, 22, 31, 32, 41, 42, 13, 23, 33, 43]:
         return 0, 0
-    elif tooth_number in [14, 15, 24, 25, 34, 35, 44, 45]:
+    elif tooth_number in [15, 25, 34, 35, 44, 45]:
+        return 1, 0
+    elif tooth_number in [14, 24]:
         return 1, 1
     else:
         return 2, 1

@@ -1,0 +1,9 @@
+Task,Learner,Tuning,HPO,Criterion,Sampling,Factor,Macro F1,Accuracy,Class F1 Scores,Multiclass Brier Score
+pdgrouprevaluation,rf,holdout,hebo,macro_f1,,,0.5412,0.8823,[0.94553305 0.32730794 0.35084428],0.0836
+pdgrouprevaluation,rf,holdout,hebo,macro_f1,,,0.4107,0.8757,[0.93763151 0.17813765 0.11640212],0.0856
+pdgrouprevaluation,rf,holdout,hebo,brier_score,,,0.5769,0.7834,[0.88356849 0.37155749 0.47572286],0.1608
+pdgrouprevaluation,rf,holdout,hebo,brier_score,,,0.5655,0.7589,[0.86592232 0.35404522 0.47645126],0.1619
+pdgrouprevaluation,rf,holdout,rs,macro_f1,,,0.5776,0.7841,[0.88407786 0.37178086 0.47681397],0.1601
+pdgrouprevaluation,rf,holdout,rs,macro_f1,,,0.5744,0.7799,[0.88128068 0.3654885  0.47655398],0.1609
+pdgrouprevaluation,rf,holdout,rs,brier_score,,,0.5776,0.7841,[0.88407786 0.37178086 0.47681397],0.1601
+pdgrouprevaluation,rf,holdout,rs,brier_score,,,0.5744,0.7799,[0.88128068 0.3654885  0.47655398],0.1609
