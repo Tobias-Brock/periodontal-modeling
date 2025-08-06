@@ -1,0 +1,3160 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+        <meta name="author" content="Tobias Brock">
+      
+      
+      
+      
+        <link rel="next" href="reference/app/">
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
+    
+    
+      
+        <title>periodontal-modeling</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.0253249f.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#documentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="periodontal-modeling" class="md-header__button md-logo" aria-label="periodontal-modeling" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            periodontal-modeling
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              periomod
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="periodontal-modeling" class="md-nav__button md-logo" aria-label="periodontal-modeling" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    periodontal-modeling
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    periomod
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    periomod
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installing-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing Python
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-conda" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing Conda
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setting-up-jupyter-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting Up Jupyter Notebooks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-periomod" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing periomod
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Modules
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Modules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#app-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#descriptive-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Descriptive Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tuning-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tuning Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrapper-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wrapper Module
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#app-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#app-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Features
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="App Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Tab
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#descriptives-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Descriptives Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resampling-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resampling Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tuning-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tuning Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrapper-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wrapper Module
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.app
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.app
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/app/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/app/app/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.base
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.base
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/baseconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/basevalidator/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseValidator
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/patient_to_df/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    patient_to_df
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/patient/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Patient
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/side/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Side
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/base/tooth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Tooth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.benchmarking
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.benchmarking
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/baseline/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Baseline
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/baseexperiment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseExperiment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/experiment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Experiment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/basebenchmark/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseBenchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/benchmarking/benchmarker/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Benchmarker
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.data
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.data
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/baseloader/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseLoader
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/baseprocessor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseProcessor
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/staticengine/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    StaticProcessEngine
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/datahelper/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ProcessDataHelper
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/basedataloader/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseDataLoader
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/data/dataloader/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ProcessedDataLoader
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.descriptives
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.descriptives
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/descriptives/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/descriptives/descriptives/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DescriptivesPlotter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.evaluation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.evaluation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/evaluation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/evaluation/basemodelevaluator/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseModelEvaluator
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/evaluation/evaluatormethods/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EvaluatorMethods
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/evaluation/modelevaluator/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ModelEvaluator
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.inference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.inference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/inference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/inference/basemodelinference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseModelInference
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/inference/modelinference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ModelInference
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.learner
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.learner
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/learner/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/learner/model/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.resampling
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.resampling
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/resampling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/resampling/baseresampler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseResampler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/resampling/resampler/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Resampler
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.training
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.training
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/brier_multi/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    brier_loss_multi
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/probs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    get_probs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/final_metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    final_metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/basetrainer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseTrainer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/training/trainer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Trainer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.tuning
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.tuning
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/tuning/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/tuning/basetuner/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseTuner
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/tuning/hebotuner/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HeboTuner
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/tuning/rstuner/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RandomSearchTuner
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    periomod.wrapper
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            periomod.wrapper
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/baseevaluatorwrapper/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BaseEvaluatorWrapper
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/benchmarkwrapper/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    BenchmarkWrapper
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/evaluatorwrapper/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EvaluatorWrapper
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/loadbenchmark/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    load_benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/loadlearners/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    load_learners
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/modelextractor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ModelExtractor
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/wrapper/validator/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Validator
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installing-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing Python
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-conda" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing Conda
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setting-up-jupyter-notebooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting Up Jupyter Notebooks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-periomod" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installing periomod
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Modules
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Modules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#app-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#descriptive-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Descriptive Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tuning-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tuning Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrapper-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wrapper Module
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#app-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#app-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Features
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="App Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Tab
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#descriptives-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Descriptives Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resampling-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resampling Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#training-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tuning-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tuning Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluation Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inference-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inference Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarking-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benchmarking Module
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrapper-module_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wrapper Module
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contributing
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<p><img alt="Periomod Logo" src="images/logo.png" /></p>
+<h1 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Welcome to the <strong>periodontal-modeling</strong> documentation, a fully automated benchmarking and evaluation package for short-term periodontal modeling. The package provides flexible and efficient preprocessing, model tuning, evaluation, inference, and descriptive analysis with an interactive Gradio frontend, allowing users to perform comprehensive periodontal data modeling.</p>
+<p>This documentation includes detailed information on the functionality, setup, and usage of each module and provides code examples for streamlined integration into your projects.</p>
+<p><code>peridontal-modeling</code>, or in short <code>periomod</code>, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<h3 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h3>
+<p>If you're not familiar with Python or programming, the following resources can help you get started with installing Python, managing environments, and setting up tools like Jupyter Notebooks:</p>
+<h4 id="installing-python">Installing Python<a class="headerlink" href="#installing-python" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>Official Python Website</strong>: Download and install Python from the <a href="https://www.python.org/downloads/">official Python website</a>.</li>
+<li>Make sure to download Python 3.10 or 3.11.</li>
+<li>
+<p>During installation, check the box to add Python to your system's PATH.</p>
+</li>
+<li>
+<p><strong>Python Installation Guide</strong>: Follow this <a href="https://realpython.com/installing-python/">step-by-step guide</a> for detailed instructions on setting up Python on your system.</p>
+</li>
+</ol>
+<h4 id="installing-conda">Installing Conda<a class="headerlink" href="#installing-conda" title="Permanent link">&para;</a></h4>
+<p>Conda is an environment and package manager that makes it easy to install dependencies and manage Python environments.</p>
+<ol>
+<li><strong>Miniconda</strong>: Download and install <a href="https://docs.conda.io/en/latest/miniconda.html">Miniconda</a>, a lightweight version of Conda.</li>
+<li><strong>Full Anaconda Distribution</strong>: Alternatively, install the <a href="https://www.anaconda.com/">Anaconda Distribution</a>, which includes Conda and many pre-installed libraries.</li>
+</ol>
+<p>You can create a virtual environment with conda:</p>
+<pre><code class="language-bash">conda create -n periomod python=3.11
+conda activate periomod
+</code></pre>
+<h4 id="setting-up-jupyter-notebooks">Setting Up Jupyter Notebooks<a class="headerlink" href="#setting-up-jupyter-notebooks" title="Permanent link">&para;</a></h4>
+<p>Jupyter Notebooks are an excellent tool for analyzing data and running experiments interactively.</p>
+<ul>
+<li><a href="https://realpython.com/jupyter-notebook-introduction/">Learn Jupyter Basics: Refer to the Jupyter Notebook Beginner’s Guide to learn how to use it.</a></li>
+</ul>
+<h4 id="installing-periomod">Installing periomod<a class="headerlink" href="#installing-periomod" title="Permanent link">&para;</a></h4>
+<p>Ensure you have Python 3 installed. You may preferebly setup a new environment with Python 3.10 or 3.11. Install the package with all its dependencies via pip:</p>
+<pre><code class="language-bash">pip install periomod
+</code></pre>
+<h2 id="core-modules">Core Modules<a class="headerlink" href="#core-modules" title="Permanent link">&para;</a></h2>
+<p>The following sections summarize each core module within <code>periodontal-modeling</code>, with links to detailed documentation and examples for each function.</p>
+<h3 id="app-module">App Module<a class="headerlink" href="#app-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>App</strong> module hosts the Gradio-based interface, providing a unified platform for tasks such as plotting descriptives, conducting benchmarks, evaluating models, and performing inference.</p>
+<p><a href="reference/app/">Read more on the App Module</a></p>
+<h3 id="data-module">Data Module<a class="headerlink" href="#data-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Data</strong> module provides tools for loading, transforming, and saving processed periodontal data. Classes like <code>StaticProcessEngine</code> handle data preparation, while <code>ProcessedDataLoader</code> is tailored for fully preprocessed datasets, supporting encoding and scaling options.</p>
+<p><a href="reference/data/">Read more on the Data Module</a></p>
+<h3 id="descriptive-analysis">Descriptive Analysis<a class="headerlink" href="#descriptive-analysis" title="Permanent link">&para;</a></h3>
+<p>The <strong>Descriptives</strong> module enables users to perform statistical analysis and visualize periodontal data pre- and post-therapy using tools like <code>DescriptivesPlotter</code>. It includes methods for generating matrices, histograms, and pocket depth comparisons.</p>
+<p><a href="reference/descriptives/">Read more on the Descriptives Module</a></p>
+<h3 id="training-module">Training Module<a class="headerlink" href="#training-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Training</strong> module provides core training and model-building functionalities, including threshold tuning. The <code>Trainer</code> classes allow you to streamline model fitting.</p>
+<p><a href="reference/training/">Read more on the Training Module</a></p>
+<h3 id="tuning-module">Tuning Module<a class="headerlink" href="#tuning-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Tuning</strong> module offers classes like <code>HEBOTuner</code> and <code>RandomSearchTuner</code> for hyperparameter optimization, supporting both Bayesian optimization and random search.</p>
+<p><a href="reference/tuning/">Read more on the Tuning Module</a></p>
+<h3 id="evaluation-module">Evaluation Module<a class="headerlink" href="#evaluation-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Evaluation</strong> module supplies methods for post-model training analysis, including prediction assessment, feature importance calculations, and feature clustering. The <code>ModelEvaluator</code> class enables confusion matrix plotting and other feature-based evaluations.</p>
+<p><a href="reference/evaluation/">Read more on the Evaluation Module</a></p>
+<h3 id="inference-module">Inference Module<a class="headerlink" href="#inference-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Inference</strong> module handles patient-specific predictions, confidence intervals through jackknife resampling, and both single and batch inference. The <code>ModelInference</code> class supports robust inference operations.</p>
+<p><a href="reference/inference/">Read more on the Inference Module</a></p>
+<h3 id="benchmarking-module">Benchmarking Module<a class="headerlink" href="#benchmarking-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Benchmarking</strong> module provides tools for running and comparing multiple experiments across different tuning setups. Use <code>Experiment</code> for single benchmark execution or <code>Benchmarker</code> to perform full comparative analyses across models and configurations.</p>
+<p><a href="reference/benchmarking/">Read more on the Benchmarking Module</a></p>
+<h3 id="wrapper-module">Wrapper Module<a class="headerlink" href="#wrapper-module" title="Permanent link">&para;</a></h3>
+<p>The <strong>Wrapper</strong> module simplifies the benchmarking and evaluation setup, consolidating various submodules for a more concise codebase. <code>BenchmarkWrapper</code> enables straightforward benchmarking, while <code>EvaluatorWrapper</code> supports model evaluation, feature importance, and patient-level inference.</p>
+<p><a href="reference/wrapper/">Read more on the Wrapper Module</a></p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Preprocessing Pipeline</strong>: Flexible preprocessing of periodontal data, including encoding, scaling, data imputation and transformation.</li>
+<li><strong>Descriptive Analysis</strong>: Generate descriptive statistics and plots such as confusion matrices and bar plots.</li>
+<li><strong>Automatic Model Tuning</strong>: Supports multiple learners and tuning strategies for optimized model training.</li>
+<li><strong>Resampling</strong>: Allows the use of grouped holdout and cross-validation resampling.</li>
+<li><strong>Imbalanced Data Handling</strong>: Enables the application of SMOTE and upsampling/downsampling to balance dataset classes.</li>
+<li><strong>Model Evaluation</strong>: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.</li>
+<li><strong>Inference</strong>: Patient-level inference, jackknife resampling and confidence intervals.</li>
+<li><strong>Interactive Gradio App</strong>: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.</li>
+</ul>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<h3 id="app-module_1">App Module<a class="headerlink" href="#app-module_1" title="Permanent link">&para;</a></h3>
+<p>The periomod app provides a streamlined gradio interface for plotting descriptives, performing benchmarks, model evaluation and inference.</p>
+<pre><code class="language-python">from periomod.app import perioapp
+
+perioapp.launch()
+</code></pre>
+<p>If you download the repository and install the package in editable mode, the following <code>make</code> command starts the app:</p>
+<pre><code class="language-bash">pip install -e .
+make app
+</code></pre>
+<p>The app can also be launched using docker. Run the following commands in the root of the repository:</p>
+<pre><code class="language-bash">docker build -f docker/app.dockerfile -t periomod-image .
+docker run -p 7890:7890 periomod-image
+</code></pre>
+<p>By default, the app will be launched on port 7890 and can be accessed at <code>http://localhost:7890</code>.</p>
+<p>Alternatively, the following <code>make</code> commands are available to build and run the docker image:</p>
+<pre><code class="language-bash">make docker-build
+make docker-run
+</code></pre>
+<h3 id="app-features">App Features<a class="headerlink" href="#app-features" title="Permanent link">&para;</a></h3>
+<h4 id="data-tab">Data Tab<a class="headerlink" href="#data-tab" title="Permanent link">&para;</a></h4>
+<p>The data tab enables data loading, processing and saving. It further provides multiple plotting methods for data visualization.The Data Tab enables data loading, processing, and saving. It provides several options for exploring and visualizing the dataset, making it easy to gain insights before proceeding to modeling or benchmarks.</p>
+<p><img alt="App Demo" src="images/app_data.gif" /></p>
+<h4 id="benchmarking-tab">Benchmarking Tab<a class="headerlink" href="#benchmarking-tab" title="Permanent link">&para;</a></h4>
+<p>The Benchmarking Tab allows you to perform comparisons of different machine learning models, incorporating hyperparameter tuning, sampling, resampling and different criteria. The results are displayed in a clear and interactive format and allow the comparison with a model baseline.</p>
+<p><img alt="App Demo" src="images/app_benchmark.gif" /></p>
+<h4 id="evaluation-tab">Evaluation Tab<a class="headerlink" href="#evaluation-tab" title="Permanent link">&para;</a></h4>
+<p>The Evaluation Tab provides detailed performance metrics and visualizations for the trained models. These include confusion matrices, calibration plots, feature importance analysis, clustering, and Brier skill scores. It offers a comprehensive overview of the model performance.</p>
+<p><img alt="App Demo" src="images/app_evaluation.gif" /></p>
+<h4 id="inference-tab">Inference Tab<a class="headerlink" href="#inference-tab" title="Permanent link">&para;</a></h4>
+<p>In the Inference Tab, patient data can be selected and submitted for predictions using a trained model. Additionally, Jackknife confidence intervals can be calculated to evaluate prediction stability.</p>
+<p><img alt="App Demo" src="images/app_inference.gif" /></p>
+<h3 id="data-module_1">Data Module<a class="headerlink" href="#data-module_1" title="Permanent link">&para;</a></h3>
+<p>Use the <code>StaticProcessEngine</code> class to preprocess your data. This class handles data transformations and imputation.</p>
+<pre><code class="language-python">from periomod.data import StaticProcessEngine
+
+engine = StaticProcessEngine()
+data = engine.load_data(path=&quot;data/raw/raw_data.xlsx&quot;)
+data = engine.process_data(data)
+engine.save_data(df=datas, path=&quot;data/processed/processed_data.csv&quot;)
+</code></pre>
+<p>The <code>ProcessedDataLoader</code> requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement".</p>
+<pre><code class="language-python">from periomod.data import ProcessedDataLoader
+
+# instantiate with one-hot encoding and scale numerical variables
+dataloader = ProcessedDataLoader(
+    task=&quot;pocketclosure&quot;, encoding=&quot;one_hot&quot;, encode=True, scale=True
+)
+data = dataloader.load_data(path=&quot;data/processed/processed_data.csv&quot;)
+data = dataloader.transform_data(data=data)
+dataloader.save_data(df=data, path=&quot;data/training/training_data.csv&quot;)
+</code></pre>
+<h3 id="descriptives-module">Descriptives Module<a class="headerlink" href="#descriptives-module" title="Permanent link">&para;</a></h3>
+<p><code>DesctiptivesPlotter</code> can be used to plot descriptive plots for target columns before and after treatment. It should be applied on a processed dataframe.</p>
+<pre><code class="language-python">from periomod.data import ProcessedDataLoader
+from periomod.descriptives import DescriptivesPlotter
+
+data = dataloader.load_data(path=&quot;data/processed/processed_data.csv&quot;)
+
+# instantiate plotter with dataframe
+plotter = DescriptivesPlotter(data)
+plotter.plt_matrix(vertical=&quot;pdgrouprevaluation&quot;, horizontal=&quot;pdgroupbase&quot;)
+plotter.pocket_comparison(col1=&quot;pdbaseline&quot;, col2=&quot;pdrevaluation&quot;)
+plotter.histogram_2d(col_before=&quot;pdbaseline&quot;, col_after=&quot;pdrevaluation&quot;)
+</code></pre>
+<h3 id="resampling-module">Resampling Module<a class="headerlink" href="#resampling-module" title="Permanent link">&para;</a></h3>
+<p>The <code>Resampler</code> class allows for straightforward grouped splitting operations. It also includes different sampling strategies to treat the minority classes. It can be applied on the training data.</p>
+<pre><code class="language-python">from periomod.data import ProcessedDataLoader
+from periomod.resampling import Resampler
+
+data = dataloader.load_data(path=&quot;data/processed/training_data.csv&quot;)
+
+resampler = Resampler(classification=&quot;binary&quot;, encoding=&quot;one_hot&quot;)
+train_df, test_df = resampler.split_train_test_df(df=data, seed=42, test_size=0.3)
+
+# upsample minority class by a factor of 2.
+X_train, y_train, X_test, y_test = resampler.split_x_y(
+    train_df, test_df, sampling=&quot;upsampling&quot;, factor=2
+)
+# performs grouped cross-validation with &quot;smote&quot; sampling on the training folds
+outer_splits, cv_folds_indices = resampler.cv_folds(
+    df=train_df, sampling=&quot;smote&quot;, factor=2.0, seed=42, n_folds=5
+)
+</code></pre>
+<h3 id="training-module_1">Training Module<a class="headerlink" href="#training-module_1" title="Permanent link">&para;</a></h3>
+<p><code>Trainer</code> contains different training methods that are used during hyperparameter tuning and benchmarking. It further includes methods for threshold tuning in the case of binary classification and when the criterion "f1" is selected. The <code>Resampler</code>can be used to split the data for training.</p>
+<pre><code class="language-python">from periomod.training import Trainer
+from sklearn.ensemble import RandomForestClassifier
+
+trainer = Trainer(classification=&quot;binary&quot;, criterion=&quot;f1&quot;, tuning=&quot;cv&quot;, hpo=&quot;hebo&quot;)
+
+score, trained_model, threshold = trainer.train(
+    model=RandomForestClassifier,
+    X_train=X_train,
+    y_train=y_train,
+    X_val=X_val,
+    y_val=y_val,
+)
+print(f&quot;Score: {score}, Optimal Threshold: {threshold}&quot;)
+</code></pre>
+<p>The <code>trainer.train_mlp</code> function uses the <code>partial_fit</code> method of the 'MLPClassifier' to leverage early stopping during the training process.</p>
+<pre><code class="language-python">from sklearn.neural_network import MLPClassifier
+
+score, trained_mlp, threshold = trainer.train_mlp(
+    mlp_model=MLPClassifier,
+    X_train=X_train,
+    y_train=y_train,
+    X_val=X_val,
+    y_val=y_val,
+    final=True,
+)
+print(f&quot;MLP Validation Score: {score}, Optimal Threshold: {threshold}&quot;)
+</code></pre>
+<h3 id="tuning-module_1">Tuning Module<a class="headerlink" href="#tuning-module_1" title="Permanent link">&para;</a></h3>
+<p>The tuning module contains the <code>HEBOTuner</code>and <code>RandomSearchTuner</code> classes that can be used for hyperparameter tuning.
+<code>HEBOTuner</code> leverages Bayesian optimization to obtain the optimal set of hyperparameters.</p>
+<pre><code class="language-python">from periomod.training import Trainer
+from periomod.tuning import HEBOTuner
+
+trainer = Trainer(
+    classification=&quot;binary&quot;,
+    criterion=&quot;f1&quot;,
+    tuning=&quot;holdout&quot;,
+    hpo=&quot;hebo&quot;,
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
+tuner = HEBOTuner(
+    classification=&quot;binary&quot;,
+    criterion=&quot;f1&quot;,
+    tuning=&quot;holdout&quot;,
+    hpo=&quot;hebo&quot;,
+    n_configs=20,
+    n_jobs=-1,
+    trainer=trainer,
+)
+
+# Running holdout-based tuning
+best_params, best_threshold = tuner.holdout(
+    learner=&quot;rf&quot;, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
+)
+
+# Running cross-validation tuning
+best_params, best_threshold = tuner.cv(learner=&quot;rf&quot;, outer_splits=cross_val_splits)
+</code></pre>
+<p><code>RandomSearchTuner</code> implements random search tuning by sampling parameters at random from specified ranges. Also, allows for racing when cross-validation is used as tuning technique.</p>
+<pre><code class="language-python">from periomod.training import Trainer
+from periomod.tuning import RandomSearchTuner
+
+trainer = Trainer(
+    classification=&quot;binary&quot;,
+    criterion=&quot;f1&quot;,
+    tuning=&quot;cv&quot;,
+    hpo=&quot;rs&quot;,
+    mlp_training=True,
+    threshold_tuning=True,
+)
+
+tuner = RandomSearchTuner(
+    classification=&quot;binary&quot;,
+    criterion=&quot;f1&quot;,
+    tuning=&quot;cv&quot;,
+    hpo=&quot;rs&quot;,
+    n_configs=15,
+    n_jobs=4,
+    trainer=trainer,
+)
+
+# Running holdout-based tuning
+best_params, best_threshold = tuner.holdout(
+    learner=&quot;rf&quot;, X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val
+)
+
+# Running cross-validation tuning
+best_params, best_threshold = tuner.cv(learner=&quot;rf&quot;, outer_splits=cross_val_splits)
+</code></pre>
+<h3 id="evaluation-module_1">Evaluation Module<a class="headerlink" href="#evaluation-module_1" title="Permanent link">&para;</a></h3>
+<p><code>ModelEvaluator</code> contains method for model evaluation after training, including prediction analysis and feature importance.</p>
+<pre><code class="language-python">from periomod.evaluation import ModelEvaluator
+
+evaluator = ModelEvaluator(
+    X=X_test, y=y_test, model=trained_rf_model, encoding=&quot;one_hot&quot;
+)
+
+# Plots confusion matrix of target column
+evaluator.plot_confusion_matrix()
+
+# plot feature importances
+evaluator.evaluate_feature_importance(fi_types=[&quot;shap&quot;, &quot;permutation&quot;])
+
+# perform feature clustering
+brier_plot, heatmap_plot, clustered_data = evaluator.analyze_brier_within_clusters()
+</code></pre>
+<h3 id="inference-module_1">Inference Module<a class="headerlink" href="#inference-module_1" title="Permanent link">&para;</a></h3>
+<p>The inference module includes methods for single but also patient-level predictions. Jackknife resampling and confidence intervals are also available.</p>
+<pre><code class="language-python">from periomod.base import Patient, patient_to_dataframe
+from periomod.inference import ModelInference
+
+model_inference = ModelInference(
+    classification=&quot;binary&quot;, model=trained_model, verbose=True
+)
+
+# Define a patient instance
+patient = Patient()
+patient_df = patient_to_df(patient=patient)
+
+# Prepare data for inference
+prepared_data, patient_data = model_inference.prepare_inference(
+    task=&quot;pocketclosure&quot;,
+    patient_data=patient_df,
+    encoding=&quot;one_hot&quot;,
+    X_train=X_train,
+    y_train=y_train,
+)
+
+# Run inference on patient data
+inference_results = model_inference.patient_inference(
+    predict_data=prepared_data, patient_data=patient_data
+)
+
+# Perform jackknife inference with confidence interval plotting
+jackknife_results, ci_plot = model_inference.jackknife_inference(
+    model=trained_model,
+    train_df=train_df,
+    patient_data=patient_df,
+    encoding=&quot;target&quot;,
+    inference_results=inference_results,
+    alpha=0.05,
+    sample_fraction=0.8,
+    n_jobs=4,
+)
+</code></pre>
+<h3 id="benchmarking-module_1">Benchmarking Module<a class="headerlink" href="#benchmarking-module_1" title="Permanent link">&para;</a></h3>
+<p>The benchmarking module contains methods to run single or multiple experiments with a specified tuning setup. For a single experiment the <code>Experiment</code>class can be used.</p>
+<pre><code class="language-python">from periomod.benchmarking import Experiment
+from periomod.data import ProcessedDataLoader
+
+# Load a dataframe with the correct target and encoding selected
+dataloader = ProcessedDataLoader(task=&quot;pocketclosure&quot;, encoding=&quot;one_hot&quot;)
+data = dataloader.load_data(path=&quot;data/processed/processed_data.csv&quot;)
+data = dataloader.transform_data(data=data)
+
+experiment = Experiment(
+    data=data,
+    task=&quot;pocketclosure&quot;,
+    learner=&quot;rf&quot;,
+    criterion=&quot;f1&quot;,
+    encoding=&quot;one_hot&quot;,
+    tuning=&quot;cv&quot;,
+    hpo=&quot;rs&quot;,
+    sampling=&quot;upsample&quot;,
+    factor=1.5,
+    n_configs=20,
+    racing_folds=5,
+)
+
+# Perform the evaluation based on cross-validation
+final_metrics = experiment.perform_evaluation()
+print(final_metrics)
+</code></pre>
+<p>For multiple experiments, the <code>Benchmarker</code> class provides a streamlined benchmarking process. It will output a dictionary based on the best 4 models for a respective tuning criterion and the full experiment runs in a dataframe.</p>
+<pre><code class="language-python">from periomod.benchmarking import Benchmarker
+
+benchmarker = Benchmarker(
+    task=&quot;pocketclosure&quot;,
+    learners=[&quot;xgb&quot;, &quot;rf&quot;, &quot;lr&quot;],
+    tuning_methods=[&quot;holdout&quot;, &quot;cv&quot;],
+    hpo_methods=[&quot;hebo&quot;, &quot;rs&quot;],
+    criteria=[&quot;f1&quot;, &quot;brier_score&quot;],
+    encodings=[&quot;one_hot&quot;, &quot;target&quot;],
+    sampling=[None, &quot;upsampling&quot;, &quot;downsampling&quot;],
+    factor=2,
+    path=&quot;/data/processed/processed_data.csv&quot;,
+)
+
+# Running all benchmarks
+results_df, top_models = benchmarker.run_all_benchmarks()
+print(results_df)
+print(top_models)
+</code></pre>
+<h3 id="wrapper-module_1">Wrapper Module<a class="headerlink" href="#wrapper-module_1" title="Permanent link">&para;</a></h3>
+<p>The wrapper module wraps benchmark and evaluation methods to provide a straightforward setup that requires a minimal amount of code while making use of all the submodules contained in the <code>periomod</code> package.</p>
+<p>The <code>BenchmarkWrapper</code> includes the functionality of the <code>Benchmarker</code> while also wrapping methods for baseline benchmarking and saving.</p>
+<pre><code class="language-python">from periomod.wrapper import BenchmarkWrapper
+
+# Initialize the BenchmarkWrapper
+benchmarker = BenchmarkWrapper(
+    task=&quot;pocketclosure&quot;,
+    encodings=[&quot;one_hot&quot;, &quot;target&quot;],
+    learners=[&quot;rf&quot;, &quot;xgb&quot;, &quot;lr&quot;, &quot;mlp&quot;],
+    tuning_methods=[&quot;holdout&quot;, &quot;cv&quot;],
+    hpo_methods=[&quot;rs&quot;, &quot;hebo&quot;],
+    criteria=[&quot;f1&quot;, &quot;brier_score&quot;],
+    sampling=[&quot;upsampling&quot;],
+    factor=2,
+    path=&quot;/data/processed/processed_data.csv&quot;,
+)
+
+# Run baseline benchmarking
+baseline_df = benchmarker.baseline()
+
+# Run full benchmark and retrieve results
+benchmark, learners = benchmarker.wrapped_benchmark()
+
+# Save the benchmark results
+benchmarker.save_benchmark(
+    benchmark_df=benchmark,
+    path=&quot;reports/experiment/benchmark.csv&quot;,
+)
+
+# Save the trained learners
+benchmarker.save_learners(learners_dict=learners, path=&quot;models/experiment&quot;)
+</code></pre>
+<p>The <code>EvaluatorWrapper</code> contains methods of the <code>periomod.evaluation</code>and <code>periomod.inference</code> modules.</p>
+<pre><code class="language-python">from periomod.base import Patient, patient_to_dataframe
+from periomod.wrapper import EvaluatorWrapper, load_benchmark, load_learners
+
+benchmark = load_benchmark(path=&quot;reports/experiment/benchmark.csv&quot;)
+learners = load_learners(path=&quot;models/experiments&quot;)
+
+# Initialize the evaluator with learners from BenchmarkWrapper and specified criterion
+evaluator = EvaluatorWrapper(
+    learners_dict=learners, criterion=&quot;f1&quot;, path=&quot;data/processed/processed_data.csv&quot;
+)
+
+# Evaluate the model and generate plots
+evaluator.wrapped_evaluation()
+
+# Perform cluster analysis on predictions with brier score smaller than threshold
+evaluator.evaluate_cluster(brier_threshold=0.15)
+
+# Calculate feature importance
+evaluator.evaluate_feature_importance(fi_types=[&quot;shap&quot;, &quot;permutation&quot;])
+
+# Train and average over multiple random splits
+avg_metrics_df = evaluator.average_over_splits(num_splits=5, n_jobs=-1)
+
+# Define a patient instance
+patient = Patient()
+patient_df = patient_to_df(patient=patient)
+
+# Run inference on a specific patient's data
+predict_data, output, results = evaluator.wrapped_patient_inference(patient=patient)
+
+# Execute jackknife resampling for robust inference
+jackknife_results, ci_plots = evaluator.wrapped_jackknife(
+    patient=my_patient, results=results_df, sample_fraction=0.8, n_jobs=-1
+)
+</code></pre>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
+<p>© 2024 Tobias Brock, Elias Walter</p>
+<p>This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</p>
+<h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h2>
+<p>Contributions are welcome! Please open an issue or submit a pull request.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": ".", "features": [], "search": "assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.83f73b43.min.js"></script>
+      
+    
+  </body>
+</html>
