@@ -81,7 +81,19 @@ def test_model_predictions_with_threshold():
 
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
-    """Creates a sample dataset for testing."""
+    """Generates a synthetic dataset for classification tasks.
+
+    Args:
+        n_samples (int, optional): Number of samples in the dataset. Defaults to 100.
+        n_features (int, optional): Total number of features. Defaults to 5.
+        n_classes (int, optional): Number of classes for classification. Defaults to 2.
+        random_state (int, optional): Random seed for reproducibility. Defaults to 42.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.Series]: A tuple containing:
+            - `X` (pd.DataFrame): Feature matrix of shape `(n_samples, n_features)`.
+            - `y` (pd.Series): Target labels of shape `(n_samples,)`.
+    """
     X, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
@@ -169,23 +181,21 @@ def test_model_evaluator_initialization():
 
 def test_aggregate_one_hot_importances():
     """Test the _aggregate_one_hot_importances static method."""
-    fi_df = pd.DataFrame(
-        {
-            "Feature": [
-                "feature1_0",
-                "feature1_1",
-                "feature_2",
-                "feature3_0",
-                "feature3_1",
-            ],
-            "Importance": [0.1, 0.2, 0.3, 0.15, 0.25],
-        }
-    )
+    fi_df = pd.DataFrame({
+        "Feature": [
+            "feature1_0",
+            "feature1_1",
+            "feature_2",
+            "feature3_0",
+            "feature3_1",
+        ],
+        "Importance": [0.1, 0.2, 0.3, 0.15, 0.25],
+    })
     aggregated_df = ModelEvaluator._aggregate_one_hot_importances(fi_df)
     expected_features = ["feature1", "feature", "feature3"]
     print("Aggregated DF:\n", aggregated_df)
     assert all(
-        feature in aggregated_df["Feature"].values for feature in expected_features
+        feature in aggregated_df["Feature"].to_numpy() for feature in expected_features
     )
     assert len(aggregated_df) == 3
 

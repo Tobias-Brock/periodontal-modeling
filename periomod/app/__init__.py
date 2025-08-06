@@ -35,14 +35,12 @@ from periomod.app._app_helpers import (  # noqa: I001
     _update_learners_fields,
     _update_criteria_fields,
     _update_task_fields,
-    all_teeth,
 )
 from periomod.app._inputprocessor import InputProcessor
 from periomod.app._app import perioapp
 
 __all__ = [
     "perioapp",
-    "all_teeth",
     "_app_inference",
     "_baseline_wrapper",
     "_benchmarks_wrapper",

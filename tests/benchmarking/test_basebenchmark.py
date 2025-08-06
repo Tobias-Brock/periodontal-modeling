@@ -15,31 +15,53 @@ class TestExperiment(BaseExperiment):
     """A concrete implementation of BaseExperiment for testing purposes."""
 
     def perform_evaluation(self) -> dict:
-        """Mock implementation of perform_evaluation."""
+        """Mock implementation of perform_evaluation.
+
+        Returns:
+            dict: A dictionary indicating the evaluation status.
+        """
         return {"status": "success"}
 
     def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
-        """Mock implementation of _evaluate_holdout."""
+        """Mock implementation of _evaluate_holdout.
+
+        Args:
+            train_df (pd.DataFrame): Training data for the holdout evaluation.
+
+        Returns:
+            dict: A dictionary indicating that holdout evaluation was performed.
+        """
         return {"holdout": True}
 
     def _evaluate_cv(self) -> dict:
-        """Mock implementation of _evaluate_cv."""
+        """Mock implementation of _evaluate_cv.
+
+        Returns:
+            dict: Dictionary indicating that cross-validation evaluation was performed.
+        """
         return {"cv": True}
 
 
-def create_sample_dataframe(n_samples=100, n_features=5):
-    """Creates a sample DataFrame for testing."""
-    data = {f"feature_{i}": range(n_samples) for i in range(n_features)}
+def create_sample_dataframe(n_samples=100, n_features=5) -> pd.DataFrame:
+    """Creates a sample DataFrame for testing.
+
+    Args:
+        n_samples (int): Number of samples in the DataFrame.
+        n_features (int): Number of features (columns).
+
+    Returns:
+        pd.DataFrame: A DataFrame with `n_features` feature columns and a binary target.
+    """
+    data = {f"feature_{i}": list(range(n_samples)) for i in range(n_features)}
     data["target"] = [0, 1] * (n_samples // 2)
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 
 def test_base_experiment_initialization():
     """Test the initialization of BaseExperiment."""
-    df = create_sample_dataframe()
+    data = create_sample_dataframe()
     experiment = TestExperiment(
-        df=df,
+        data=data,
         task="pocketclosure",
         learner="lr",
         criterion="f1",
@@ -70,9 +92,9 @@ def test_base_experiment_initialization():
 
 def test_base_experiment_methods():
     """Test the methods of BaseExperiment."""
-    df = create_sample_dataframe()
+    data = create_sample_dataframe()
     experiment = TestExperiment(
-        df=df,
+        data=data,
         task="pocketclosure",
         learner="lr",
         criterion="f1",
@@ -97,7 +119,7 @@ def test_base_experiment_methods():
     eval_result = experiment.perform_evaluation()
     assert eval_result == {"status": "success"}
 
-    holdout_result = experiment._evaluate_holdout(train_df=df)
+    holdout_result = experiment._evaluate_holdout(train_df=data)
     assert holdout_result == {"holdout": True}
 
     cv_result = experiment._evaluate_cv()
@@ -106,13 +128,13 @@ def test_base_experiment_methods():
 
 def test_base_experiment_unknown_task():
     """Test that an unknown task raises a ValueError."""
-    df = create_sample_dataframe()
+    data = create_sample_dataframe()
     with pytest.raises(
         ValueError,
         match="Unknown task: unknown_task. Unable to determine classification.",
     ):
         TestExperiment(
-            df=df,
+            data=data,
             task="unknown_task",
             learner="lr",
             criterion="f1",

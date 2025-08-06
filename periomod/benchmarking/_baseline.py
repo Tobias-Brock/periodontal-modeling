@@ -125,7 +125,11 @@ class Baseline(BaseConfig):
         n_jobs: int = -1,
         path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
-        """Initializes the Baseline class with default or user-specified models."""
+        """Initializes the Baseline class with default or user-specified models.
+
+        Raises:
+            ValueError: If the task cannot be determined.
+        """
         if task in ["pocketclosure", "pocketclosureinf", "improvement"]:
             self.classification = "binary"
         elif task == "pdgrouprevaluation":
@@ -183,6 +187,9 @@ class Baseline(BaseConfig):
 
         Returns:
             Tuple[pd.DataFrame, List[str]]: Updated DataFrame with BSS and column order.
+
+        Raises:
+            ValueError: If the classification type is not supported.
         """
         if classification == "binary":
             metric_column = "Brier Score"
@@ -224,10 +231,10 @@ class Baseline(BaseConfig):
                 - Testing feature set (X_test).
                 - Testing labels (y_test).
         """
-        df = self.dataloader.load_data(path=self.path)
-        df = self.dataloader.transform_data(df=df)
+        data = self.dataloader.load_data(path=self.path)
+        data = self.dataloader.transform_data(data=data)
         train_df, test_df = self.resampler.split_train_test_df(
-            df=df, seed=self.random_state
+            df=data, seed=self.random_state
         )
         X_train, y_train, X_test, y_test = self.resampler.split_x_y(
             train_df=train_df, test_df=test_df

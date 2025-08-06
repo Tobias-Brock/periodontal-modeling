@@ -9,21 +9,36 @@ import pytest
 from periomod.benchmarking import Experiment
 
 
-def create_synthetic_data(n_samples=100, n_features=5, classification="binary"):
-    """Creates synthetic data for testing."""
-    data = {f"feature_{i}": range(n_samples) for i in range(n_features)}
+def create_synthetic_data(
+    n_samples=100, n_features=5, classification="binary"
+) -> pd.DataFrame:
+    """Creates synthetic data for testing.
+
+    Args:
+        n_samples (int): Number of samples in the dataset.
+        n_features (int): Number of feature columns.
+        classification (str): Type of classification ("binary" or "multiclass").
+
+    Returns:
+        pd.DataFrame: A synthetic dataset with feature columns, a target column `y`,
+        and an `id_patient` column.
+    """
+    data = {f"feature_{i}": list(range(n_samples)) for i in range(n_features)}
     if classification == "binary":
         data["y"] = [i % 2 for i in range(n_samples)]
     else:
         data["y"] = [i % 3 for i in range(n_samples)]
     data["id_patient"] = [i // 10 for i in range(n_samples)]  # Add id_patient
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 
 @pytest.fixture
-def synthetic_df():
-    """Create synthetic data."""
+def synthetic_df() -> pd.DataFrame:
+    """Create synthetic data.
+
+    Returns:
+        pd.DataFrame: A synthetic dataset.
+    """
     return create_synthetic_data()
 
 
@@ -77,7 +92,7 @@ def test_experiment_perform_evaluation_holdout(
     }
 
     experiment = Experiment(
-        df=synthetic_df,
+        data=synthetic_df,
         task="pocketclosure",
         learner="lr",
         criterion="f1",
@@ -169,7 +184,7 @@ def test_experiment_perform_evaluation_cv(
     }
 
     experiment = Experiment(
-        df=synthetic_df,
+        data=synthetic_df,
         task="pocketclosure",
         learner="lr",
         criterion="f1",
@@ -221,7 +236,7 @@ def test_experiment_unsupported_tuning(synthetic_df):
         ValueError, match="Unsupported tuning method. Choose either 'holdout' or 'cv'."
     ):
         experiment = Experiment(
-            df=synthetic_df,
+            data=synthetic_df,
             task="pocketclosure",
             learner="lr",
             criterion="f1",

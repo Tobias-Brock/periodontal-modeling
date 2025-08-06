@@ -1,5 +1,5 @@
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11-blue.svg)](https://www.python.org)
-[![PyPI](https://img.shields.io/badge/pypi-v0.1.5-orange.svg)](https://pypi.org/project/periomod/)
+[![PyPI](https://img.shields.io/badge/pypi-v0.2.0-orange.svg)](https://pypi.org/project/periomod/)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://tobias-brock.github.io/periodontal-modeling/)
 ![Codecov](https://img.shields.io/badge/codecov-91%25-brightgreen.svg)
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -8,6 +8,10 @@
 
 
 `peridontal-modeling`, or in short `periomod` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
+
+## Publication
+
+**Predictive modeling for step II therapy response in periodontitis - model development and validation** [(Read article)](https://www.nature.com/articles/s41746-025-01828-3).
 
 ## Features
 
@@ -143,9 +147,9 @@ Use the `StaticProcessEngine` class to preprocess your data. This class handles 
 from periomod.data import StaticProcessEngine
 
 engine = StaticProcessEngine()
-df = engine.load_data(path="data/raw/raw_data.xlsx")
-df = engine.process_data(df)
-engine.save_data(df=df, path="data/processed/processed_data.csv")
+data = engine.load_data(path="data/raw/raw_data.xlsx")
+data = engine.process_data(data)
+engine.save_data(df=data, path="data/processed/processed_data.csv")
 ```
 
 The `ProcessedDataLoader` requires a fully imputed dataset. It contains methods for scaling and encoding. As encoding types, 'one_hot' and 'target' can be selected. The scale argument scales numerical columns. One out of four periodontal task can be selected, either "pocketclosure", "pocketclosureinf", "pdgrouprevaluation" or "improvement". Note: When using the loading methods within a notebook it is recommended to set absolute paths for the path arguments for data loading and saving.
@@ -157,9 +161,9 @@ from periomod.data import ProcessedDataLoader
 dataloader = ProcessedDataLoader(
     task="pocketclosure", encoding="one_hot", encode=True, scale=True
 )
-df = dataloader.load_data(path="data/processed/processed_data.csv")
-df = dataloader.transform_data(df=df)
-dataloader.save_data(df=df, path="data/training/training_data.csv")
+data = dataloader.load_data(path="data/processed/processed_data.csv")
+data = dataloader.transform_data(data=data)
+dataloader.save_data(df=data, path="data/training/training_data.csv")
 ```
 
 ### Descriptives Module
@@ -170,10 +174,10 @@ dataloader.save_data(df=df, path="data/training/training_data.csv")
 from periomod.data import ProcessedDataLoader
 from periomod.descriptives import DescriptivesPlotter
 
-df = dataloader.load_data(path="data/processed/processed_data.csv")
+data = dataloader.load_data(path="data/processed/processed_data.csv")
 
 # instantiate plotter with dataframe
-plotter = DescriptivesPlotter(df)
+plotter = DescriptivesPlotter(data)
 plotter.plt_matrix(vertical="pdgrouprevaluation", horizontal="pdgroupbase")
 plotter.pocket_comparison(col1="pdbaseline", col2="pdrevaluation")
 plotter.histogram_2d(col_before="pdbaseline", col_after="pdrevaluation")
@@ -187,10 +191,10 @@ The `Resampler` class allows for straightforward grouped splitting operations. I
 from periomod.data import ProcessedDataLoader
 from periomod.resampling import Resampler
 
-df = dataloader.load_data(path="data/processed/training_data.csv")
+data = dataloader.load_data(path="data/processed/training_data.csv")
 
 resampler = Resampler(classification="binary", encoding="one_hot")
-train_df, test_df = resampler.split_train_test_df(df=df, seed=42, test_size=0.3)
+train_df, test_df = resampler.split_train_test_df(df=data, seed=42, test_size=0.3)
 
 # upsample minority class by a factor of 2.
 X_train, y_train, X_test, y_test = resampler.split_x_y(
@@ -382,11 +386,11 @@ from periomod.data import ProcessedDataLoader
 
 # Load a dataframe with the correct target and encoding selected
 dataloader = ProcessedDataLoader(task="pocketclosure", encoding="one_hot")
-df = dataloader.load_data(path="data/processed/processed_data.csv")
-df = dataloader.transform_data(df=df)
+data = dataloader.load_data(path="data/processed/processed_data.csv")
+data = dataloader.transform_data(data=df)
 
 experiment = Experiment(
-    df=df,
+    data=data,
     task="pocketclosure",
     learner="rf",
     criterion="f1",

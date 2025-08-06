@@ -57,15 +57,15 @@ def test_model_inference_prepare_inference(
     mock_engine_instance = mock_engine_class.return_value
     mock_dataloader_instance = mock_dataloader_class.return_value
     mock_resampler_instance = mock_resampler_class.return_value
-    mock_engine_instance.create_tooth_features.return_value = pd.DataFrame(
-        {"feature": [1, 2, 3]}
-    )
-    mock_dataloader_instance.encode_categorical_columns.return_value = pd.DataFrame(
-        {"feature": [1, 2, 3]}
-    )
-    mock_dataloader_instance.scale_numeric_columns.return_value = pd.DataFrame(
-        {"scaled_feature": [0.1, 0.2, 0.3]}
-    )
+    mock_engine_instance.create_tooth_features.return_value = pd.DataFrame({
+        "feature": [1, 2, 3]
+    })
+    mock_dataloader_instance.encode_categorical_columns.return_value = pd.DataFrame({
+        "feature": [1, 2, 3]
+    })
+    mock_dataloader_instance.scale_numeric_columns.return_value = pd.DataFrame({
+        "scaled_feature": [0.1, 0.2, 0.3]
+    })
     mock_resampler_instance.apply_target_encoding.return_value = (
         pd.DataFrame(),
         pd.DataFrame(),
@@ -84,27 +84,25 @@ def test_model_inference_prepare_inference(
     model_inference.cat_map = {}
     model_inference.target_cols = []
 
-    patient_data = pd.DataFrame(
-        {
-            "id_patient": [1],
-            "age": [45],
-            "gender": [1],
-            "bodymassindex": [25],
-            "periofamilyhistory": [2],
-            "diabetes": [2],
-            "smokingtype": [1],
-            "cigarettenumber": [0],
-            "antibiotictreatment": [0],
-            "tooth": [11],
-            "feature": [1],
-            "pdbaseline": [3],
-            "bop": [1],
-            "side": [1],
-            "recbaseline": [2],
-            "plaque": [1],
-            "furcationbaseline": [2],
-        }
-    )
+    patient_data = pd.DataFrame({
+        "id_patient": [1],
+        "age": [45],
+        "gender": [1],
+        "bodymassindex": [25],
+        "periofamilyhistory": [2],
+        "diabetes": [2],
+        "smokingtype": [1],
+        "cigarettenumber": [0],
+        "antibiotictreatment": [0],
+        "tooth": [11],
+        "feature": [1],
+        "pdbaseline": [3],
+        "bop": [1],
+        "side": [1],
+        "recbaseline": [2],
+        "plaque": [1],
+        "furcationbaseline": [2],
+    })
     X_train = pd.DataFrame()
     y_train = pd.Series()
 
@@ -158,19 +156,19 @@ def test_model_inference_jackknife_resampling():
     )
 
     with patch.object(model_inference, "process_patient") as mock_process_patient:
-        mock_process_patient.return_value = pd.DataFrame(
-            {
-                "0": [0.5],
-                "1": [0.5],
-                "prediction": [1],
-                "iteration": [1],
-                "data_index": [0],
-            }
-        )
+        mock_process_patient.return_value = pd.DataFrame({
+            "0": [0.5],
+            "1": [0.5],
+            "prediction": [1],
+            "iteration": [1],
+            "data_index": [0],
+        })
 
-        train_df = pd.DataFrame(
-            {"patient_id": [1, 2], "feature": [1, 2], "target": [0, 1]}
-        )
+        train_df = pd.DataFrame({
+            "patient_id": [1, 2],
+            "feature": [1, 2],
+            "target": [0, 1],
+        })
         model_inference.group_col = "patient_id"
         patient_data = pd.DataFrame({"feature": [1]})
         model_params = {}
@@ -196,15 +194,13 @@ def test_model_inference_jackknife_confidence_intervals():
     model_inference = ModelInference(
         classification="binary", model=MagicMock(), verbose=False
     )
-    jackknife_results = pd.DataFrame(
-        {
-            "0": [0.4, 0.5, 0.6],
-            "1": [0.6, 0.5, 0.4],
-            "prediction": [1, 1, 0],
-            "iteration": [1, 2, 3],
-            "data_index": [0, 0, 0],
-        }
-    )
+    jackknife_results = pd.DataFrame({
+        "0": [0.4, 0.5, 0.6],
+        "1": [0.6, 0.5, 0.4],
+        "prediction": [1, 1, 0],
+        "iteration": [1, 2, 3],
+        "data_index": [0, 0, 0],
+    })
 
     ci_dict = model_inference.jackknife_confidence_intervals(
         jackknife_results=jackknife_results, alpha=0.05
@@ -253,9 +249,13 @@ def test_model_inference_jackknife_inference(
     mock_jackknife_resampling,
 ):
     """Test jackknife inference."""
-    mock_jackknife_resampling.return_value = pd.DataFrame(
-        {"0": [0.5], "1": [0.5], "prediction": [1], "iteration": [1], "data_index": [0]}
-    )
+    mock_jackknife_resampling.return_value = pd.DataFrame({
+        "0": [0.5],
+        "1": [0.5],
+        "prediction": [1],
+        "iteration": [1],
+        "data_index": [0],
+    })
     mock_jackknife_confidence_intervals.return_value = {
         0: {
             "0": {"mean": 0.5, "lower": 0.4, "upper": 0.6},

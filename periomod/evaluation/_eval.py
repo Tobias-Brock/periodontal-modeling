@@ -98,15 +98,19 @@ class ModelEvaluator(BaseModelEvaluator):
         """Initialize the FeatureImportance class."""
         super().__init__(X=X, y=y, model=model, encoding=encoding, aggregate=aggregate)
 
-    def evaluate_feature_importance(self, fi_types: List[str]) -> None:
+    def evaluate_feature_importance(
+        self, fi_types: List[str], save: bool = False, name: Optional[str] = None
+    ) -> None:
         """Evaluate the feature importance for a list of trained models.
 
         Args:
             fi_types (List[str]): Methods of feature importance evaluation:
                 'shap', 'permutation', 'standard'.
+            save (bool): If True, saves the plot as an SVG file. Defaults to False.
+            name (Optional[str]): Name of the file to save the plot. Required when
 
-        Returns:
-            Plot: Feature importance plot for the specified method.
+        Raises:
+            ValueError: If invalid fi_type: {fi_type} is selected.
         """
         feature_names = self.X.columns.tolist()
         importance_dict = {}
@@ -144,12 +148,10 @@ class ModelEvaluator(BaseModelEvaluator):
                     n_repeats=10,
                     random_state=0,
                 )
-                fi_df = pd.DataFrame(
-                    {
-                        "Feature": feature_names,
-                        "Importance": result.importances_mean,
-                    }
-                )
+                fi_df = pd.DataFrame({
+                    "Feature": feature_names,
+                    "Importance": result.importances_mean,
+                })
 
             elif fi_type == "standard":
                 if isinstance(self.model, (RandomForestClassifier, XGBClassifier)):
@@ -159,9 +161,10 @@ class ModelEvaluator(BaseModelEvaluator):
                 else:
                     print(f"Standard FI not supported for model type {model_name}.")
                     continue
-                fi_df = pd.DataFrame(
-                    {"Feature": feature_names, "Importance": importances}
-                )
+                fi_df = pd.DataFrame({
+                    "Feature": feature_names,
+                    "Importance": importances,
+                })
 
             else:
                 raise ValueError(f"Invalid fi_type: {fi_type}")
@@ -203,10 +206,17 @@ class ModelEvaluator(BaseModelEvaluator):
                     plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
+                    if save:
+                        if name is None:
+                            raise ValueError(
+                                "'name' argument must required when 'save' is True."
+                            )
+                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
+
                 else:
                     fi_df_aggregated = self._aggregate_one_hot_importances(fi_df=fi_df)
-                    fi_df_aggregated.sort_values(
-                        by="Importance", ascending=False, inplace=True
+                    fi_df_aggregated = fi_df_aggregated.sort_values(
+                        by="Importance", ascending=False
                     )
 
                     fi_df_aggregated["Feature"] = self._feature_mapping(
@@ -254,8 +264,15 @@ class ModelEvaluator(BaseModelEvaluator):
                     plt.title(f"{model_name}: SHAP Feature Importance")
                     plt.tight_layout()
 
+                    if save:
+                        if name is None:
+                            raise ValueError(
+                                "'name' argument must required when 'save' is True."
+                            )
+                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
+
                 else:
-                    fi_df.sort_values(by="Importance", ascending=False, inplace=True)
+                    fi_df = fi_df.sort_values(by="Importance", ascending=False)
                     fi_df["Feature"] = self._feature_mapping(fi_df["Feature"])
                     importance_dict[model_name] = fi_df
 
@@ -283,6 +300,12 @@ class ModelEvaluator(BaseModelEvaluator):
                 ax.spines["bottom"].set_visible(False)
                 plt.ylabel("Importance", fontsize=12)
                 plt.tight_layout()
+                if save:
+                    if name is None:
+                        raise ValueError(
+                            "'name' argument must required when 'save' is True."
+                        )
+                    plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
                 plt.show()
 
     def analyze_brier_within_clusters(
@@ -303,9 +326,6 @@ class ModelEvaluator(BaseModelEvaluator):
         Returns:
             Union: Tuple containing the Brier score plot, heatmap plot, and clustered
                 DataFrame with 'Cluster' and 'Brier_Score' columns.
-
-        Raises:
-            ValueError: If the provided model cannot predict probabilities.
         """
         probas = self.model.predict_proba(self.X)[:, 1]
         brier_scores = [
@@ -369,8 +389,10 @@ class ModelEvaluator(BaseModelEvaluator):
         plt.title("Brier Score Distribution in Clusters", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+
         if tight_layout:
             plt.tight_layout()
+
         brier_plot = plt.gcf()
 
         plt.figure(figsize=(8, 4), dpi=300)

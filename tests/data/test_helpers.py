@@ -18,15 +18,13 @@ def test_check_infection():
 def test_get_adjacent_infected_teeth_count():
     """Test counting adjacent infected teeth."""
     helper = ProcessDataHelper()
-    df = pd.DataFrame(
-        {
-            "id_patient": [1, 1, 1, 1],
-            "tooth": [11, 12, 13, 14],
-            "tooth_infected": [1, 0, 1, 0],
-        }
-    )
+    data = pd.DataFrame({
+        "id_patient": [1, 1, 1, 1],
+        "tooth": [11, 12, 13, 14],
+        "tooth_infected": [1, 0, 1, 0],
+    })
     df_result = helper.get_adjacent_infected_teeth_count(
-        df=df,
+        data=data,
         patient_col="id_patient",
         tooth_col="tooth",
         infection_col="tooth_infected",
@@ -44,35 +42,31 @@ def test_get_adjacent_infected_teeth_count():
 def test_plaque_imputation():
     """Test the plaque_imputation method."""
     helper = ProcessDataHelper()
-    df = pd.DataFrame(
-        {
-            "tooth": [11, 12],
-            "side": [1, 2],
-            "pdbaseline": [2, 5],
-            "plaque": [np.nan, np.nan],
-            "id_patient": [1, 1],
-        }
-    )
+    data = pd.DataFrame({
+        "tooth": [11, 12],
+        "side": [1, 2],
+        "pdbaseline": [2, 5],
+        "plaque": [np.nan, np.nan],
+        "id_patient": [1, 1],
+    })
     helper.group_col = "id_patient"
-    df_imputed = helper.plaque_imputation(df)
+    df_imputed = helper.plaque_imputation(data)
     assert all(df_imputed["plaque"] == 1)
 
 
 def test_fur_imputation():
     """Test the fur_imputation method."""
     helper = ProcessDataHelper()
-    df = pd.DataFrame(
-        {
-            "tooth": [16, 11],
-            "side": [2, 1],
-            "pdbaseline": [5, 3],
-            "recbaseline": [2, 1],
-            "furcationbaseline": [np.nan, np.nan],
-            "id_patient": [1, 1],
-        }
-    )
+    data = pd.DataFrame({
+        "tooth": [16, 11],
+        "side": [2, 1],
+        "pdbaseline": [5, 3],
+        "recbaseline": [2, 1],
+        "furcationbaseline": [np.nan, np.nan],
+        "id_patient": [1, 1],
+    })
     helper.group_col = "id_patient"
-    df_imputed = helper.fur_imputation(df)
+    df_imputed = helper.fur_imputation(data)
     # For tooth 16 side 2, furcation should be imputed based on rules
     # For tooth 11, which doesn't have furcation, furcationbaseline should be 0
     assert df_imputed.loc[0, "furcationbaseline"] in [0, 1, 2]

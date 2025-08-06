@@ -68,9 +68,6 @@ class ModelExtractor(BaseConfig):
 
         Returns:
             str: The current criterion for model selection (e.g., 'f1', 'brier_score').
-
-        Raises:
-            ValueError: If an unsupported criterion is assigned.
         """
         return self._criterion
 
@@ -98,9 +95,6 @@ class ModelExtractor(BaseConfig):
 
         Returns:
             Any: The model object selected according to the current criterion.
-
-        Raises:
-            ValueError: If no model matching the criterion and rank is found.
         """
         return self._model
 
@@ -192,6 +186,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         aggregate (bool): Whether to aggregate metrics.
         verbose (bool): Controls verbose in the evaluation process.
         random_state (int): Random state for resampling.
+        test_size (float): Size of grouped train test split.
         path (Path): Path to the directory containing processed data files.
 
     Attributes:
@@ -200,6 +195,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         aggregate (bool): Indicates if metrics should be aggregated.
         verbose (bool): Flag for controlling logging verbose.
         random_state (int): Random state for resampling.
+        test_size (float): Size of grouped train test split.
         model (object): Best-ranked model for the given criterion.
         encoding (str): Encoding type, either 'one_hot' or 'target'.
         learner (str): The learner associated with the best model.
@@ -248,6 +244,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         aggregate: bool,
         verbose: bool,
         random_state: int,
+        test_size: float,
         path: Path,
     ):
         """Base class for EvaluatorWrapper, initializing common parameters."""
@@ -259,6 +256,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             random_state=random_state,
         )
         self.path = path
+        self.test_size = test_size
         self.dataloader = ProcessedDataLoader(task=self.task, encoding=self.encoding)
         self.resampler = Resampler(
             classification=self.classification, encoding=self.encoding
@@ -318,25 +316,25 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             Tuple: df, df_processed, train_df, test_df, X_train, y_train, X_test,
                 y_test, and optionally base_target.
         """
-        df = self.dataloader.load_data(path=self.path)
+        data = self.dataloader.load_data(path=self.path)
 
         task = "pocketclosure" if self.task == "pocketclosureinf" else self.task
 
         if task in ["pocketclosure", "pdgrouprevaluation"]:
-            base_target = self._generate_base_target(df=df)
+            base_target = self._generate_base_target(df=data)
         else:
             base_target = None
 
-        df_processed = self.dataloader.transform_data(df=df)
+        df_processed = self.dataloader.transform_data(data=data)
         train_df, test_df = self.resampler.split_train_test_df(
-            df=df_processed, seed=self.random_state
+            df=df_processed, seed=self.random_state, test_size=self.test_size
         )
         if task in ["pocketclosure", "pdgrouprevaluation"] and base_target is not None:
             test_patient_ids = test_df[self.group_col]
             base_target = (
                 base_target.reindex(df_processed.index)
                 .loc[df_processed[self.group_col].isin(test_patient_ids)]
-                .values
+                .to_numpy()
             )
 
         X_train, y_train, X_test, y_test = self.resampler.split_x_y(
@@ -344,7 +342,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         )
 
         return (
-            df,
+            data,
             df_processed,
             train_df,
             test_df,
@@ -363,6 +361,9 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
 
         Returns:
             pd.Series: The target before column for evaluation.
+
+        Raises:
+            ValueError: If self.task is invalid.
         """
         if self.task in ["pocketclosure", "pocketclosureinf"]:
             return df.apply(
@@ -480,10 +481,13 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
     def wrapped_evaluation(
         self,
         cm: bool,
+        cm_normalization: str,
         cm_base: bool,
         brier_groups: bool,
         calibration: bool,
         tight_layout: bool,
+        save: bool,
+        name: Optional[str],
     ):
         """Runs evaluation on the best-ranked model based on specified criteria.
 
@@ -491,9 +495,13 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             cm (bool): If True, plots the confusion matrix.
             cm_base (bool): If True, plots the confusion matrix against the
                 value before treatment. Only applicable for specific tasks.
+            cm_normalization (str): Normalization type for confusion matrix.
+                (rows, columns)
             brier_groups (bool): If True, calculates Brier score groups.
             calibration (bool): If True, plots model calibration.
             tight_layout (bool): If True, applies tight layout to the plot.
+            save (bool): If True, saves the plot to disk.
+            name (Optional[str]): Name for the saved plot.
         """
 
     @abstractmethod

@@ -22,7 +22,9 @@ def _impute_tooth_features(row: pd.Series) -> Tuple[int, int]:
     tooth_number = row["tooth"]
     if tooth_number in [11, 12, 21, 22, 31, 32, 41, 42, 13, 23, 33, 43]:
         return 0, 0
-    elif tooth_number in [14, 15, 24, 25, 34, 35, 44, 45]:
+    elif tooth_number in [15, 25, 34, 35, 44, 45]:
+        return 1, 0
+    elif tooth_number in [14, 24]:
         return 1, 1
     else:
         return 2, 1
@@ -68,9 +70,9 @@ class StaticProcessEngine(BaseProcessor):
         from periomod.data import StaticProcessEngine
 
         engine = StaticProcessEngine()
-        df = engine.load_data(path="data/raw/raw_data.xlsx")
-        df = engine.process_data(df)
-        engine.save_data(df=df, path="data/processed/processed_data.csv")
+        data = engine.load_data(path="data/raw/raw_data.xlsx")
+        data = engine.process_data(data)
+        engine.save_data(data=data, path="data/processed/processed_data.csv")
         ```
     """
 
@@ -81,21 +83,21 @@ class StaticProcessEngine(BaseProcessor):
         self.helper = ProcessDataHelper()
 
     @staticmethod
-    def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    def impute_missing_values(data: pd.DataFrame) -> pd.DataFrame:
         """Imputes missing values in the DataFrame.
 
         Imputation rules exist for a predefined set of variables.
         The method will only impute the columns present in the dataframe.
 
         Args:
-            df (pd.DataFrame): The DataFrame with missing values.
+            data (pd.DataFrame): The DataFrame with missing values.
 
         Returns:
-            df: The DataFrame with imputed missing values.
+            data: The DataFrame with imputed missing values.
         """
         pd.set_option("future.no_silent_downcasting", True)
-        if df.isnull().values.any():
-            missing_values = df.isnull().sum()
+        if data.isna().to_numpy().any():
+            missing_values = data.isna().sum()
             warnings.warn(
                 f"Missing values found: \n{missing_values[missing_values > 0]}",
                 stacklevel=2,
@@ -130,38 +132,38 @@ class StaticProcessEngine(BaseProcessor):
         }
 
         for column, impute_func in imputation_rules.items():
-            if column in df.columns:
-                df[column] = impute_func(df[column])
+            if column in data.columns:
+                data[column] = impute_func(data[column])
             else:
                 warnings.warn(
                     f"Column '{column}' is missing from DataFrame and was not imputed.",
                     stacklevel=2,
                 )
-        missing_or_incorrect_tooth_rows = df[
-            df["toothtype"].isnull()
-            | df["rootnumber"].isnull()
-            | df.apply(
+        missing_or_incorrect_tooth_rows = data[
+            data["toothtype"].isna()
+            | data["rootnumber"].isna()
+            | data.apply(
                 lambda row: (row["toothtype"], row["rootnumber"])
                 != _impute_tooth_features(row),
                 axis=1,
             )
         ]
 
-        df.loc[missing_or_incorrect_tooth_rows.index, ["toothtype", "rootnumber"]] = (
+        data.loc[missing_or_incorrect_tooth_rows.index, ["toothtype", "rootnumber"]] = (
             missing_or_incorrect_tooth_rows.apply(
                 lambda row: _impute_tooth_features(row), axis=1
             ).tolist()
         )
 
-        return df
+        return data
 
     def create_tooth_features(
-        self, df: pd.DataFrame, neighbors: bool = True, patient_id: bool = True
+        self, data: pd.DataFrame, neighbors: bool = True, patient_id: bool = True
     ) -> pd.DataFrame:
         """Creates side_infected, tooth_infected, and infected_neighbors columns.
 
         Args:
-            df (pd.DataFrame): The input dataframe containing patient data.
+            data (pd.DataFrame): The input dataframe containing patient data.
             neighbors (bool): Compute the count of adjacent infected teeth.
                 Defaults to True.
             patient_id (bool): Flag to indicate whether 'id_patient' is required
@@ -169,47 +171,47 @@ class StaticProcessEngine(BaseProcessor):
                 included in the grouping; otherwise, it is not. Defaults to True.
 
         Returns:
-            df: The dataframe with additional tooth-related features.
+            data: The dataframe with additional tooth-related features.
         """
-        df["side_infected"] = df.apply(
+        data["side_infected"] = data.apply(
             lambda row: self.helper.check_infection(
                 depth=row["pdbaseline"], boprevaluation=row["bop"]
             ),
             axis=1,
         )
         if patient_id:
-            df["tooth_infected"] = (
-                df.groupby([self.group_col, "tooth"])["side_infected"]
+            data["tooth_infected"] = (
+                data.groupby([self.group_col, "tooth"])["side_infected"]
                 .transform(lambda x: (x == 1).any())
                 .astype(int)
             )
         else:
-            df["tooth_infected"] = (
-                df.groupby("tooth")["side_infected"]
+            data["tooth_infected"] = (
+                data.groupby("tooth")["side_infected"]
                 .transform(lambda x: (x == 1).any())
                 .astype(int)
             )
         if neighbors:
-            df = self.helper.get_adjacent_infected_teeth_count(
-                df=df,
+            data = self.helper.get_adjacent_infected_teeth_count(
+                data=data,
                 patient_col=self.group_col,
                 tooth_col="tooth",
                 infection_col="tooth_infected",
             )
 
-        return df
+        return data
 
     @staticmethod
-    def create_outcome_variables(df: pd.DataFrame) -> pd.DataFrame:
+    def create_outcome_variables(data: pd.DataFrame) -> pd.DataFrame:
         """Adds outcome variables to the DataFrame.
 
         Args:
-            df (pd.DataFrame): The input DataFrame.
+            data (pd.DataFrame): The input DataFrame.
 
         Returns:
-            df: The DataFrame with new outcome variables.
+            data: The DataFrame with new outcome variables.
         """
-        df["pocketclosure"] = df.apply(
+        data["pocketclosure"] = data.apply(
             lambda row: (
                 0
                 if row["pdrevaluation"] == 4
@@ -219,37 +221,37 @@ class StaticProcessEngine(BaseProcessor):
             ),
             axis=1,
         )
-        df["pdgroupbase"] = df["pdbaseline"].apply(
+        data["pdgroupbase"] = data["pdbaseline"].apply(
             lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
         )
-        df["pdgrouprevaluation"] = df["pdrevaluation"].apply(
+        data["pdgrouprevaluation"] = data["pdrevaluation"].apply(
             lambda x: 0 if x <= 3 else (1 if x in [4, 5] else 2)
         )
-        df["improvement"] = (df["pdrevaluation"] < df["pdbaseline"]).astype(int)
-        return df
+        data["improvement"] = (data["pdrevaluation"] < data["pdbaseline"]).astype(int)
+        return data
 
-    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Processes dataset with data cleaning, imputation and transformation.
 
         Args:
-            df (pd.DataFrame): The input DataFrame.
+            data (pd.DataFrame): The input DataFrame.
 
         Returns:
-            df: The imputed Dataframe with added feature and target columns.
+            data: The imputed Dataframe with added feature and target columns.
         """
         pd.set_option("future.no_silent_downcasting", True)
-        df.columns = [col.lower() for col in df.columns]
-        initial_patients = df[self.group_col].nunique()
-        initial_rows = len(df)
-        if "age" in df.columns and "pregnant" in df.columns:
-            under_age_or_pregnant = df[(df["age"] < 18) | (df["pregnant"] == 2)]
+        data.columns = [col.lower() for col in data.columns]
+        initial_patients = data[self.group_col].nunique()
+        initial_rows = len(data)
+        if "age" in data.columns and "pregnant" in data.columns:
+            under_age_or_pregnant = data[(data["age"] < 18) | (data["pregnant"] == 2)]
             removed_patients = under_age_or_pregnant[self.group_col].nunique()
             removed_rows = len(under_age_or_pregnant)
 
-            df = (
-                df[df["age"] >= 18]
+            data = (
+                data[data["age"] >= 18]
                 .replace(" ", pd.NA)
-                .loc[df["pregnant"] != 2]
+                .loc[data["pregnant"] != 2]
                 .drop(columns=["pregnant"])
             )
         else:
@@ -265,31 +267,31 @@ class StaticProcessEngine(BaseProcessor):
                 f"Initial number of rows: {initial_rows}\n"
                 f"Number of unique patients removed: {removed_patients}\n"
                 f"Number of rows removed: {removed_rows}\n"
-                f"Remaining number of patients: {df[self.group_col].nunique()}\n"
-                f"Remaining number of rows: {len(df)}\n"
+                f"Remaining number of patients: {data[self.group_col].nunique()}\n"
+                f"Remaining number of rows: {len(data)}\n"
             )
 
-        df = self.create_outcome_variables(
-            self.create_tooth_features(self.impute_missing_values(df=df))
+        data = self.create_outcome_variables(
+            self.create_tooth_features(self.impute_missing_values(data=data))
         )
 
         if self.behavior:
             self.bin_vars += [col.lower() for col in self.behavior_columns["binary"]]
-        bin_vars = [col for col in self.bin_vars if col in df.columns]
-        df[bin_vars] = df[bin_vars].replace({1: 0, 2: 1})
+        bin_vars = [col for col in self.bin_vars if col in data.columns]
+        data[bin_vars] = data[bin_vars].replace({1: 0, 2: 1})
 
-        df.replace(["", " "], np.nan, inplace=True)
-        df = self.helper.fur_imputation(self.helper.plaque_imputation(df=df))
+        data = data.replace(["", " "], np.nan)
+        data = self.helper.fur_imputation(self.helper.plaque_imputation(data=data))
 
-        if df.isnull().values.any():
-            missing_values = df.isnull().sum()
+        if data.isna().to_numpy().any():
+            missing_values = data.isna().sum()
             warnings.warn(
                 f"Missing values: \n{missing_values[missing_values > 0]}", stacklevel=2
             )
-            for col in df.columns:
-                if df[col].isna().sum() > 0:
+            for col in data.columns:
+                if data[col].isna().sum() > 0:
                     missing_patients = (
-                        df[df[col].isna()][self.group_col].unique().tolist()
+                        data[data[col].isna()][self.group_col].unique().tolist()
                     )
                     if self.verbose:
                         print(f"Patients with missing {col}: {missing_patients}")
@@ -297,4 +299,4 @@ class StaticProcessEngine(BaseProcessor):
             if self.verbose:
                 print("No missing values after imputation.")
 
-        return df
+        return data

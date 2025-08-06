@@ -84,9 +84,6 @@ class BaseResampler(BaseConfig, ABC):
 
         Returns:
             Tuple: Resampled feature set (X_resampled) and target labels (y_resampled).
-
-        Raises:
-            ValueError: If an invalid sampling or classification method is specified.
         """
         self.validate_sampling_strategy(sampling=sampling)
         if sampling == "smote":
@@ -174,13 +171,20 @@ class BaseResampler(BaseConfig, ABC):
                     X_val_encoded, columns=encoded_cols, index=X_val.index
                 )
 
-            X.drop(columns=cat_vars, inplace=True)
+                missing_cols = set(X_encoded.columns) - set(X_val_encoded.columns)
+                for col in missing_cols:
+                    X_val_encoded[col] = 0
+
+                X_val_encoded = X_val_encoded[X_encoded.columns]
+
+            X = X.drop(columns=cat_vars)
             if X_val is not None:
-                X_val.drop(columns=cat_vars, inplace=True)
+                X_val = X_val.drop(columns=cat_vars)
 
             X = pd.concat([X, X_encoded], axis=1)
             if X_val_encoded is not None:
                 X_val = pd.concat([X_val, X_val_encoded], axis=1)
+                X_val = X_val[X.columns]
 
         return X, X_val
 
@@ -257,8 +261,8 @@ class BaseResampler(BaseConfig, ABC):
     @abstractmethod
     def split_x_y(
         self,
-        train_df: pd.DataFrame,
-        test_df: pd.DataFrame,
+        train_df: Optional[pd.DataFrame],
+        test_df: Optional[pd.DataFrame],
         sampling: Union[str, None],
         factor: Union[float, None],
     ):
@@ -267,8 +271,8 @@ class BaseResampler(BaseConfig, ABC):
         Splits into (X_train, y_train, X_test, y_test).
 
         Args:
-            train_df (pd.DataFrame): The training DataFrame.
-            test_df (pd.DataFrame): The testing DataFrame.
+            train_df (Optional[pd.DataFrame]): The training DataFrame.
+            test_df (Optional[pd.DataFrame]): The testing DataFrame.
             sampling (str, optional): Resampling method to apply (e.g.,
                 'upsampling', 'downsampling', 'smote').
             factor (float, optional): Factor for sampling.

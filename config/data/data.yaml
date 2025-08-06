@@ -136,3 +136,74 @@ no_train_cols:
   - "pdrevaluation"
   - "pdgroup"
   - "pdgroupbase"
+
+feature_encoding:
+  "Gender": {
+    1: "Male",
+    2: "Female"}
+  "Pregnant": {
+    1: "No",
+    2: "Yes"}
+  "PerioFamilyHistory": {
+    1: "No",
+    2: "Unknown",
+    3: "Yes"}
+  "SmokingType": {
+    1: "No",
+    2: "Cigarette",
+    3: "Pipe",
+    4: "Cigar",
+    5: "All"}
+  "Diabetes": {
+    1: "No",
+    2: "Type I",
+    3: "Type II",
+    4: "Type II - drug induced"}
+  "AntibioticTreatment": {
+    1: "Yes",
+    2: "No"}
+  "Mobility": {
+    1: "Yes",
+    2: "No"}
+  "Toothtype": {
+    1: "Anterior",
+    2: "Premolar",
+    3: "Molar"}
+  "RootNumber": {
+    1: "Singlerooted",
+    2: "Multirooted"}
+  "Restoration": {
+    1: "None",
+    2: "Filling",
+    3: "Crown"}
+  "Percussion-sensitivity": {
+    1: "No",
+    2: "Yes"}
+  "Sensitivity": {
+    1: "Positive",
+    2: "Negative"}
+  "Side": {
+    1: "Distal-vestibular",
+    2: "Vestibular",
+    3: "Mesial-vestibular",
+    4: "Mesial-oral",
+    5: "Oral",
+    6: "Distal-oral"}
+  "FurcationBaseline": {
+    0: "No furcation involvement",
+    1: "Furcation palpable",
+    2: "1-3mm Furcation",
+    3: ">3mm Furcation"}
+  "BOP": {
+    1: "Negative",
+    2: "Positive"}
+  "Plaque": {
+    1: "Negative",
+    2: "Positive"}
+  "Age": "years"
+  "BodyMassIndex": "kg/m²"
+  "CigaretteNumber": "cigarettes/day"
+  "Stresslvl": "0-10"
+  "Tooth": "FDI-Notation"
+  "PdBaseline": "mm"
+  "RecBaseline": "mm"

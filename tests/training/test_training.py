@@ -9,8 +9,21 @@ from periomod.resampling._resampler import Resampler
 from periomod.training._trainer import Trainer
 
 
-def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
-    """Creates a sample dataset for testing."""
+def create_sample_data(
+    n_samples=100, n_features=5, n_classes=2, random_state=42
+) -> pd.DataFrame:
+    """Creates a sample dataset for testing.
+
+    Args:
+        n_samples (int): Number of samples.
+        n_features (int): Number of feature columns.
+        n_classes (int): Number of output classes.
+        random_state (int): Random seed for reproducibility.
+
+    Returns:
+        pd.DataFrame: A synthetic dataset with `n_features` feature columns, target
+        column `y`, and `group` column for group identifiers.
+    """
     X, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
@@ -19,10 +32,10 @@ def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42
         random_state=random_state,
         weights=[0.7, 0.3] if n_classes == 2 else None,
     )
-    df = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(n_features)])
-    df["y"] = y
-    df["group"] = [i // 10 for i in range(n_samples)]  # Create group identifiers
-    return df
+    data = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(n_features)])
+    data["y"] = y
+    data["group"] = [i // 10 for i in range(n_samples)]  # Create group identifiers
+    return data
 
 
 def test_trainer_initialization():
@@ -45,8 +58,8 @@ def test_trainer_initialization():
 
 def test_train_standard_model():
     """Test training a standard model."""
-    df = create_sample_data()
-    X_train, X_val = df.iloc[:80], df.iloc[80:]
+    data = create_sample_data()
+    X_train, X_val = data.iloc[:80], data.iloc[80:]
     y_train, y_val = X_train["y"], X_val["y"]
     X_train = X_train.drop(columns=["y", "group"])
     X_val = X_val.drop(columns=["y", "group"])
@@ -68,8 +81,8 @@ def test_train_standard_model():
 
 def test_train_mlp_model():
     """Test training an MLP model."""
-    df = create_sample_data()
-    X_train, X_val = df.iloc[:80], df.iloc[80:]
+    data = create_sample_data()
+    X_train, X_val = data.iloc[:80], data.iloc[80:]
     y_train, y_val = X_train["y"], X_val["y"]
     X_train = X_train.drop(columns=["y", "group"])
     X_val = X_val.drop(columns=["y", "group"])
@@ -91,9 +104,9 @@ def test_train_mlp_model():
 
 def test_evaluate_cv():
     """Test evaluate_cv method."""
-    df = create_sample_data()
-    X_train, X_val = df.iloc[:80], df.iloc[80:]
-    y_train, y_val = X_train["y"].values, X_val["y"].values
+    data = create_sample_data()
+    X_train, X_val = data.iloc[:80], data.iloc[80:]
+    y_train, y_val = X_train["y"].to_numpy(), X_val["y"].to_numpy()
     X_train = X_train.drop(columns=["y", "group"])
     X_val = X_val.drop(columns=["y", "group"])
     model = LogisticRegression()
@@ -111,11 +124,11 @@ def test_evaluate_cv():
 
 def test_optimize_threshold():
     """Test optimize_threshold method."""
-    df = create_sample_data()
+    data = create_sample_data()
     resampler = Resampler(classification="binary", encoding="one_hot")
     resampler.y = "y"
     resampler.group_col = "group"
-    outer_splits, _ = resampler.cv_folds(df, n_folds=3, seed=42)
+    outer_splits, _ = resampler.cv_folds(data, n_folds=3, seed=42)
 
     model = LogisticRegression()
     trainer = Trainer(
@@ -133,7 +146,7 @@ def test_optimize_threshold():
 
 def test_train_final_model():
     """Test train_final_model method."""
-    df = create_sample_data()
+    data = create_sample_data()
     resampler = Resampler(classification="binary", encoding="one_hot")
     resampler.y = "y"
     resampler.group_col = "group"
@@ -148,7 +161,7 @@ def test_train_final_model():
         mlp_training=False,
     )
     result = trainer.train_final_model(
-        df=df,
+        df=data,
         resampler=resampler,
         model=model_params,
         sampling=None,

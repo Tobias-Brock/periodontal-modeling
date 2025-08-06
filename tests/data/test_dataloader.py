@@ -28,16 +28,14 @@ def test_encode_categorical_columns_one_hot():
         )
         loader.all_cat_vars = ["smokingtype", "tooth", "side"]
 
-    df = pd.DataFrame(
-        {
-            "smokingtype": [1, 0],
-            "age": [25, 30],
-            "tooth": [11, 12],
-            "side": [1, 2],
-        }
-    )
+    data = pd.DataFrame({
+        "smokingtype": [1, 0],
+        "age": [25, 30],
+        "tooth": [11, 12],
+        "side": [1, 2],
+    })
 
-    df_encoded = loader.encode_categorical_columns(df)
+    df_encoded = loader.encode_categorical_columns(data=data)
     assert "smokingtype" not in df_encoded.columns
     assert "tooth" not in df_encoded.columns
     assert "side" not in df_encoded.columns
@@ -62,16 +60,14 @@ def test_encode_categorical_columns_target():
         )
         loader.all_cat_vars = ["smokingtype", "tooth", "side"]
 
-    df = pd.DataFrame(
-        {
-            "smokingtype": [1, 0],
-            "age": [25, 30],
-            "tooth": [11, 12],
-            "side": [1, 2],
-        }
-    )
+    data = pd.DataFrame({
+        "smokingtype": [1, 0],
+        "age": [25, 30],
+        "tooth": [11, 12],
+        "side": [1, 2],
+    })
 
-    df_encoded = loader.encode_categorical_columns(df)
+    df_encoded = loader.encode_categorical_columns(data=data)
     assert "smokingtype" in df_encoded.columns
     assert "tooth" not in df_encoded.columns
     assert "side" not in df_encoded.columns
@@ -84,17 +80,15 @@ def test_encode_categorical_columns_invalid_encoding():
         task="pocketclosure", encoding="invalid_encoding", encode=True, scale=False
     )
 
-    df = pd.DataFrame(
-        {
-            "gender": [0, 1],
-            "age": [25, 30],
-        }
-    )
+    data = pd.DataFrame({
+        "gender": [0, 1],
+        "age": [25, 30],
+    })
 
     with pytest.raises(
         ValueError, match="Invalid encoding 'invalid_encoding' specified."
     ):
-        loader.encode_categorical_columns(df)
+        loader.encode_categorical_columns(data=data)
 
 
 def test_scale_numeric_columns():
@@ -105,14 +99,12 @@ def test_scale_numeric_columns():
         )
         loader.scale_vars = ["age"]
 
-    df = pd.DataFrame(
-        {
-            "age": [25, 30],
-            "gender": [0, 1],
-        }
-    )
+    data = pd.DataFrame({
+        "age": [25, 30],
+        "gender": [0, 1],
+    })
 
-    df_scaled = loader.scale_numeric_columns(df)
+    df_scaled = loader.scale_numeric_columns(data=data)
     assert df_scaled["age"].mean() == pytest.approx(0.0, abs=1e-6)
     assert df_scaled["age"].std(ddof=0) == pytest.approx(1.0, abs=1e-6)
 
@@ -128,18 +120,16 @@ def test_transform_data():
         loader.task_cols = ["pocketclosure", "improvement"]
         loader.no_train_cols = []
 
-    df = pd.DataFrame(
-        {
-            "age": [25, 30],
-            "gender": [0, 1],
-            "pocketclosure": [1, 0],
-            "improvement": [0, 1],
-            "tooth": [11, 12],
-            "side": [1, 2],
-        }
-    )
+    data = pd.DataFrame({
+        "age": [25, 30],
+        "gender": [0, 1],
+        "pocketclosure": [1, 0],
+        "improvement": [0, 1],
+        "tooth": [11, 12],
+        "side": [1, 2],
+    })
 
-    df_transformed = loader.transform_data(df)
+    df_transformed = loader.transform_data(data=data)
     assert "tooth_11" in df_transformed.columns
     assert "tooth_12" in df_transformed.columns
     assert "side_1" in df_transformed.columns
@@ -162,14 +152,12 @@ def test_transform_data_invalid_task():
         loader.task_cols = ["pocketclosure", "improvement"]
         loader.no_train_cols = []
 
-    df = pd.DataFrame(
-        {
-            "age": [25, 30],
-            "gender": [0, 1],
-            "pocketclosure": [1, 0],
-            "improvement": [0, 1],
-        }
-    )
+    data = pd.DataFrame({
+        "age": [25, 30],
+        "gender": [0, 1],
+        "pocketclosure": [1, 0],
+        "improvement": [0, 1],
+    })
 
     with pytest.raises(ValueError, match="Task 'invalid_task' not supported."):
-        loader.transform_data(df)
+        loader.transform_data(data=data)

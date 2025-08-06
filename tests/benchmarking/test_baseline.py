@@ -10,20 +10,34 @@ from sklearn.linear_model import LogisticRegression
 from periomod.benchmarking import Baseline
 
 
-def create_synthetic_data(n_samples=10, n_features=5, classification="binary"):
-    """Creates synthetic data for testing."""
-    data = {f"feature_{i}": range(n_samples) for i in range(n_features)}
+def create_synthetic_data(
+    n_samples=10, n_features=5, classification="binary"
+) -> pd.DataFrame:
+    """Creates synthetic data for testing.
+
+    Args:
+        n_samples (int): Number of samples.
+        n_features (int): Number of feature columns.
+        classification (str): Classification type ("binary" or "multiclass").
+
+    Returns:
+        pd.DataFrame: A DataFrame with feature columns and a target column `y`.
+    """
+    data = {f"feature_{i}": list(range(n_samples)) for i in range(n_features)}
     if classification == "binary":
         data["y"] = [i % 2 for i in range(n_samples)]
     else:
         data["y"] = [i % 3 for i in range(n_samples)]
-    df = pd.DataFrame(data)
-    return df
+    return pd.DataFrame(data)
 
 
 @pytest.fixture
-def synthetic_data():
-    """Generate synthetic data."""
+def synthetic_data() -> pd.DataFrame:
+    """Generate synthetic data.
+
+    Returns:
+        pd.DataFrame: A synthetic dataset.
+    """
     return create_synthetic_data()
 
 

@@ -8,7 +8,19 @@ from periomod.training._metrics import brier_loss_multi, final_metrics, get_prob
 
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
-    """Creates a sample dataset for testing."""
+    """Creates a sample dataset for testing.
+
+    Args:
+        n_samples (int): Number of samples in the dataset.
+        n_features (int): Number of feature columns.
+        n_classes (int): Number of output classes.
+        random_state (int): Random seed for reproducibility.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - `X` (np.ndarray): Feature matrix of shape (n_samples, n_features).
+            - `y` (np.ndarray): Target array of shape (n_samples,).
+    """
     if n_classes > 2:
         X, y = make_classification(
             n_samples=n_samples,

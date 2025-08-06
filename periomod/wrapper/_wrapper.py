@@ -322,7 +322,6 @@ class BenchmarkWrapper(BaseBenchmark):
 
         Raises:
             ValueError: If the benchmark DataFrame is empty.
-            FileNotFoundError: If the parent directory of the path does not exist.
         """
         path = Path(path)
         if not path.is_absolute():
@@ -385,6 +384,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         verbose (bool): If True, enables verbose logging during evaluation
             and inference. Defaults to False.
         random_state (int): Random state for resampling. Defaults to 0.
+        test_size (float): Size of grouped train test split.
+                Defaults to 0.2.
         path (Path): Path to the directory containing processed data files.
             Defaults to Path("data/processed/processed_data.csv").
 
@@ -393,6 +394,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         criterion (str): Criterion used for model selection.
         aggregate (bool): Flag for aggregating one-hot encoded metrics.
         verbose (bool): Controls verbose in evaluation processes.
+        test_size (float): Size of grouped train test split.
         model (object): Best-ranked model based on the criterion.
         encoding (str): Encoding method ('one_hot' or 'target').
         learner (str): Type of model (learner) used in training.
@@ -486,6 +488,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         aggregate: bool = True,
         verbose: bool = False,
         random_state: int = 0,
+        test_size: float = 0.2,
         path: Path = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Initializes EvaluatorWrapper with model, evaluation, and inference setup.
@@ -498,7 +501,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 to True.
             verbose (bool): If True, enables verbose logging during evaluation
                 and inference. Defaults to False.
-            random_state (int): Random state for resampling. Defaults to 0.
+            random_state (int): Random state for resampling. Defaults to 0
+            test_size (float): Size of grouped train test split. Defaults to 0.2.
             path (Path): Path to the directory containing processed data files.
                 Defaults to Path("data/processed/processed_data.csv").
 
@@ -509,31 +513,47 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             aggregate=aggregate,
             verbose=verbose,
             random_state=random_state,
+            test_size=test_size,
             path=path,
         )
 
     def wrapped_evaluation(
         self,
         cm: bool = True,
+        cm_normalization: str = "rows",
         cm_base: bool = True,
         brier_groups: bool = True,
         calibration: bool = True,
         tight_layout: bool = False,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Runs evaluation on the best-ranked model.
 
         Args:
             cm (bool): Plot the confusion matrix. Defaults to True.
+            cm_normalization (str): Normalization for confusion matrix.
+                Defaults to "rows".
             cm_base (bool): Plot confusion matrix vs value before treatment.
                 Defaults to True.
             brier_groups (bool): Calculate Brier score groups. Defaults to True.
             calibration (bool): Plots model calibration. Defaults to True.
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
+            save (bool): If True, saves the evaluation plots. Defaults to False.
+            name (Optional[str]): Name for the saved evaluation plots.
         """
         if cm:
             self.evaluator.plot_confusion_matrix(
-                tight_layout=tight_layout, task=self.task
+                tight_layout=tight_layout,
+                normalize=cm_normalization,
+                task=self.task,
+                save=save,
+                name=(
+                    f"{name}_cm_predictionEval"
+                    if name is not None
+                    else "cm_predictionEval"
+                ),
             )
         if cm_base:
             if self.task in [
@@ -543,14 +563,25 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             ]:
                 self.evaluator.plot_confusion_matrix(
                     col=self.base_target,
-                    y_label="Pocket Closure",
+                    y_label="Baseline PPD",
                     tight_layout=tight_layout,
                     task=self.task,
+                    save=save,
+                    name=(
+                        f"{name}_cm_baseToPredicted"
+                        if name is not None
+                        else "cm_baseToPredicted"
+                    ),
                 )
+
         if brier_groups:
-            self.evaluator.brier_score_groups(tight_layout=tight_layout, task=self.task)
+            self.evaluator.brier_score_groups(
+                tight_layout=tight_layout, task=self.task, save=save, name=name
+            )
         if calibration:
-            self.evaluator.calibration_plot(task=self.task, tight_layout=tight_layout)
+            self.evaluator.calibration_plot(
+                task=self.task, tight_layout=tight_layout, save=save, name=name
+            )
 
     def compare_bss(
         self,
@@ -559,6 +590,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         true_preds: bool = False,
         brier_threshold: Optional[float] = None,
         tight_layout: bool = False,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Compares Brier Skill Score of model with baseline on test set.
 
@@ -570,6 +603,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 threshold. Defaults to None.
             tight_layout (bool): If True, applies tight layout to the plot.
                 Defaults to False.
+            save (bool): If True, saves the BSS comparison plot. Defaults to False.
+            name (Optional[str]): Name for the saved BSS comparison plot.
         """
         baseline_models, _, _ = self.baseline.train_baselines()
         self.evaluator.X, self.evaluator.y, patients = self._test_filters(
@@ -585,6 +620,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             classification=self.classification,
             num_patients=patients,
             tight_layout=tight_layout,
+            save=save,
+            name=name,
         )
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
@@ -628,7 +665,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         print(f"Number of patients in test set: {patients}")
         print(f"Number of tooth sites: {len(self.evaluator.y)}")
         self.evaluator.analyze_brier_within_clusters(
-            n_clusters=n_cluster, tight_layout=tight_layout
+            n_clusters=n_cluster,
+            tight_layout=tight_layout,
         )
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
@@ -639,6 +677,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         revaluation: Optional[str] = None,
         true_preds: bool = False,
         brier_threshold: Optional[float] = None,
+        save: bool = False,
+        name: Optional[str] = None,
     ) -> None:
         """Evaluates feature importance using the evaluator, with optional subsetting.
 
@@ -656,6 +696,8 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             true_preds (bool): Subset by correct predictions. Defaults to False.
             brier_threshold (Optional[float]): Filters observations ny Brier score
                 threshold. Defaults to None.
+            save (bool): If True, saves the feature importance plots. Defaults to False.
+            name (Optional[str]): Name for the saved feature importance plots.
         """
         self.evaluator.X, self.evaluator.y, patients = self._test_filters(
             X=self.evaluator.X,
@@ -667,7 +709,9 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         )
         print(f"Number of patients in test set: {patients}")
         print(f"Number of tooth sites: {len(self.evaluator.y)}")
-        self.evaluator.evaluate_feature_importance(fi_types=fi_types)
+        self.evaluator.evaluate_feature_importance(
+            fi_types=fi_types, save=save, name=name
+        )
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
 
     def average_over_splits(

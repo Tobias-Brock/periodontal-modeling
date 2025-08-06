@@ -28,7 +28,7 @@ class BaseLoader(BaseConfig, ABC):
         ```
         loader = SomeConcreteLoader()
         data = loader.load_data(path=Path("/data"), name="processed_data.csv")
-        loader.save_data(df=data, path=Path("/data"), name="saved_data.csv")
+        loader.save_data(data=data, path=Path("/data"), name="saved_data.csv")
         ```
     """
 
@@ -45,11 +45,11 @@ class BaseLoader(BaseConfig, ABC):
         """
 
     @abstractmethod
-    def save_data(self, df: pd.DataFrame, path: Union[str, Path]) -> None:
+    def save_data(self, data: pd.DataFrame, path: Union[str, Path]) -> None:
         """Saves the processed data to the specified path as a CSV file.
 
         Args:
-            df (pd.DataFrame): The processed DataFrame.
+            data (pd.DataFrame): The processed DataFrame.
             path (Union[str, Path]): Path (including filename) where data will be saved.
 
         Raises:
@@ -58,12 +58,12 @@ class BaseLoader(BaseConfig, ABC):
         path = Path(path)
         if not path.is_absolute():
             path = Path.cwd() / path
-        if df.empty:
+        if data.empty:
             raise ValueError("Data must be processed before saving.")
         if path.suffix != ".csv":
             path = path.with_suffix(".csv")
         os.makedirs(path.parent, exist_ok=True)
-        df.to_csv(path, index=False)
+        data.to_csv(path, index=False)
         print(f"Data saved to {path}")
 
 
@@ -109,14 +109,14 @@ class BaseProcessor(BaseLoader, ABC):
         """Loads the dataset and validates required columns.
 
         Args:
-            path (str, optional): Directory where dataset is located.
+            path (Union[str, Path], optional): Path to the dataset file.
                 Defaults to Path("data/raw/raw_data.xlsx").
 
         Returns:
             pd.DataFrame: The loaded DataFrame.
 
         Raises:
-            ValueError: If any required columns are missing.
+            FileNotFoundError: If the specified file does not exist.
         """
         path = Path(path)
         if not path.is_absolute():
@@ -125,9 +125,9 @@ class BaseProcessor(BaseLoader, ABC):
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
-        df = pd.read_excel(path, header=[1])
+        data = pd.read_excel(path, header=[1])
 
-        actual_columns_lower = {col.lower(): col for col in df.columns}
+        actual_columns_lower = {col.lower(): col for col in data.columns}
         required_columns_lower = [col.lower() for col in self.required_columns]
 
         missing_columns = [
@@ -173,52 +173,52 @@ class BaseProcessor(BaseLoader, ABC):
                 actual_columns_lower[col] for col in available_behavior_columns
             ]
 
-        return df[actual_required_columns]
+        return data[actual_required_columns]
 
     def save_data(
         self,
-        df: pd.DataFrame,
+        data: pd.DataFrame,
         path: Union[str, Path] = Path("data/processed/processed_data.csv"),
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
 
         Args:
-            df (pd.DataFrame): The processed DataFrame.
+            data (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
                 Defaults to Path("data/processed/processed_data.csv".
         """
-        super().save_data(df=df, path=path)
+        super().save_data(data=data, path=path)
 
     @abstractmethod
-    def impute_missing_values(self, df: pd.DataFrame):
+    def impute_missing_values(self, data: pd.DataFrame):
         """Imputes missing values in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame with potential missing values.
+            data (pd.DataFrame): The DataFrame with potential missing values.
         """
 
     @abstractmethod
-    def create_tooth_features(self, df: pd.DataFrame):
+    def create_tooth_features(self, data: pd.DataFrame):
         """Creates additional features related to tooth data.
 
         Args:
-            df (pd.DataFrame): The DataFrame containing tooth data.
+            data (pd.DataFrame): The DataFrame containing tooth data.
         """
 
     @abstractmethod
-    def create_outcome_variables(self, df: pd.DataFrame):
+    def create_outcome_variables(self, data: pd.DataFrame):
         """Generates outcome variables for analysis.
 
         Args:
-            df (pd.DataFrame): The DataFrame with original outcome variables.
+            data (pd.DataFrame): The DataFrame with original outcome variables.
         """
 
     @abstractmethod
-    def process_data(self, df: pd.DataFrame):
+    def process_data(self, data: pd.DataFrame):
         """Processes dataset with data cleaning, imputations and scaling.
 
         Args:
-            df (pd.DataFrame): The input DataFrame.
+            data (pd.DataFrame): The input DataFrame.
         """
 
 
@@ -277,6 +277,9 @@ class BaseDataLoader(BaseLoader, ABC):
 
         Returns:
             pd.DataFrame: Loaded DataFrame with lowercase column names.
+
+        Raises:
+            FileNotFoundError: If file is not found in path.
         """
         path = Path(path)
 
@@ -290,82 +293,86 @@ class BaseDataLoader(BaseLoader, ABC):
 
     def save_data(
         self,
-        df: pd.DataFrame,
+        data: pd.DataFrame,
         path: Union[str, Path] = Path("data/training/training_data.csv"),
     ) -> None:
         """Saves the processed DataFrame to a CSV file.
 
         Args:
-            df (pd.DataFrame): The processed DataFrame.
+            data (pd.DataFrame): The processed DataFrame.
             path (str, optional): Directory where dataset is saved.
                 Path("data/training/training_data.csv".
         """
-        super().save_data(df=df, path=path)
+        super().save_data(data=data, path=path)
 
-    def _check_encoded_columns(self, df: pd.DataFrame) -> None:
+    def _check_encoded_columns(self, data: pd.DataFrame) -> None:
         """Verifies that categorical columns were correctly one-hot or target encoded.
 
         Args:
-            df (pd.DataFrame): The DataFrame to check.
+            data (pd.DataFrame): The DataFrame to check.
 
         Raises:
             ValueError: If columns are not correctly encoded.
         """
         if self.encoding == "one_hot":
-            cat_vars = [col for col in self.all_cat_vars if col in df.columns]
+            cat_vars = [col for col in self.all_cat_vars if col in data.columns]
 
             for col in cat_vars:
-                if col in df.columns:
+                if col in data.columns:
                     raise ValueError(
                         f"Column '{col}' was not correctly one-hot encoded."
                     )
-                matching_columns = [c for c in df.columns if c.startswith(f"{col}_")]
+                matching_columns = [c for c in data.columns if c.startswith(f"{col}_")]
                 if not matching_columns:
                     raise ValueError(f"No one-hot encoded columns for '{col}'.")
         elif self.encoding == "target":
-            if "toothside" not in df.columns:
+            if "toothside" not in data.columns:
                 raise ValueError("Target encoding for 'toothside' failed.")
         elif self.encoding is None:
             print("No encoding was applied.")
         else:
             raise ValueError(f"Invalid encoding '{self.encoding}'.")
 
-    def _check_scaled_columns(self, df: pd.DataFrame) -> None:
+    def _check_scaled_columns(self, data: pd.DataFrame) -> None:
         """Verifies that scaled columns are within expected ranges.
 
         Args:
-            df (pd.DataFrame): The DataFrame to check.
+            data (pd.DataFrame): The DataFrame to check.
 
         Raises:
             ValueError: If any columns are not correctly scaled.
         """
         if self.scale:
             for col in self.scale_vars:
-                scaled_min = df[col].min()
-                scaled_max = df[col].max()
+                scaled_min = data[col].min()
+                scaled_max = data[col].max()
                 if scaled_min < -10 or scaled_max > 20:
                     raise ValueError(f"Column {col} is not correctly scaled.")
 
     @abstractmethod
-    def encode_categorical_columns(self, df: pd.DataFrame):
+    def encode_categorical_columns(self, data: pd.DataFrame, fit_encoder: bool):
         """Encodes categorical columns in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame containing categorical columns.
+            data (pd.DataFrame): The DataFrame containing categorical columns.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
         """
 
     @abstractmethod
-    def scale_numeric_columns(self, df: pd.DataFrame):
+    def scale_numeric_columns(self, data: pd.DataFrame):
         """Scales numeric columns in the DataFrame.
 
         Args:
-            df (pd.DataFrame): The DataFrame containing numeric columns.
+            data (pd.DataFrame): The DataFrame containing numeric columns.
         """
 
     @abstractmethod
-    def transform_data(self, df: pd.DataFrame):
+    def transform_data(self, data: pd.DataFrame, fit_encoder: bool):
         """Processes and transforms the data.
 
         Args:
-            df (pd.DataFrame): The DataFrame to transform.
+            data (pd.DataFrame): The DataFrame to transform.
+            fit_encoder (bool): Whether to fit the encoder on this dataset
+                (only for training data).
         """

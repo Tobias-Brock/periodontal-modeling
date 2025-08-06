@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import loguniform, randint, uniform
 
-###### Random Search search spaces
+# Random Search search spaces
 
 # XGBoost parameter grid
 xgb_param_grid = {
@@ -72,7 +72,7 @@ mlp_param_grid = {
     "beta_2": uniform(0.99, 0.009),
 }
 
-###### HEBO search spaces
+# HEBO search spaces
 
 
 # HEBO XGBoost

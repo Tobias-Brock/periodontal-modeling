@@ -11,7 +11,17 @@ from periomod.tuning import HEBOTuner
 
 
 def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42):
-    """Creates a sample dataset for testing."""
+    """Creates a sample dataset for testing.
+
+    Args:
+        n_samples (int): Number of samples.
+        n_features (int): Number of features.
+        n_classes (int): Number of output classes.
+        random_state (int): Random seed for reproducibility.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.Series]: Feature matrix `X` and target vector `y`.
+    """
     X, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
@@ -27,9 +37,12 @@ def create_sample_data(n_samples=100, n_features=5, n_classes=2, random_state=42
 
 @pytest.fixture
 def sample_data():
-    """Sampling function for testing."""
-    X, y = create_sample_data()
-    return X, y
+    """Sampling function for testing.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.Series]: Feature matrix `X` and target vector `y`.
+    """
+    return create_sample_data()
 
 
 def test_hebotuner_holdout(sample_data):
@@ -75,10 +88,10 @@ def test_hebotuner_cv(sample_data):
     resampler.group_col = "feature_0"
     resampler.all_cat_vars = []
 
-    df = X.copy()
-    df["y"] = y
+    data = X.copy()
+    data["y"] = y
 
-    outer_splits, _ = resampler.cv_folds(df=df, n_folds=3, seed=42)
+    outer_splits, _ = resampler.cv_folds(df=data, n_folds=3, seed=42)
     trainer = Trainer(
         classification="binary",
         criterion="f1",
@@ -108,7 +121,6 @@ def test_hebotuner_cv(sample_data):
 
 def test_hebotuner_invalid_tuning_strategy(sample_data):
     """Test HEBOTuner with invalid tuning strategy."""
-    X, y = sample_data
     with pytest.raises(
         ValueError, match="Unsupported tuning method. Choose either 'holdout' or 'cv'."
     ):
@@ -120,7 +132,7 @@ def test_hebotuner_invalid_tuning_strategy(sample_data):
             mlp_training=False,
             threshold_tuning=True,
         )
-        tuner = HEBOTuner(
+        HEBOTuner(
             classification="binary",
             criterion="f1",
             tuning="invalid_tuning",
