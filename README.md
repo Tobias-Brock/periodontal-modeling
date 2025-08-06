@@ -9,6 +9,10 @@
 
 `peridontal-modeling`, or in short `periomod` is a Python package for comprehensive periodontal data processing, modeling and evaluation. This package provides tools for preprocessing, training, automatic hyperparameter tuning, resampling, model evaluation, inference, and descriptive analysis, with an interactive Gradio frontend. `periomod`, is specifically tailored to hierarchical periodontal patient data and was developed for Python 3.11, but is also compatible with Python 3.10.
 
+## Publication
+
+**Predictive modeling for step II therapy response in periodontitis - model development and validation** [(Read article)](https://www.nature.com/articles/s41746-025-01828-3).
+
 ## Features
 
 - **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, data imputation and transformation.
