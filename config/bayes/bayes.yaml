@@ -1,0 +1,75 @@
+# Columns dropped from the design matrix of every level.
+exclude_columns:
+  - "id_patient"
+  - "pregnant"
+  - "pdrevaluation"
+  - "boprevaluation"
+  - "pdgroup"
+  - "pdgroupbase"
+
+# Engineered infection features assigned to their level. Only included when
+# 'include_infect' is set, as they replicate neighborhood aggregation by hand.
+infect_levels:
+  patient: []
+  tooth: ["tooth_infected", "infected_neighbors"]
+  site: ["side_infected"]
+include_infect: False
+
+# Categorical predictors modeled as hierarchical effects rather than dummies.
+# Every remaining categorical predictor receives compact dummy coding with the
+# first level as reference.
+direct_effects:
+  tooth: True
+  side: True
+
+# Anatomical ring of the six sites of a tooth and interproximal contacts, given
+# as (mesial side, distal side) pairs per aspect. Identical to the anatomy of
+# the graph submodule, so that both models share the same adjacency.
+side_ring:
+  - [1, 2]
+  - [2, 3]
+  - [3, 4]
+  - [4, 5]
+  - [5, 6]
+  - [6, 1]
+interproximal_aspects:
+  - [3, 1]
+  - [4, 6]
+
+# Spatial stage. Choose 'none' for the nested model, 'tooth' for a CAR prior on
+# tooth effects, 'site' for a CAR prior on site effects or 'both'.
+spatial: "none"
+spatial_relations:
+  tooth_neighbor: True
+  site_neighbor: True
+  interproximal: True
+
+# Weakly informative priors on the logit scale.
+intercept_sd: 1.5
+beta_sd: 1.0
+sigma_sd: 1.0
+spatial_sigma_sd: 1.0
+zero_sum_sd: 0.001
+
+# Sampler settings.
+draws: 1000
+tune: 1000
+chains: 4
+cores: 4
+target_accept: 0.9
+sampler_seed: 0
+progressbar: False
+mp_ctx: "forkserver"
+
+# Posterior summaries and prediction.
+hdi_prob: 0.95
+random_effects: "sample"
+
+# Patient level splitting, performed before any preprocessing.
+val_size: 0.2
+test_size: 0.2
+split_seed: 0
+
+# Sites entering likelihood and evaluation. Choose 'all', 'diseased' for sites
+# with baseline pocket depth > 3 mm, or 'task' to derive it from the task.
+target_sites: "task"

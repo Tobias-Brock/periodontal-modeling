@@ -81,6 +81,7 @@ class Validator(ModelExtractor):
         learners_dict: Dict,
         criterion: str,
         aggregate: bool,
+        aggregate_features: bool,
         path_train: Path,
         path_val: Path,
         verbose: bool = False,
@@ -94,6 +95,7 @@ class Validator(ModelExtractor):
             criterion (str): Performance criterion for evaluation
                 (e.g., "f1", "brier_score").
             aggregate (bool): Whether to aggregate results across multiple models.
+            aggregate_features (bool): Aggregate feature levels.
             path_train (Path): Path to the training dataset used for encoding reference.
             path_val (Path): Path to the validation dataset.
             verbose (bool, optional): Whether to print detailed logs. Defaults to False.
@@ -106,6 +108,7 @@ class Validator(ModelExtractor):
             learners_dict=learners_dict,
             criterion=criterion,
             aggregate=aggregate,
+            aggregate_features=aggregate_features,
             verbose=verbose,
             random_state=random_state,
         )
@@ -139,7 +142,6 @@ class Validator(ModelExtractor):
         data_train = self.dataloader.load_data(path=self.path_train)
         data_train = self.dataloader.transform_data(data=data_train, fit_encoder=True)
 
-        # 2) Load + transform (val) with fit_encoder=False
         data_val = self.dataloader.load_data(path=self.path_val)
         data_processed = self.dataloader.transform_data(
             data=data_val, fit_encoder=False
@@ -148,7 +150,6 @@ class Validator(ModelExtractor):
         X_val = data_processed.drop(columns=[self.y])
         y = data_processed[self.y]
 
-        # If using target encoding, apply target encoding logic here:
         if self.encoding == "target":
             train_df, test_df = self.resampler.split_train_test_df(
                 df=data_train, seed=self.random_state, test_size=self.test_size

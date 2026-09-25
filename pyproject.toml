@@ -36,6 +36,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Dependencies for the graph neural network submodule
+gnn = [
+  "torch>=2.1",
+  "torch_geometric>=2.5",
+]
+
+# Dependencies for the Bayesian hierarchical submodule. PyMC 5.17 and newer
+# require numpy >= 1.25, which conflicts with the pinned numpy of the package.
+bayes = [
+  "pymc>=5.10,<5.17",
+  "arviz>=0.17",
+]
+
 # Dependencies for documentation
 docs = [
   "mkdocs==1.6.1",

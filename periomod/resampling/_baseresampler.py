@@ -61,6 +61,12 @@ class BaseResampler(BaseConfig, ABC):
         self.classification = classification
         self.encoding = encoding
 
+    def _use_groups(self, df: Optional[pd.DataFrame] = None) -> bool:
+        gc = getattr(self, "group_col", None)
+        if not self.grouping or gc is None:
+            return False
+        return (df is None) or (gc in df.columns)
+
     def apply_sampling(
         self,
         X: pd.DataFrame,

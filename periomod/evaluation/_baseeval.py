@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import re
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from matplotlib.colors import LinearSegmentedColormap
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import shap
 from sklearn.calibration import calibration_curve
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -28,7 +30,12 @@ def _is_one_hot_encoded(feature: str) -> bool:
         bool: True if the feature is one-hot encoded.
     """
     parts = feature.rsplit("_", 1)
-    return len(parts) > 1 and (parts[1].isdigit())
+    if len(parts) <= 1:
+        return False
+
+    # Validation data can carry categorical codes as floats, producing feature
+    # names such as "toothtype_0.0". Treat those as one-hot suffixes too.
+    return bool(re.fullmatch(r"-?\d+(?:\.0+)?", parts[1]))
 
 
 def _get_base_name(feature: str) -> str:
@@ -90,6 +97,9 @@ class EvaluatorMethods(BaseConfig):
             'one_hot' or 'target', used for labeling and grouping in plots.
         aggregate (bool): If True, aggregates the importance values of multi-category
             encoded features for interpretability.
+        aggregate_features (bool): If True, aggregates importance values
+            on the level of clinical feature groups (patient-, tooth-, and
+            side-level features) instead of plotting individual features.
 
     Attributes:
         X (pd.DataFrame): Holds the test dataset features for evaluation.
@@ -123,6 +133,7 @@ class EvaluatorMethods(BaseConfig):
         ],
         encoding: Optional[str],
         aggregate: bool,
+        aggregate_features: bool,
     ) -> None:
         """Initialize the FeatureImportance class."""
         super().__init__()
@@ -131,6 +142,7 @@ class EvaluatorMethods(BaseConfig):
         self.model = model
         self.encoding = encoding
         self.aggregate = aggregate
+        self.aggregate_features = aggregate_features
         self._set_plot_style()
 
     def _set_plot_style(self) -> None:
@@ -272,6 +284,79 @@ class EvaluatorMethods(BaseConfig):
         ]
         return pd.concat([X_copy[non_one_hot_cols], aggregated_data], axis=1)
 
+    def _get_feature_level(self, feature: str) -> str:
+        """Return the clinical level for a given feature name.
+
+        Levels are 'Patient', 'Tooth', 'Side' or 'Other' if the feature is not
+        found in any of the configured clinical column lists.
+
+        Matching is case-insensitive, robust to prettified labels (via
+        `feature_mapping`), and also handles infection flags such as 'side_infected',
+        'tooth_infected', and 'infected_neighbors'.
+        """
+        feat_pretty = feature.lower()
+        fmap = getattr(self, "feature_mapping", {}) or {}
+        reverse_map = {v.lower(): k.lower() for k, v in fmap.items()}
+        base_feat = reverse_map.get(feat_pretty, feat_pretty)
+        patient_cols = getattr(self, "patient_columns", [])
+        tooth_cols = getattr(self, "tooth_columns", [])
+        side_cols = getattr(self, "side_columns", [])
+
+        patient_set = {c.lower() for c in patient_cols}
+        tooth_set = {c.lower() for c in tooth_cols}
+        side_set = {c.lower() for c in side_cols}
+
+        if base_feat in patient_set:
+            level = "Patient"
+        elif base_feat in tooth_set:
+            level = "Tooth"
+        elif base_feat in side_set:
+            level = "Side"
+        elif base_feat == "side_infected":
+            level = "Side"
+        elif base_feat in {"tooth_infected", "infected_neighbors"}:
+            level = "Tooth"
+        else:
+            level = "Other"
+
+        return level
+
+    def _aggregate_importances_by_feature_level(
+        self,
+        fi_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Aggregate importance scores by clinical feature level.
+
+        Groups features into patient-, tooth-, and side-level categories,
+        summing their importance scores.
+
+        Args:
+            fi_df (pd.DataFrame): DataFrame with columns 'Feature' and
+                'Importance'.
+
+        Returns:
+            pd.DataFrame: Aggregated importance scores by feature level.
+        """
+        tmp = fi_df.copy()
+        tmp["Level"] = tmp["Feature"].apply(self._get_feature_level)
+        agg = (
+            tmp.groupby("Level", as_index=False)["Importance"]
+            .sum()
+            .sort_values("Importance", ascending=False)
+        )
+        return agg.reset_index(drop=True)
+
+    def _save_plot(
+        self, name: Optional[str], fi: str, dpi: int = 300, img_format: str = "svg"
+    ):
+        if name is None:
+            raise ValueError("'name' argument is required when 'save' is True.")
+        plt.savefig(
+            name + fi + ".svg",
+            format=img_format,
+            dpi=dpi,
+        )
+
 
 class BaseModelEvaluator(EvaluatorMethods, ABC):
     """Abstract base class for evaluating machine learning model performance.
@@ -339,9 +424,17 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
         ],
         encoding: Optional[str],
         aggregate: bool,
+        aggregate_features: bool,
     ) -> None:
         """Initialize the FeatureImportance class."""
-        super().__init__(X=X, y=y, model=model, encoding=encoding, aggregate=aggregate)
+        super().__init__(
+            X=X,
+            y=y,
+            model=model,
+            encoding=encoding,
+            aggregate=aggregate,
+            aggregate_features=aggregate_features,
+        )
 
     def calibration_plot(
         self,
@@ -751,6 +844,224 @@ class BaseModelEvaluator(EvaluatorMethods, ABC):
             )
             plt.savefig(filename, format="svg")
         plt.show()
+
+    def _compute_shap_importance(
+        self,
+        *,
+        fi_type: str,
+        show_plot: bool,
+        model_name: str,
+        save: bool,
+        name: Optional[str],
+        importance_dict: dict[str, pd.DataFrame],
+        max_shap_background: Optional[int],
+        max_shap_eval: Optional[int],
+        shap_random_state: int = 0,
+    ) -> tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+        """Compute SHAP-based importance and update ``importance_dict``.
+
+        Args:
+            fi_type (str): Feature importance type label (e.g. 'shap').
+            show_plot (bool): If True, display the SHAP importance plot.
+            model_name (str): Name of the model, used in plot titles and keys.
+            save (bool): If True, save the SHAP importance plot.
+            name (Optional[str]): Base file name used when saving plots.
+            importance_dict (dict[str, pd.DataFrame]): Dictionary to store computed
+                importance DataFrames.
+            max_shap_background (Optional[int]): Maximum number of samples to use
+                for SHAP background dataset. If None, use all samples.
+            max_shap_eval (Optional[int]): Maximum number of samples to use for
+                SHAP evaluation. If None, use all samples.
+            shap_random_state (int): Random state for reproducibility in sampling.
+
+        Returns:
+            tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]: DataFrames
+            containing feature importances and feature level importances, if
+            applicable.
+
+        Raises:
+            ValueError: If SHAP values dimensions do not match feature count.
+        """
+        fi_df: Optional[pd.DataFrame] = None
+        fi_level_df: Optional[pd.DataFrame] = None
+
+        X_full = self.X
+        feature_names = X_full.columns.tolist()
+
+        if max_shap_background is not None and len(X_full) > max_shap_background:
+            X_bg = X_full.sample(
+                n=max_shap_background,
+                random_state=shap_random_state,
+            )
+        else:
+            X_bg = X_full
+
+        if max_shap_eval is not None and len(X_full) > max_shap_eval:
+            X_eval = X_full.sample(
+                n=max_shap_eval,
+                random_state=shap_random_state + 1,
+            )
+        else:
+            X_eval = X_full
+
+        is_tree_model = isinstance(self.model, (RandomForestClassifier, XGBClassifier))
+
+        if is_tree_model:
+            tree_explainer = shap.TreeExplainer(
+                self.model,
+                data=X_bg,
+                feature_perturbation="interventional",
+                model_output="probability",
+            )
+            shap_raw = tree_explainer.shap_values(X_eval, check_additivity=False)
+
+            if isinstance(shap_raw, list):
+                values = np.mean([np.abs(v) for v in shap_raw], axis=0)
+            else:
+                values = np.abs(shap_raw)
+                if values.ndim == 3:
+                    values = np.abs(values).mean(axis=-1)
+
+        elif isinstance(self.model, MLPClassifier):
+            explainer = shap.Explainer(self.model.predict_proba, X_bg)
+            explanation = explainer(X_eval)
+            values = np.array(explanation.values)
+            if values.ndim == 3:
+                values = np.abs(values).mean(axis=-1)
+            else:
+                values = np.abs(values)
+
+        else:
+            explainer = shap.Explainer(self.model, X_bg)
+            explanation = explainer(X_eval)
+            values = np.array(explanation.values)
+            if values.ndim == 3:
+                values = np.abs(values).mean(axis=-1)
+            else:
+                values = np.abs(values)
+
+        if values.ndim == 1:
+            values = values.reshape(-1, 1)
+
+        if values.shape[1] != len(feature_names):
+            raise ValueError(
+                f"SHAP values second dimension ({values.shape[1]}) does not match "
+                f"number of features ({len(feature_names)}). "
+            )
+
+        if self.aggregate:
+            aggregated_shap_values, aggregated_feature_names = (
+                self._aggregate_shap_one_hot(
+                    shap_values=values,
+                    feature_names=feature_names,
+                )
+            )
+            aggregated_feature_names = self._feature_mapping(aggregated_feature_names)
+
+            if self.aggregate_features:
+                mean_abs = np.abs(aggregated_shap_values).mean(axis=0)
+                fi_df = pd.DataFrame({
+                    "Feature": aggregated_feature_names,
+                    "Importance": mean_abs,
+                })
+                fi_level_df = self._aggregate_importances_by_feature_level(fi_df)
+                importance_dict[f"{model_name}_{fi_type}_levels"] = fi_level_df
+            else:
+                aggregated_shap_df = pd.DataFrame(
+                    aggregated_shap_values,
+                    columns=aggregated_feature_names,
+                )
+                importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
+
+                self._plot_shap_bar_importance(
+                    shap_values=aggregated_shap_values,
+                    feature_names=aggregated_feature_names,
+                    model_name=model_name,
+                    fi_type=fi_type,
+                    save=save,
+                    name=name,
+                    show_plot=show_plot,
+                )
+
+        else:
+            mapped_feature_names = self._feature_mapping(feature_names)
+            if self.aggregate_features:
+                mean_abs = np.abs(values).mean(axis=0)
+                fi_df = pd.DataFrame({
+                    "Feature": mapped_feature_names,
+                    "Importance": mean_abs,
+                })
+                fi_level_df = self._aggregate_importances_by_feature_level(fi_df)
+                importance_dict[f"{model_name}_{fi_type}_levels"] = fi_level_df
+            else:
+                self._plot_shap_bar_importance(
+                    shap_values=values,
+                    feature_names=mapped_feature_names,
+                    model_name=model_name,
+                    fi_type=fi_type,
+                    save=save,
+                    name=name,
+                    show_plot=show_plot,
+                )
+
+        return fi_df, fi_level_df
+
+    def _plot_shap_bar_importance(
+        self,
+        *,
+        shap_values: np.ndarray,
+        feature_names: list[str],
+        model_name: str,
+        fi_type: str,
+        save: bool,
+        name: Optional[str],
+        show_plot: bool,
+    ) -> None:
+        """Helper to create a SHAP bar plot with consistent styling.
+
+        Args:
+            shap_values (np.ndarray): SHAP values (samples × features).
+            feature_names (list[str]): Names of the features corresponding to columns.
+            model_name (str): Name of the model, used in the plot title and keys.
+            fi_type (str): Importance type label (e.g. 'shap').
+            save (bool): If True, save the plot via ``self._save_plot``.
+            name (Optional[str]): Base file name used when saving.
+            show_plot (bool): If True, display the plot; otherwise close the figure.
+
+        Raises:
+            ValueError: If 'save' is True and 'name' is None.
+        """
+        plt.figure(figsize=(4, 4), dpi=300)
+        shap.summary_plot(
+            shap_values,
+            feature_names=feature_names,
+            plot_type="bar",
+            show=False,
+        )
+
+        ax = plt.gca()
+        for bar in ax.patches:
+            bar.set_edgecolor("black")
+            bar.set_linewidth(1)
+
+        ax.spines["left"].set_visible(True)
+        ax.spines["left"].set_color("black")
+        ax.spines["bottom"].set_color("black")
+        ax.spines["bottom"].set_edgecolor("black")
+        ax.tick_params(axis="y", colors="black")
+
+        plt.title(f"{model_name}: SHAP Feature Importance")
+        plt.tight_layout()
+
+        if save:
+            if name is None:
+                raise ValueError("'name' argument is required when 'save' is True.")
+            self._save_plot(name=name, fi=fi_type)
+
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
 
     @abstractmethod
     def evaluate_feature_importance(self, importance_types: List[str]):

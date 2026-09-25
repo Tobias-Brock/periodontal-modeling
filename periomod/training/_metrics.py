@@ -31,6 +31,19 @@ def get_probs(model: Any, classification: str, X: pd.DataFrame) -> np.ndarray:
         return model.predict_proba(X)
 
 
+def specificity_binary(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute specificity for binary classification.
+
+    Args:
+        y_true (np.ndarray): Ground truth (actual) labels.
+        y_pred (np.ndarray): Predicted labels from the model.
+
+    Returns:
+        float: The specificity score.
+    """
+    return recall_score(y_true=y_true, y_pred=y_pred, pos_label=1)
+
+
 def brier_loss_multi(y: np.ndarray, probs: np.ndarray) -> float:
     """Calculates the multiclass Brier score.
 
@@ -85,12 +98,14 @@ def final_metrics(
         roc_auc_value: Union[float, None] = (
             roc_auc_score(y, probs) if probs is not None else None
         )
-        conf_matrix: np.ndarray = confusion_matrix(y, preds)
+        specificity = specificity_binary(y_true=y, y_pred=preds)
+        conf_matrix = confusion_matrix(y_true=y, y_pred=preds)
 
         return {
             "F1 Score": f1,
             "Precision": precision,
             "Recall": recall,
+            "Specificity": specificity,
             "Accuracy": accuracy,
             "Brier Score": brier_score_value,
             "ROC AUC Score": roc_auc_value,

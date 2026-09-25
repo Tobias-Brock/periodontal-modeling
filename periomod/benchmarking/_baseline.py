@@ -16,6 +16,7 @@ column_order_binary = [
     "F1 Score",
     "Precision",
     "Recall",
+    "Specificity",
     "Accuracy",
     "Brier Score",
     "Brier Skill Score",

@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import shap
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import permutation_importance
@@ -38,6 +37,9 @@ class ModelEvaluator(BaseModelEvaluator):
             titles and feature grouping (e.g., 'one_hot' or 'target').
         aggregate (bool): If True, aggregates the importance values of multi-category
             encoded features for interpretability.
+        aggregate_features (bool): If True, aggregates importance values
+            on the level of clinical feature groups (patient-, tooth-, and
+            side-level features) instead of plotting individual features.
 
     Attributes:
         X (pd.DataFrame): Stores the test dataset features for model evaluation.
@@ -94,51 +96,88 @@ class ModelEvaluator(BaseModelEvaluator):
         ],
         encoding: Optional[str] = None,
         aggregate: bool = True,
+        aggregate_features: bool = False,
     ) -> None:
         """Initialize the FeatureImportance class."""
-        super().__init__(X=X, y=y, model=model, encoding=encoding, aggregate=aggregate)
+        super().__init__(
+            X=X,
+            y=y,
+            model=model,
+            encoding=encoding,
+            aggregate=aggregate,
+            aggregate_features=aggregate_features,
+        )
 
     def evaluate_feature_importance(
-        self, fi_types: List[str], save: bool = False, name: Optional[str] = None
-    ) -> None:
-        """Evaluate the feature importance for a list of trained models.
+        self,
+        fi_types: List[str],
+        show_plot: bool = True,
+        save: bool = False,
+        name: Optional[str] = None,
+        max_shap_background: Optional[int] = None,
+        max_shap_eval: Optional[int] = None,
+        shap_random_state: int = 0,
+    ) -> dict[str, pd.DataFrame]:
+        """Evaluate the feature importance for a trained model.
+
+        Depending on `fi_types`, this computes SHAP, permutation, or standard
+        feature importance. Importance values can optionally be aggregated over
+        one-hot encoded features and/or over clinical feature levels (Patient,
+        Tooth, Side), depending on the `aggregate` and `aggregate_features`
+        flags.
 
         Args:
             fi_types (List[str]): Methods of feature importance evaluation:
                 'shap', 'permutation', 'standard'.
+            show_plot (bool): If True, displays the feature importance plots.
+                Defaults to True.
             save (bool): If True, saves the plot as an SVG file. Defaults to False.
-            name (Optional[str]): Name of the file to save the plot. Required when
+            name (Optional[str]): Base name of the file to save the plot.
+                Required when `save` is True.
+            max_shap_background (Optional[int]): Maximum number of rows used to
+                build the SHAP explainer background. If None, use the full
+                dataset (`self.X`) as background. Defaults to None.
+            max_shap_eval (Optional[int]): Maximum number of rows on which SHAP
+                values are actually computed. If None, SHAP is computed on the
+                full dataset (`self.X`). Defaults to None.
+            shap_random_state (int): Random seed for subsampling the background
+                and evaluation sets. Defaults to 0.
+
+        Returns:
+            dict[str, pd.DataFrame]: Dictionary mapping keys to DataFrames with
+            importance values. Typical keys are:
+                - "<ModelName>_shap"
+                - "<ModelName>_shap_levels"
+                - "<ModelName>_permutation"
+                - "<ModelName>_permutation_levels"
+                - "<ModelName>_standard"
+                - "<ModelName>_standard_levels"
+            depending on `fi_types`, `aggregate`, and `aggregate_features`.
 
         Raises:
-            ValueError: If invalid fi_type: {fi_type} is selected.
+            ValueError: If an invalid fi_type is selected.
         """
         feature_names = self.X.columns.tolist()
-        importance_dict = {}
+        importance_dict: dict[str, pd.DataFrame] = {}
 
         for fi_type in fi_types:
             model_name = type(self.model).__name__
+            fi_df: Optional[pd.DataFrame] = None
+            fi_df_aggregated: Optional[pd.DataFrame] = None
+            fi_level_df: Optional[pd.DataFrame] = None
 
             if fi_type == "shap":
-                if isinstance(self.model, MLPClassifier):
-                    explainer = shap.Explainer(self.model.predict_proba, self.X)
-                else:
-                    explainer = shap.Explainer(self.model, self.X)
-
-                if isinstance(self.model, (RandomForestClassifier, XGBClassifier)):
-                    shap_values = explainer.shap_values(self.X, check_additivity=False)
-                    if (
-                        isinstance(self.model, RandomForestClassifier)
-                        and len(shap_values.shape) == 3
-                    ):
-                        shap_values = np.abs(shap_values).mean(axis=-1)
-                else:
-                    shap_values = explainer.shap_values(self.X)
-
-                if isinstance(shap_values, list):
-                    shap_values_stacked = np.stack(shap_values, axis=-1)
-                    shap_values = np.abs(shap_values_stacked).mean(axis=-1)
-                else:
-                    shap_values = np.abs(shap_values)
+                fi_df, fi_level_df = self._compute_shap_importance(
+                    fi_type=fi_type,
+                    show_plot=show_plot,
+                    model_name=model_name,
+                    save=save,
+                    name=name,
+                    importance_dict=importance_dict,
+                    max_shap_background=max_shap_background,
+                    max_shap_eval=max_shap_eval,
+                    shap_random_state=shap_random_state,
+                )
 
             elif fi_type == "permutation":
                 result = permutation_importance(
@@ -169,129 +208,86 @@ class ModelEvaluator(BaseModelEvaluator):
             else:
                 raise ValueError(f"Invalid fi_type: {fi_type}")
 
-            if self.aggregate:
-                if fi_type == "shap":
-                    aggregated_shap_values, aggregated_feature_names = (
-                        self._aggregate_shap_one_hot(
-                            shap_values=shap_values, feature_names=feature_names
-                        )
-                    )
-                    aggregated_feature_names = self._feature_mapping(
-                        aggregated_feature_names
-                    )
-
-                    aggregated_shap_df = pd.DataFrame(
-                        aggregated_shap_values, columns=aggregated_feature_names
-                    )
-                    importance_dict[f"{model_name}_{fi_type}"] = aggregated_shap_df
-
-                    plt.figure(figsize=(4, 4), dpi=300)
-                    shap.summary_plot(
-                        aggregated_shap_values,
-                        feature_names=aggregated_feature_names,
-                        plot_type="bar",
-                        show=False,
-                    )
-
-                    ax = plt.gca()
-                    for bar in ax.patches:
-                        bar.set_edgecolor("black")
-                        bar.set_linewidth(1)
-
-                    ax.spines["left"].set_visible(True)
-                    ax.spines["left"].set_color("black")
-                    ax.spines["bottom"].set_color("black")
-                    ax.tick_params(axis="y", colors="black")
-
-                    plt.title(f"{model_name}: SHAP Feature Importance")
-                    plt.tight_layout()
-
-                    if save:
-                        if name is None:
-                            raise ValueError(
-                                "'name' argument must required when 'save' is True."
-                            )
-                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
-
-                else:
+            if fi_type != "shap" and fi_df is not None:
+                if self.aggregate:
                     fi_df_aggregated = self._aggregate_one_hot_importances(fi_df=fi_df)
                     fi_df_aggregated = fi_df_aggregated.sort_values(
-                        by="Importance", ascending=False
+                        by="Importance",
+                        ascending=False,
                     )
-
                     fi_df_aggregated["Feature"] = self._feature_mapping(
-                        fi_df_aggregated["Feature"]
+                        fi_df_aggregated["Feature"].tolist()
                     )
 
-                    importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
+                    if self.aggregate_features:
+                        fi_level_df = self._aggregate_importances_by_feature_level(
+                            fi_df_aggregated
+                        )
+                        importance_dict[f"{model_name}_{fi_type}_levels"] = fi_level_df
+                    else:
+                        importance_dict[f"{model_name}_{fi_type}"] = fi_df_aggregated
 
-                    top10_fi_df_aggregated = fi_df_aggregated.head(10)
-                    bottom10_fi_df_aggregated = fi_df_aggregated.tail(10)
+                        top10_fi_df_aggregated = fi_df_aggregated.head(10)
+                        bottom10_fi_df_aggregated = fi_df_aggregated.tail(10)
 
-                    placeholder = pd.DataFrame(
-                        [["[...]", 0]], columns=["Feature", "Importance"]
-                    )
-                    selected_fi_df_aggregated = pd.concat(
-                        [
-                            top10_fi_df_aggregated,
-                            placeholder,
-                            bottom10_fi_df_aggregated,
-                        ],
-                        ignore_index=True,
-                    )
-
-            else:
-                if fi_type == "shap":
-                    feature_names = self._feature_mapping(feature_names)
-
-                    plt.figure(figsize=(4, 4), dpi=300)
-                    shap.summary_plot(
-                        shap_values,
-                        self.X,
-                        plot_type="bar",
-                        feature_names=feature_names,
-                        show=False,
-                    )
-                    ax = plt.gca()
-                    for bar in ax.patches:
-                        bar.set_edgecolor("black")
-                        bar.set_linewidth(1)
-
-                    ax.spines["left"].set_visible(True)
-                    ax.spines["left"].set_color("black")
-                    ax.spines["bottom"].set_color("black")
-                    ax.tick_params(axis="y", colors="black")
-                    plt.title(f"{model_name}: SHAP Feature Importance")
-                    plt.tight_layout()
-
-                    if save:
-                        if name is None:
-                            raise ValueError(
-                                "'name' argument must required when 'save' is True."
-                            )
-                        plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
-
+                        placeholder = pd.DataFrame(
+                            [["[...]", 0]],
+                            columns=["Feature", "Importance"],
+                        )
+                        selected_fi_df_aggregated = pd.concat(
+                            [
+                                top10_fi_df_aggregated,
+                                placeholder,
+                                bottom10_fi_df_aggregated,
+                            ],
+                            ignore_index=True,
+                        )
                 else:
                     fi_df = fi_df.sort_values(by="Importance", ascending=False)
-                    fi_df["Feature"] = self._feature_mapping(fi_df["Feature"])
-                    importance_dict[model_name] = fi_df
+                    fi_df["Feature"] = self._feature_mapping(fi_df["Feature"].tolist())
 
-            if fi_type != "shap":
+                    if self.aggregate_features:
+                        fi_level_df = self._aggregate_importances_by_feature_level(
+                            fi_df
+                        )
+                        importance_dict[f"{model_name}_{fi_type}_levels"] = fi_level_df
+                    else:
+                        importance_dict[model_name] = fi_df
+
+            if fi_type != "shap" or self.aggregate_features:
                 plt.figure(figsize=(8, 6), dpi=300)
 
-                if self.aggregate:
+                if self.aggregate_features and fi_level_df is not None:
                     plt.bar(
-                        selected_fi_df_aggregated["Feature"],
-                        selected_fi_df_aggregated["Importance"],
+                        fi_level_df["Level"],
+                        fi_level_df["Importance"],
                         edgecolor="black",
                         linewidth=1,
                         color="#078294",
                     )
+                    plt.title(
+                        f"{model_name}: {fi_type.title()} importance by feature level"
+                    )
+                    x_labels = fi_level_df["Level"]
+                elif fi_type != "shap":
+                    if self.aggregate and not self.aggregate_features:
+                        data = selected_fi_df_aggregated
+                    else:
+                        data = fi_df
+                    plt.bar(
+                        data["Feature"],
+                        data["Importance"],
+                        edgecolor="black",
+                        linewidth=1,
+                        color="#078294",
+                    )
+                    plt.title(f"{model_name}: {fi_type.title()} Feature Importance")
+                    x_labels = data["Feature"]
                 else:
-                    plt.bar(fi_df["Feature"], fi_df["Importance"])
+                    plt.close()
+                    continue
 
-                plt.title(f"{model_name}: {fi_type.title()} Feature Importance")
-                plt.xticks(rotation=90, fontsize=12)
+                plt.xticks(rotation=90, fontsize=12, ticks=range(len(x_labels)))
                 plt.yticks(fontsize=12)
                 plt.axhline(y=0, color="black", linewidth=1)
                 ax = plt.gca()
@@ -300,13 +296,15 @@ class ModelEvaluator(BaseModelEvaluator):
                 ax.spines["bottom"].set_visible(False)
                 plt.ylabel("Importance", fontsize=12)
                 plt.tight_layout()
+
                 if save:
-                    if name is None:
-                        raise ValueError(
-                            "'name' argument must required when 'save' is True."
-                        )
-                    plt.savefig(name + fi_type + ".svg", format="svg", dpi=300)
-                plt.show()
+                    self._save_plot(name=name, fi=fi_type)
+                if show_plot:
+                    plt.show()
+                else:
+                    plt.close()
+
+        return importance_dict
 
     def analyze_brier_within_clusters(
         self,

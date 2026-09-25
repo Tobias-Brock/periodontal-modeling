@@ -1,0 +1,1 @@
+::: periomod.graph.BaseGraphConfig

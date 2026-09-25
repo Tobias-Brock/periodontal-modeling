@@ -207,35 +207,40 @@ class Experiment(BaseExperiment):
         Raises:
             ValueError: If self.tuning is invalid.
         """
-        train_df, _ = self.resampler.split_train_test_df(
+        train_df, test_df = self.resampler.split_train_test_df(
             df=self.data, seed=self.test_seed, test_size=self.test_size
         )
-
         if self.tuning == "holdout":
-            return self._evaluate_holdout(train_df=train_df)
+            return self._evaluate_holdout(train_df=train_df, test_df=test_df)
         elif self.tuning == "cv":
-            return self._evaluate_cv()
+            return self._evaluate_cv(train_df=train_df)
         else:
             raise ValueError(f"Unsupported tuning method: {self.tuning}")
 
-    def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
+    def _evaluate_holdout(self, train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict:
         """Perform holdout validation and return the final model metrics.
 
         Args:
             train_df (pd.DataFrame): train df for holdout tuning.
+            test_df (pd.DataFrame): test df for holdout tuning.
 
         Returns:
             dict: A dictionary of evaluation metrics for the final model.
         """
-        train_df_h, test_df_h = self.resampler.split_train_test_df(
-            df=train_df, seed=self.test_seed, test_size=self.val_size
-        )
+        if self.resampling:
+            train_df_h, test_df_h = self.resampler.split_train_test_df(
+                df=train_df, seed=self.test_seed, test_size=self.val_size
+            )
+        else:
+            train_df_h, test_df_h = train_df, test_df
+
         X_train_h, y_train_h, X_val, y_val = self.resampler.split_x_y(
             train_df=train_df_h,
             test_df=test_df_h,
             sampling=self.sampling,
             factor=self.factor,
         )
+
         best_params, best_threshold = self.tuner.holdout(
             learner=self.learner,
             X_train=X_train_h,
@@ -244,17 +249,19 @@ class Experiment(BaseExperiment):
             y_val=y_val,
         )
         final_model = (self.learner, best_params, best_threshold)
-
         return self._train_final_model(final_model)
 
-    def _evaluate_cv(self) -> dict:
+    def _evaluate_cv(self, train_df: pd.DataFrame) -> dict:
         """Perform cross-validation and return the final model metrics.
+
+        Args:
+            train_df (pd.DataFrame): train df for holdout tuning.
 
         Returns:
             dict: A dictionary of evaluation metrics for the final model.
         """
         outer_splits, _ = self.resampler.cv_folds(
-            df=self.data,
+            df=train_df,
             sampling=self.sampling,
             factor=self.factor,
             seed=self.cv_seed,
@@ -496,7 +503,10 @@ class Benchmarker(BaseBenchmark):
         ] = {criterion: [] for criterion in self.criteria}
 
         metric_map = {
+            "accuracy": "Accuracy",
             "f1": "F1 Score",
+            "specificity": "Specificity",
+            "recall": "Recall",
             "brier_score": (
                 "Multiclass Brier Score"
                 if self.task == "pdgrouprevaluation"

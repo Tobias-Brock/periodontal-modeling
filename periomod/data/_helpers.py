@@ -767,22 +767,18 @@ class StageGradeExtentCalculator(ProcessDataHelper):
         return stagedf
 
     def _calculate_grade_per_site(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Vectorized assignment of periodontal grade per row.
+        """Vectorized assignment of periodontal grade per site (row).
 
-        This method calculates the periodontal grade based on baseline age,
-        smoking status, and diabetes status. The grade is assigned as follows:
-
-            - Grade A: bl_per_age < 0.25, cigarettenumber < 1, diabetes <= 1
-            - Grade B: bl_per_age < 1, cigarettenumber < 10, diabetes <= 1, and
-                not Grade A
-            - Grade B: bl_per_age < 0.25, (cigarettenumber > 0 or diabetes > 1)
-            - Grade C: otherwise
+        This computes a 'grade' column on the *whole* DataFrame based on:
+            - bl_per_age
+            - cigarettenumber
+            - diabetes
 
         Args:
             df (pd.DataFrame): Must contain 'bl_per_age', 'cigarettenumber', 'diabetes'.
 
         Returns:
-            pd.DataFrame: With new 'grade' column.
+            pd.DataFrame: Copy of df with a new 'grade' column.
         """
         cdf = df.copy()
 
@@ -790,7 +786,7 @@ class StageGradeExtentCalculator(ProcessDataHelper):
         smoke = cdf["cigarettenumber"]
         diabetes = cdf["diabetes"]
 
-        grade = pd.Series(2, index=df.index)
+        grade = pd.Series(2, index=cdf.index)
         grade[(bl_age < 0.25) & (smoke < 1) & (diabetes <= 1)] = 0
         grade[(bl_age < 1) & (grade != 0) & (smoke < 10) & (diabetes <= 1)] = 1
         grade[(bl_age < 0.25) & ((smoke > 0) | (diabetes > 1))] = 1
@@ -802,18 +798,20 @@ class StageGradeExtentCalculator(ProcessDataHelper):
         """Assigns the highest periodontal grade per patient.
 
         Args:
-            df (pd.DataFrame): DataFrame containing patient-level data with
-            'id_patient', 'side', and 'bl/age', 'cigarettenumber', 'diabetes'.
+            df (pd.DataFrame): DataFrame containing site-level data with
+                'id_patient', 'side', 'bl_per_age', 'cigarettenumber', 'diabetes'.
 
         Returns:
-            pd.DataFrame: DataFrame with a new 'grade' column assigned per patient.
+            pd.DataFrame: DataFrame with a patient-level 'grade' column
+                (max grade over selected sites).
         """
         grade_df = df[df["side"].isin([1, 3, 4, 6])].copy()
-        grade_df["grade_temp"] = grade_df.apply(self._calculate_grade_per_site, axis=1)
-        max_grade_per_patient = grade_df.groupby("id_patient")["grade_temp"].max()
-
+        if "grade" not in grade_df.columns:
+            grade_df = self._calculate_grade_per_site(grade_df)
+        max_grade_per_patient = grade_df.groupby("id_patient")["grade"].max()
         cdf = df.copy()
         cdf["grade"] = cdf["id_patient"].map(max_grade_per_patient)
+
         return cdf
 
     @staticmethod
@@ -872,7 +870,11 @@ class StageGradeExtentCalculator(ProcessDataHelper):
         cdf = self._calculate_cal(cdf)
         cdf = self._calculate_bone_loss(cdf)
         cdf = self._calculate_boneloss_per_age(cdf)
+        # interesting
         cdf = self._calculate_stage_per_patient(cdf)
         cdf = self._calculate_grade_per_site(cdf)
+        # interesting
         cdf = self._calculate_grade_per_patient(cdf)
+        # interesting
+        cdf = self._calculate_extent(cdf)
         return cdf

@@ -6,12 +6,17 @@ from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import brier_score_loss, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    f1_score,
+    recall_score,
+)
 from sklearn.neural_network import MLPClassifier
 
 from ..base import BaseValidator
 from ..resampling import Resampler
-from ._metrics import brier_loss_multi
+from ._metrics import brier_loss_multi, specificity_binary
 
 
 class BaseTrainer(BaseValidator, ABC):
@@ -123,23 +128,29 @@ class BaseTrainer(BaseValidator, ABC):
         Args:
             y (np.ndarray): True labels for the validation data.
             probs (np.ndarray): Probability predictions for the positive class.
-            threshold (bool): Flag for threshold tuning when tuning with F1.
+            threshold (bool): Flag for threshold tuning.
                 Defaults to None.
 
         Returns:
             Tuple: Score and optimal threshold (if applicable).
         """
-        if self.criterion == "f1":
+        if self.criterion in ["f1", "specificity", "recall"]:
             if threshold:
-                scores, thresholds = [], np.linspace(0, 1, 101)
-                for threshold in thresholds:
-                    preds = (probs >= threshold).astype(int)
-                    scores.append(f1_score(y, preds, pos_label=0))
-                best_idx = np.argmax(scores)
-                return scores[best_idx], thresholds[best_idx]
+                return self._tune_threshold_binary(y_true=y, probs=probs)
             else:
                 preds = (probs >= 0.5).astype(int)
-                return f1_score(y_true=y, y_pred=preds, pos_label=0), 0.5
+                if self.criterion == "f1":
+                    score = f1_score(y_true=y, y_pred=preds, pos_label=0)
+                elif self.criterion == "specificity":
+                    score = specificity_binary(y_true=y, y_pred=preds)
+                elif self.criterion == "recall":
+                    score = recall_score(y_true=y, y_pred=preds, pos_label=0)
+                return score, 0.5
+
+        elif self.criterion == "accuracy":
+            preds = (probs >= 0.5).astype(int)
+            return accuracy_score(y_true=y, y_pred=preds), 0.5
+
         else:
             return brier_score_loss(y_true=y, y_proba=probs), None
 
@@ -159,6 +170,8 @@ class BaseTrainer(BaseValidator, ABC):
 
         if self.criterion == "macro_f1":
             return f1_score(y_true=y, y_pred=preds, average="macro"), None
+        elif self.criterion == "accuracy":
+            return accuracy_score(y_true=y, y_pred=preds), None
         else:
             return brier_loss_multi(y=y, probs=probs), None
 
@@ -225,19 +238,50 @@ class BaseTrainer(BaseValidator, ABC):
         Raises:
             ValueError: If self.criterion is not valid.
         """
-        if self.criterion == "brier_score":
+        if self.criterion in ("brier_score", "accuracy"):
             return None
 
-        elif self.criterion == "f1":
-            thresholds = np.linspace(0, 1, 101)
-            scores = [
-                f1_score(y_true=true_labels, y_pred=probs >= th, pos_label=0)
-                for th in thresholds
-            ]
-            best_threshold = thresholds[np.argmax(scores)]
-            print(f"Best threshold: {best_threshold}, Best F1 score: {np.max(scores)}")
+        if self.criterion in ("f1", "recall", "specificity"):
+            best_score, best_threshold = self._tune_threshold_binary(
+                y_true=true_labels,
+                probs=probs,
+            )
+            print(
+                f"Best threshold: {best_threshold}, "
+                f"Best {self.criterion} score: {best_score}"
+            )
             return best_threshold
+
         raise ValueError(f"Invalid criterion: {self.criterion}")
+
+    def _tune_threshold_binary(
+        self,
+        y_true: np.ndarray,
+        probs: np.ndarray,
+    ) -> Tuple[float, float]:
+        """Grid-search threshold for a given criterion.
+
+        Args:
+            y_true (np.ndarray): True labels for the validation data.
+            probs (np.ndarray): Probability predictions for the positive class.
+
+        Returns:
+            Tuple[float, float]: Best score and corresponding threshold.
+        """
+        scores = []
+        thresholds = np.linspace(0, 1, 101)
+        for thr in thresholds:
+            preds = (probs >= thr).astype(int)
+            if self.criterion == "f1":
+                score = f1_score(y_true, preds, pos_label=0)
+            elif self.criterion == "recall":
+                score = recall_score(y_true, preds, pos_label=0)
+            elif self.criterion == "specificity":
+                score = specificity_binary(y_true, preds)
+            scores.append(score)
+
+        best_idx = int(np.argmax(scores))
+        return scores[best_idx], float(thresholds[best_idx])
 
     def optimize_threshold(
         self,
@@ -268,7 +312,6 @@ class BaseTrainer(BaseValidator, ABC):
 
         all_true_labels = np.concatenate([y for _, y, _ in results])
         all_probs = np.concatenate([probs for _, _, probs in results])
-
         return self._find_optimal_threshold(
             true_labels=all_true_labels, probs=all_probs
         )

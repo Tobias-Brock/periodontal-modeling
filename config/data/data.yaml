@@ -12,6 +12,14 @@ patient_columns:
   - "PdRevaluation"
   - "BOPRevaluation"
   - "Pregnant"
+  - "max_stage"
+  - "grade"
+  - "extent"
+  - "patient_n_teeth"
+  - "patient_teeth_pd_le3_frac"
+  - "patient_teeth_pd_4_5_frac"
+  - "patient_teeth_pd_ge6_frac"
+  - "patient_teeth_bop_any_frac"
 
 tooth_columns:
   - "Tooth"
@@ -21,6 +29,10 @@ tooth_columns:
   - "Restoration"
   - "Percussion-sensitivity"
   - "Sensitivity"
+  - "tooth_pd_sides_le3_frac"
+  - "tooth_pd_sides_4_5_frac"
+  - "tooth_pd_sides_ge6_frac"
+  - "tooth_bop_sides_frac"
 
 side_columns:
   - "FurcationBaseline"
@@ -60,6 +72,18 @@ feature_mapping:
   side_infected: "Side infected"
   tooth_infected: "Tooth infected"
   infected_neighbors: "Infected neighbors"
+  max_stage: "Max stage"
+  grade: "Grade"
+  extent: "Extent"
+  patient_n_teeth: "Number of teeth"
+  patient_teeth_pd_le3_frac: "Fraction teeth with PD ≤ 3"
+  patient_teeth_pd_4_5_frac: "Fraction teeth with PD 4–5"
+  patient_teeth_pd_ge6_frac: "Fraction teeth with PD ≥ 6"
+  patient_teeth_bop_any_frac: "Fraction teeth with any bleeding"
+  tooth_pd_sides_le3_frac: "Fraction sides with PD ≤ 3 (tooth)"
+  tooth_pd_sides_4_5_frac: "Fraction sides with PD 4–5 (tooth)"
+  tooth_pd_sides_ge6_frac: "Fraction sides with PD ≥ 6 (tooth)"
+  tooth_bop_sides_frac: "Fraction sides with bleeding (tooth)"
 
 cat_vars:
   - "side"
@@ -72,6 +96,8 @@ cat_vars:
   - "smokingtype"
   - "stresslvl"
   - "toothside"
+  - "max_stage"
+  - "grade"
 
 bin_vars:
   - "antibiotictreatment"
@@ -83,6 +109,7 @@ bin_vars:
   - "sensitivity"
   - "rootnumber"
   - "gender"
+  - "extent"
 
 scale_vars:
   - "pdbaseline"
@@ -90,6 +117,15 @@ scale_vars:
   - "bodymassindex"
   - "recbaseline"
   - "cigarettenumber"
+  - "patient_n_teeth"
+  - "patient_teeth_pd_le3_frac"
+  - "patient_teeth_pd_4_5_frac"
+  - "patient_teeth_pd_ge6_frac"
+  - "patient_teeth_bop_any_frac"
+  - "tooth_pd_sides_le3_frac"
+  - "tooth_pd_sides_4_5_frac"
+  - "tooth_pd_sides_ge6_frac"
+  - "tooth_bop_sides_frac"
 
 infect_cols:
   - "side_infected"

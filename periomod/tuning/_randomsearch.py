@@ -132,7 +132,7 @@ class RandomSearchTuner(BaseTuner):
         X_val: pd.DataFrame,
         y_val: pd.Series,
     ) -> Tuple[Dict[str, Union[float, int]], Union[float, None]]:
-        """Perform random search on the holdout set for binary and multiclass .
+        """Perform random search on the holdout set for binary and multiclass.
 
         Args:
             learner (str): The machine learning model used for evaluation.
@@ -142,8 +142,7 @@ class RandomSearchTuner(BaseTuner):
             y_val (pd.Series): Validation labels for the holdout set.
 
         Returns:
-            tuple:
-                - Best score (float)
+            Tuple[Dict[str, Union[float, int]], Union[float, None]]:
                 - Best hyperparameters (dict)
                 - Best threshold (float or None, applicable for binary classification).
         """
@@ -152,40 +151,123 @@ class RandomSearchTuner(BaseTuner):
             best_threshold,
             best_params,
             param_grid,
-            model,
+            base_model,
         ) = self._initialize_search(learner=learner, random_state=self.rs_state)
 
+        sampled_params: list[Dict[str, Union[float, int]]] = []
         for i in range(self.n_configs):
             params = self._sample_params(
-                param_grid=param_grid, iteration=i, random_state=self.rs_state
+                param_grid=param_grid,
+                iteration=i,
+                random_state=self.rs_state,
             )
-            model_clone = clone(model).set_params(**params)
-            if "n_jobs" in model_clone.get_params():
-                model_clone.set_params(n_jobs=self.n_jobs)
+            sampled_params.append(params)
 
-            score, model_clone, threshold = self.trainer.train(
-                model_clone, X_train, y_train, X_val, y_val
-            )
+        if self.n_jobs == 1:
+            for i, params in enumerate(sampled_params):
+                model_clone = clone(base_model).set_params(**params)
+                if "n_jobs" in model_clone.get_params():
+                    model_clone.set_params(n_jobs=self.n_jobs)
 
-            best_score, best_params, best_threshold = self._update_best(
-                current_score=score,
-                params=params,
-                threshold=threshold,
-                best_score=best_score,
-                best_params=best_params,
-                best_threshold=best_threshold,
-            )
-
-            if self.verbose:
-                self._print_iteration_info(
-                    iteration=i,
-                    model=model_clone,
-                    params_dict=params,
-                    score=score,
-                    threshold=best_threshold,
+                score, model_clone, threshold = self.trainer.train(
+                    model_clone,
+                    X_train,
+                    y_train,
+                    X_val,
+                    y_val,
                 )
 
+                best_score, best_params, best_threshold = self._update_best(
+                    current_score=score,
+                    params=params,
+                    threshold=threshold,
+                    best_score=best_score,
+                    best_params=best_params,
+                    best_threshold=best_threshold,
+                )
+
+                if self.verbose:
+                    self._print_iteration_info(
+                        iteration=i,
+                        model=model_clone,
+                        params_dict=params,
+                        score=score,
+                        threshold=best_threshold,
+                    )
+
+        else:
+            results = Parallel(n_jobs=self.n_jobs)(
+                delayed(self._evaluate_single_config_holdout)(
+                    base_model=base_model,
+                    params=params,
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_val=X_val,
+                    y_val=y_val,
+                )
+                for params in sampled_params
+            )
+
+            for i, (score, params, threshold) in enumerate(results):
+                best_score, best_params, best_threshold = self._update_best(
+                    current_score=score,
+                    params=params,
+                    threshold=threshold,
+                    best_score=best_score,
+                    best_params=best_params,
+                    best_threshold=best_threshold,
+                )
+
+                if self.verbose:
+                    self._print_iteration_info(
+                        iteration=i,
+                        model=None,
+                        params_dict=params,
+                        score=score,
+                        threshold=best_threshold,
+                    )
+
         return best_params, best_threshold
+
+    def _evaluate_single_config_holdout(
+        self,
+        base_model: Any,
+        params: Dict[str, Union[float, int]],
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ) -> Tuple[float, Dict[str, Union[float, int]], Union[float, None]]:
+        """Evaluate a single hyperparameter configuration on the holdout split.
+
+        This is designed for parallel execution.
+
+        Args:
+            base_model (Any): Base model instance returned by Model.get(...).
+            params (dict): Hyperparameters to set on the model.
+            X_train (pd.DataFrame): Training features.
+            y_train (pd.Series): Training labels.
+            X_val (pd.DataFrame): Validation features.
+            y_val (pd.Series): Validation labels.
+
+        Returns:
+            Tuple[float, dict, float or None]:
+                - score: evaluation score on the validation set
+                - params: the hyperparameter dict (echoed back)
+                - threshold: best threshold (if applicable)
+        """
+        model_clone = clone(base_model).set_params(**params)
+        if "n_jobs" in model_clone.get_params():
+            model_clone.set_params(n_jobs=self.n_jobs)
+
+        score, model_clone, threshold = self.trainer.train(
+            model_clone,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+        )
+        return score, params, threshold
 
     def cv(
         self,
@@ -235,7 +317,7 @@ class RandomSearchTuner(BaseTuner):
 
         if (
             self.classification == "binary"
-            and self.criterion == "f1"
+            and self.criterion in ["f1", "specificity", "recall"]
             and self.threshold_tuning
         ):
             optimal_threshold = self.trainer.optimize_threshold(
@@ -280,7 +362,9 @@ class RandomSearchTuner(BaseTuner):
             avg_initial_score = np.mean(initial_scores)
 
             if (
-                self.criterion in ["f1", "macro_f1"] and avg_initial_score > best_score
+                self.criterion
+                in ["accuarcy", "f1", "macro_f1", "specificity", "recall"]
+                and avg_initial_score > best_score
             ) or (self.criterion == "brier_score" and avg_initial_score < best_score):
                 remaining_folds = [
                     outer_splits[i]
@@ -316,7 +400,9 @@ class RandomSearchTuner(BaseTuner):
         """
         random.seed(random_state)
         best_score = (
-            -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+            -float("inf")
+            if self.criterion in ["accuarcy", "f1", "macro_f1", "specificity", "recall"]
+            else float("inf")
         )
         best_threshold = None
         best_params: Dict[str, Union[float, int]] = {}
@@ -348,9 +434,10 @@ class RandomSearchTuner(BaseTuner):
         Returns:
             tuple: Updated best score, best parameters, and best threshold (optional).
         """
-        if (self.criterion in ["f1", "macro_f1"] and current_score > best_score) or (
-            self.criterion == "brier_score" and current_score < best_score
-        ):
+        if (
+            self.criterion in ["accuarcy", "f1", "macro_f1", "specificity", "recall"]
+            and current_score > best_score
+        ) or (self.criterion == "brier_score" and current_score < best_score):
             best_score = current_score
             best_params = params
             best_threshold = threshold if self.classification == "binary" else None

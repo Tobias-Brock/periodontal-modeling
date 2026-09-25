@@ -47,6 +47,7 @@ class ModelExtractor(BaseConfig):
         learners_dict: Dict,
         criterion: str,
         aggregate: bool,
+        aggregate_features: bool,
         verbose: bool,
         random_state: int,
     ):
@@ -55,6 +56,7 @@ class ModelExtractor(BaseConfig):
         self.learners_dict = learners_dict
         self.criterion = criterion
         self.aggregate = aggregate
+        self.aggregate_features = aggregate_features
         self.verbose = verbose
         self.random_state = random_state
         self._update_best_model()
@@ -82,9 +84,16 @@ class ModelExtractor(BaseConfig):
         Raises:
             ValueError: If the provided criterion is unsupported.
         """
-        if value not in ["f1", "brier_score", "macro_f1"]:
+        if value not in [
+            "accuracy",
+            "f1",
+            "specificity",
+            "recall",
+            "brier_score",
+            "macro_f1",
+        ]:
             raise ValueError(
-                "Unsupported criterion. Choose 'f1', 'macro_f1', or 'brier_score'."
+                "Criterion err.: Choose 'accuarcy','f1', 'macro_f1', or 'brier_score'."
             )
         self._criterion = value
         self._update_best_model()
@@ -242,6 +251,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
         learners_dict: Dict,
         criterion: str,
         aggregate: bool,
+        aggregate_features: bool,
         verbose: bool,
         random_state: int,
         test_size: float,
@@ -252,6 +262,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             learners_dict=learners_dict,
             criterion=criterion,
             aggregate=aggregate,
+            aggregate_features=aggregate_features,
             verbose=verbose,
             random_state=random_state,
         )
@@ -284,6 +295,7 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
             y=self.y_test,
             encoding=self.encoding,
             aggregate=self.aggregate,
+            aggregate_features=self.aggregate_features,
         )
         self.inference_engine = ModelInference(
             classification=self.classification,
@@ -530,20 +542,37 @@ class BaseEvaluatorWrapper(ModelExtractor, ABC):
     def evaluate_feature_importance(
         self,
         fi_types: List[str],
-        base: Optional[str],
-        revaluation: Optional[str],
-        true_preds: bool,
-        brier_threshold: Optional[float],
+        base: Optional[str] = None,
+        revaluation: Optional[str] = None,
+        true_preds: bool = False,
+        brier_threshold: Optional[float] = None,
+        show_plot: bool = True,
+        save: bool = False,
+        name: Optional[str] = None,
+        max_shap_background: Optional[int] = None,
+        max_shap_eval: Optional[int] = None,
+        shap_random_state: int = 0,
     ):
         """Evaluates feature importance using specified types, with optional subsetting.
 
         Args:
             fi_types (List[str]): List of feature importance types to evaluate.
-            base (Optional[str]): Baseline variable for comparison.
-            revaluation (Optional[str]): Revaluation variable for comparison.
-            true_preds (bool): If True, further subsets to cases where model predictions
-                match the true labels.
-            brier_threshold (Optional[float]): Threshold for Brier score filtering.
+            show_plot (bool): If True, displays the feature importance plots.
+            base (Optional[str]): Baseline variable for comparison. Defaults to None.
+            revaluation (Optional[str]): Revaluation variable. Defaults to None.
+            true_preds (bool): Subset by correct predictions. Defaults to False.
+            brier_threshold (Optional[float]): Filters observations ny Brier score
+                threshold. Defaults to None.
+            max_shap_background (Optional[int]): Maximum number of rows used to
+                build the SHAP explainer background. If None, use the full
+                dataset (`self.X`) as background. Defaults to None.
+            max_shap_eval (Optional[int]): Maximum number of rows on which SHAP
+                values are actually computed. If None, SHAP is computed on the
+                full dataset (`self.X`). Defaults to None.
+            shap_random_state (int): Random seed for subsampling the background
+                and evaluation sets. Defaults to 0.
+            save (bool): If True, saves the feature importance plots. Defaults to False.
+            name (Optional[str]): Name for the saved feature importance plots.
         """
 
     @abstractmethod

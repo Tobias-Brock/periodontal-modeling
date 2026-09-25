@@ -22,6 +22,7 @@ class BaseConfig:
         group_col (str): Column name used for group-based splitting.
         y (str): Target column name in the dataset.
         target_state (int): Random state of target encoding.
+        grouping (bool): Flag indicating whether to use grouping in resampling.
         learner_state (int): Random state of learners.
         xgb_obj_binary (str): Objective function for binary classification in XGBoost.
         xgb_loss_binary (str): Loss function for binary classification in XGBoost.
@@ -75,6 +76,8 @@ class BaseConfig:
         self.group_col = cfg.resample.group_col
         self.y = cfg.resample.y
         self.target_state = cfg.resample.target_state
+        self.grouping = cfg.resample.grouping
+        self.resampling = cfg.resample.resampling
         self.learner_state = cfg.learner.learner_state
         self.xgb_obj_binary = cfg.learner.xgb_obj_binary
         self.xgb_loss_binary = cfg.learner.xgb_loss_binary
@@ -183,9 +186,16 @@ class BaseValidator(BaseConfig):
         Raises:
             ValueError: If `self.criterion` is not a supported evaluation metric.
         """
-        if self.criterion not in ["f1", "macro_f1", "brier_score"]:
+        if self.criterion not in [
+            "accuracy",
+            "f1",
+            "specificity",
+            "recall",
+            "macro_f1",
+            "brier_score",
+        ]:
             raise ValueError(
-                "Unsupported criterion. Choose 'f1', 'macro_f1', or 'brier_score'."
+                "Criterion err.: Choose 'accuracy', 'f1', 'macro_f1', or 'brier_score'."
             )
 
     def _validate_tuning(self) -> None:

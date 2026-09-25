@@ -104,6 +104,7 @@ class InputProcessor:
     }
 
     criteria_map = {
+        "Accuracy": "accuracy",
         "F1 Score": "f1",
         "Brier Score": "brier_score",
         "Macro F1 Score": "macro_f1",

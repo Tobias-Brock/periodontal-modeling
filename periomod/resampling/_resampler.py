@@ -2,7 +2,12 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupKFold, GroupShuffleSplit
+from sklearn.model_selection import (
+    GroupKFold,
+    GroupShuffleSplit,
+    KFold,
+    ShuffleSplit,
+)
 
 from ._baseresampler import BaseResampler
 
@@ -96,24 +101,27 @@ class Resampler(BaseResampler):
         Raises:
             ValueError: If required columns are missing from the input DataFrame.
         """
-        self.validate_dataframe(df=df, required_columns=[self.y, self.group_col])
+        req = [self.y] + ([self.group_col] if self._use_groups(df) else [])
+        self.validate_dataframe(df=df, required_columns=req)
 
-        gss = GroupShuffleSplit(
-            n_splits=1,
-            test_size=test_size,
-            random_state=seed,
-        )
-        train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
+        if self._use_groups(df):
+            gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+            train_idx, test_idx = next(gss.split(df, groups=df[self.group_col]))
+        else:
+            sss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+            y = df[self.y]
+            train_idx, test_idx = next(sss.split(df, y))
 
         train_df = df.iloc[train_idx].reset_index(drop=True)
         test_df = df.iloc[test_idx].reset_index(drop=True)
 
-        train_patient_ids = set(train_df[self.group_col])
-        test_patient_ids = set(test_df[self.group_col])
-        if not train_patient_ids.isdisjoint(test_patient_ids):
-            raise ValueError(
-                "Overlapping group values between the train and test sets."
-            )
+        if self._use_groups(df):
+            train_ids = set(train_df[self.group_col])
+            test_ids = set(test_df[self.group_col])
+            if not train_ids.isdisjoint(test_ids):
+                raise ValueError(
+                    "Overlapping group values between the train and test sets."
+                )
 
         return train_df, test_df
 
@@ -209,24 +217,28 @@ class Resampler(BaseResampler):
         """
         np.random.default_rng(seed=seed)
 
-        self.validate_dataframe(df=df, required_columns=[self.y, self.group_col])
+        req = [self.y] + ([self.group_col] if self._use_groups(df) else [])
+        self.validate_dataframe(df=df, required_columns=req)
         self.validate_n_folds(n_folds=n_folds)
-        train_df, _ = self.split_train_test_df(df=df)
-        gkf = GroupKFold(n_splits=n_folds)
+
+        if self._use_groups(df):
+            splitter = GroupKFold(n_splits=n_folds)
+            split_iter = splitter.split(df, groups=df[self.group_col])
+        else:
+            splitter = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
+            split_iter = splitter.split(df)
 
         cv_folds_indices = []
         outer_splits = []
         original_validation_data = []
 
-        for train_idx, test_idx in gkf.split(train_df, groups=train_df[self.group_col]):
-            X_train_fold = train_df.iloc[train_idx].drop([self.y], axis=1)
-            y_train_fold = train_df.iloc[train_idx][self.y]
-            X_test_fold = train_df.iloc[test_idx].drop([self.y], axis=1)
-            y_test_fold = train_df.iloc[test_idx][self.y]
+        for train_idx, test_idx in split_iter:
+            X_train_fold = df.iloc[train_idx].drop([self.y], axis=1)
+            y_train_fold = df.iloc[train_idx][self.y]
+            X_test_fold = df.iloc[test_idx].drop([self.y], axis=1)
+            y_test_fold = df.iloc[test_idx][self.y]
 
-            original_validation_data.append(
-                train_df.iloc[test_idx].drop([self.y], axis=1).reset_index(drop=True)
-            )
+            original_validation_data.append(X_test_fold.reset_index(drop=True))
 
             if sampling is not None:
                 X_train_fold, y_train_fold = self.apply_sampling(
@@ -248,12 +260,11 @@ class Resampler(BaseResampler):
         ):
             if not original_test_data.equals(X_test_fold.reset_index(drop=True)):
                 raise ValueError(
-                    "Validation folds' data not consistent after applying sampling "
-                    "strategies."
+                    "Validation folds' not consistent after applying sampling."
                 )
+
         if self.encoding == "target":
             outer_splits_t = []
-
             for (X_t, y_t), (X_val, y_val) in outer_splits:
                 X_t, X_val = self.apply_target_encoding(X=X_t, X_val=X_val, y=y_t)
                 if sampling == "smote":
@@ -264,7 +275,6 @@ class Resampler(BaseResampler):
                         sampling_factor=factor,
                         random_state=seed,
                     )
-
                 outer_splits_t.append(((X_t, y_t), (X_val, y_val)))
             outer_splits = outer_splits_t
 

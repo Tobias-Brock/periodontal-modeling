@@ -486,6 +486,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         learners_dict: Dict,
         criterion: str,
         aggregate: bool = True,
+        aggregate_features: bool = False,
         verbose: bool = False,
         random_state: int = 0,
         test_size: float = 0.2,
@@ -499,6 +500,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
                 'macro_f1', 'brier_score').
             aggregate (bool): Whether to aggregate one-hot encoding. Defaults
                 to True.
+            aggregate_features (bool): Aggregate feature levels. Defaults to False.
             verbose (bool): If True, enables verbose logging during evaluation
                 and inference. Defaults to False.
             random_state (int): Random state for resampling. Defaults to 0
@@ -511,6 +513,7 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
             learners_dict=learners_dict,
             criterion=criterion,
             aggregate=aggregate,
+            aggregate_features=aggregate_features,
             verbose=verbose,
             random_state=random_state,
             test_size=test_size,
@@ -677,27 +680,36 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         revaluation: Optional[str] = None,
         true_preds: bool = False,
         brier_threshold: Optional[float] = None,
+        show_plot: bool = True,
         save: bool = False,
         name: Optional[str] = None,
-    ) -> None:
+        max_shap_background: Optional[int] = None,
+        max_shap_eval: Optional[int] = None,
+        shap_random_state: int = 0,
+    ) -> dict:
         """Evaluates feature importance using the evaluator, with optional subsetting.
-
-        This method allows detailed feature analysis by offering multiple subsetting
-        options for the test set. The base and revaluation columns allow filtering of
-        observations that have not changed after treatment. With true_preds, only
-        observations that were correctly predicted are considered. The brier_threshold
-        enables filtering of observations that achieved a smaller Brier score at
-        prediction time than the threshold.
 
         Args:
             fi_types (List[str]): List of feature importance types to evaluate.
+            show_plot (bool): If True, displays the feature importance plots.
             base (Optional[str]): Baseline variable for comparison. Defaults to None.
             revaluation (Optional[str]): Revaluation variable. Defaults to None.
             true_preds (bool): Subset by correct predictions. Defaults to False.
             brier_threshold (Optional[float]): Filters observations ny Brier score
                 threshold. Defaults to None.
+            max_shap_background (Optional[int]): Maximum number of rows used to
+                build the SHAP explainer background. If None, use the full
+                dataset (`self.X`) as background. Defaults to None.
+            max_shap_eval (Optional[int]): Maximum number of rows on which SHAP
+                values are actually computed. If None, SHAP is computed on the
+                full dataset (`self.X`). Defaults to None.
+            shap_random_state (int): Random seed for subsampling the background
+                and evaluation sets. Defaults to 0.
             save (bool): If True, saves the feature importance plots. Defaults to False.
             name (Optional[str]): Name for the saved feature importance plots.
+
+        Returns:
+            dict: Dictionary containing feature importance results.
         """
         self.evaluator.X, self.evaluator.y, patients = self._test_filters(
             X=self.evaluator.X,
@@ -709,10 +721,17 @@ class EvaluatorWrapper(BaseEvaluatorWrapper):
         )
         print(f"Number of patients in test set: {patients}")
         print(f"Number of tooth sites: {len(self.evaluator.y)}")
-        self.evaluator.evaluate_feature_importance(
-            fi_types=fi_types, save=save, name=name
+        imp_dict = self.evaluator.evaluate_feature_importance(
+            fi_types=fi_types,
+            show_plot=show_plot,
+            save=save,
+            name=name,
+            max_shap_background=max_shap_background,
+            max_shap_eval=max_shap_eval,
+            shap_random_state=shap_random_state,
         )
         self.evaluator.X, self.evaluator.y = self.X_test, self.y_test
+        return imp_dict
 
     def average_over_splits(
         self, num_splits: int = 5, n_jobs: int = -1

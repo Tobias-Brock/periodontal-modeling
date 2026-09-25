@@ -1,0 +1,14 @@
+hidden_dim: 64
+num_layers: 3
+dropout: 0.3
+conv_aggr: "mean"
+relation_aggr: "sum"
+layer_norm: True
+
+lr: 0.001
+weight_decay: 0.0005
+batch_size: 16
+epochs: 200
+patience: 20
+gnn_state: 0
+device: "auto"

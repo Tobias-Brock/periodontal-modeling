@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from ._basedata import BaseProcessor
-from ._helpers import ProcessDataHelper
+from ._helpers import ProcessDataHelper, StageGradeExtentCalculator
 
 
 def _impute_tooth_features(row: pd.Series) -> Tuple[int, int]:
@@ -81,6 +81,7 @@ class StaticProcessEngine(BaseProcessor):
         super().__init__(behavior=behavior)
         self.verbose = verbose
         self.helper = ProcessDataHelper()
+        self.stage_grade = StageGradeExtentCalculator()
 
     @staticmethod
     def impute_missing_values(data: pd.DataFrame) -> pd.DataFrame:
@@ -230,11 +231,14 @@ class StaticProcessEngine(BaseProcessor):
         data["improvement"] = (data["pdrevaluation"] < data["pdbaseline"]).astype(int)
         return data
 
-    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def process_data(
+        self, data: pd.DataFrame, stage_grade: bool = False
+    ) -> pd.DataFrame:
         """Processes dataset with data cleaning, imputation and transformation.
 
         Args:
             data (pd.DataFrame): The input DataFrame.
+            stage_grade (bool): If True, computes and assigns stage and grade
 
         Returns:
             data: The imputed Dataframe with added feature and target columns.
@@ -282,6 +286,20 @@ class StaticProcessEngine(BaseProcessor):
 
         data = data.replace(["", " "], np.nan)
         data = self.helper.fur_imputation(self.helper.plaque_imputation(data=data))
+        if stage_grade:
+            data = self.stage_grade.assign_stage_grade_extent(data=data)
+            stage_aux_cols = [
+                "missing_teeth",
+                "CAL",
+                "bone_loss_percentage",
+                "bl_per_age",
+                "tooth_stage",
+                "percent_max_stage",
+            ]
+            data = data.drop(
+                columns=[c for c in stage_aux_cols if c in data.columns],
+                errors="ignore",
+            )
 
         if data.isna().to_numpy().any():
             missing_values = data.isna().sum()

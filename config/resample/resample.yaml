@@ -1,3 +1,5 @@
 group_col : 'id_patient'
 y : "y"
 target_state: 0
+grouping: True
+resampling: True

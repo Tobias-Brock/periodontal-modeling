@@ -87,6 +87,7 @@ def test_final_metrics_binary():
         "F1 Score",
         "Precision",
         "Recall",
+        "Specificity",
         "Accuracy",
         "Brier Score",
         "ROC AUC Score",

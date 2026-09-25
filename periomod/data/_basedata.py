@@ -344,6 +344,8 @@ class BaseDataLoader(BaseLoader, ABC):
         """
         if self.scale:
             for col in self.scale_vars:
+                if col not in data.columns:
+                    continue
                 scaled_min = data[col].min()
                 scaled_max = data[col].max()
                 if scaled_min < -10 or scaled_max > 20:

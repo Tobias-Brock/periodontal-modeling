@@ -1,0 +1,57 @@
+# Columns dropped from the feature set of every node level.
+exclude_columns:
+  - "id_patient"
+  - "pregnant"
+  - "pdrevaluation"
+  - "boprevaluation"
+  - "pdgroup"
+  - "pdgroupbase"
+
+# Engineered infection features assigned to their node level. Only included when
+# 'include_infect' is set, as they replicate neighborhood aggregation by hand.
+infect_levels:
+  patient: []
+  tooth: ["tooth_infected", "infected_neighbors"]
+  site: ["side_infected"]
+include_infect: False
+
+# Anatomical ring of the six sites of a tooth, given in the side encoding of the
+# dataset: 1 disto-vestibular, 2 vestibular, 3 mesio-vestibular, 4 mesio-oral,
+# 5 oral, 6 disto-oral.
+side_ring:
+  - [1, 2]
+  - [2, 3]
+  - [3, 4]
+  - [4, 5]
+  - [5, 6]
+  - [6, 1]
+
+# Interproximal contacts, given as (mesial side, distal side) pairs per aspect.
+interproximal_aspects:
+  - [3, 1]
+  - [4, 6]
+
+# Relations included in the patient graph. Each relation can be switched off
+# individually for ablations.
+relations:
+  patient_tooth: True
+  tooth_site: True
+  site_neighbor: True
+  tooth_neighbor: True
+  interproximal: True
+  occlusal: False
+
+# Treatment of the anatomically predefined relations ('site_neighbor',
+# 'tooth_neighbor', 'interproximal' and 'occlusal'). Choose 'anatomical' for true
+# anatomy, 'none' to drop them or 'random' to rewire them randomly.
+edge_mode: "anatomical"
+edge_seed: 0
+
+# Patient level splitting, performed before any preprocessing.
+val_size: 0.2
+test_size: 0.2
+split_seed: 0
+
+# Sites entering loss and evaluation. Choose 'all', 'diseased' for sites with
+# baseline pocket depth > 3 mm, or 'task' to derive it from the task definition.
+target_sites: "task"

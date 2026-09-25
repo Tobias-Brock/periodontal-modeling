@@ -189,7 +189,9 @@ class Trainer(BaseTrainer):
                 (None for multiclass or if criterion is "brier_score").
         """
         best_val_score = (
-            -float("inf") if self.criterion in ["f1", "macro_f1"] else float("inf")
+            -float("inf")
+            if self.criterion in ["accuarcy", "f1", "macro_f1", "specificity", "recall"]
+            else float("inf")
         )
         best_threshold = None
         no_improvement_count = 0
@@ -208,7 +210,13 @@ class Trainer(BaseTrainer):
                     y=y_val, probs=probs, threshold=self.threshold_tuning
                 )
 
-            if self.criterion in ["f1", "macro_f1"]:
+            if self.criterion in [
+                "accuracy",
+                "f1",
+                "macro_f1",
+                "specificity",
+                "recall",
+            ]:
                 improvement = score > best_val_score + tol
             else:
                 improvement = score < best_val_score - tol

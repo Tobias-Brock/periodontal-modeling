@@ -248,16 +248,21 @@ class BaseExperiment(BaseValidator, ABC):
         """Perform model evaluation and return final metrics."""
 
     @abstractmethod
-    def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
+    def _evaluate_holdout(self, train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict:
         """Perform holdout validation and return the final model metrics.
 
         Args:
             train_df (pd.DataFrame): train df for holdout tuning.
+            test_df (pd.DataFrame): test df for holdout tuning.
         """
 
     @abstractmethod
-    def _evaluate_cv(self) -> dict:
-        """Perform cross-validation and return the final model metrics."""
+    def _evaluate_cv(self, train_df: pd.DataFrame) -> dict:
+        """Perform cross-validation and return the final model metrics.
+
+        Args:
+            train_df (pd.DataFrame): train df for holdout tuning.
+        """
 
 
 class BaseBenchmark(BaseConfig):

@@ -299,7 +299,11 @@ class HEBOTuner(BaseTuner):
             outer_splits=outer_splits,
         )
 
-        return -score if self.criterion in ["f1", "macro_f1"] else score
+        return (
+            -score
+            if self.criterion in ["accuracy", "f1", "macro_f1", "specificity", "recall"]
+            else score
+        )
 
     def _evaluate_objective(
         self,

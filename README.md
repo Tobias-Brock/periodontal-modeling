@@ -13,6 +13,11 @@
 
 **Predictive modeling for step II therapy response in periodontitis - model development and validation** [(Read article)](https://www.nature.com/articles/s41746-025-01828-3).
 
+Please cite our article if you are using the software:
+
+**Walter, E., Brock, T., Lahoud, P. et al. Predictive modeling for step II therapy response in periodontitis - model development and validation. npj Digit. Med. 8, 445 (2025). https://doi.org/10.1038/s41746-025-01828-3**.
+
+
 ## Features
 
 - **Preprocessing Pipeline**: Flexible preprocessing of periodontal data, including encoding, scaling, data imputation and transformation.
@@ -23,6 +28,8 @@
 - **Model Evaluation**: Provides a wide range of evaluation tools, including confusion matrices, clustering and feature importance.
 - **Inference**: Patient-level inference, jackknife resampling and confidence intervals.
 - **Interactive Gradi App**: A simple Gradio interface for streamlined model benchmarking, evaluation and inference.
+- **Graph Neural Networks**: Patient-level heterogeneous graphs with anatomically predefined relations for site-specific predictions.
+- **Bayesian Hierarchical Models**: Multilevel logistic models of sites within teeth within patients, with optional anatomical spatial priors.
 
 ## Installation
 
@@ -506,6 +513,148 @@ predict_data, output, results = evaluator.wrapped_patient_inference(patient=pati
 jackknife_results, ci_plots = evaluator.wrapped_jackknife(
     patient=my_patient, results=results_df, sample_fraction=0.8, n_jobs=-1
 )
+```
+
+### Graph Module
+
+The graph module represents every patient as a single heterogeneous graph with patient, tooth and site nodes and predicts the outcome of site level targets with a heterogeneous GraphSAGE model. All baseline sites remain in the graph as context, while loss and evaluation are restricted to the target sites of the task, e.g. sites with a baseline pocket depth above 3 mm. The module requires the optional dependencies `torch` and `torch_geometric`:
+
+```bash
+pip install periomod[gnn]
+```
+
+Patients are split into fixed train, validation and test sets before preprocessing, and imputation, encoding and scaling are fitted on training patients only. The `GraphExperiment` wraps the full pipeline from processed data to site level predictions.
+
+```python
+from periomod.data import ProcessedDataLoader
+from periomod.graph import GraphExperiment
+
+df = ProcessedDataLoader.load_data(path="data/processed/processed_data.csv")
+
+experiment = GraphExperiment(
+    data=df,
+    task="improvement",
+    criterion="f1",
+    hidden_dim=64,
+    num_layers=3,
+    dropout=0.3,
+    batch_size=16,
+)
+
+# trains on the training patients and selects on the validation patients
+result = experiment.perform_evaluation()
+print(result["metrics"])
+
+# site level predictions with patient, tooth and side
+print(result["predictions"].head())
+```
+
+The relations of the patient graph are defined in `EdgeConfig` and can be switched on and off individually. Besides the hierarchical relations between patient, teeth and sites, the graph contains the anatomically neighboring sites of a tooth, the adjacent teeth of an arch, the interproximal contacts between adjacent teeth and, optionally, occluding teeth.
+
+```python
+from periomod.graph import EdgeConfig, PatientGraphBuilder
+
+# true anatomy without interproximal contacts
+edges = EdgeConfig(interproximal=False, name="no_interproximal")
+
+# hierarchy only, all anatomical relations removed
+edges = EdgeConfig(mode="none", name="no_neighbors")
+
+# anatomical relations rewired randomly within each patient graph
+edges = EdgeConfig(mode="random", name="random_neighbors")
+```
+
+The `GraphBenchmarker` runs the predefined edge ablations across tasks, criteria and seeds and collects the validation metrics in a single DataFrame.
+
+```python
+from periomod.graph import GraphBenchmarker
+
+benchmarker = GraphBenchmarker(
+    tasks=["improvement", "pocketclosureinf"],
+    criteria=["f1", "brier_score"],
+    ablations=["full", "no_neighbors", "random_neighbors"],
+    seeds=[0, 1, 2],
+    path="data/processed/processed_data.csv",
+)
+
+results, models = benchmarker.run_benchmarks()
+```
+
+The held-out test set is only evaluated when explicitly requested, which keeps it untouched during model development.
+
+```python
+result = experiment.perform_evaluation(evaluate_test=True)
+print(result["test_metrics"])
+```
+
+### Bayesian Module
+
+The Bayesian module fits multilevel logistic models to the same site level outcomes, modeling the nested structure of the data explicitly: sites within teeth, teeth within patients. The module requires the optional dependencies `pymc` and `arviz`:
+
+```bash
+pip install periomod[bayes]
+```
+
+The linear predictor of site `s` of tooth `t` of patient `i` is
+
+```
+logit P(Y_its = 1) = alpha + X_its beta + u_i + v_it + a_tooth[t] + c_side[s]
+```
+
+with a patient level random intercept `u_i`, a tooth-within-patient random intercept `v_it`, an effect of the FDI tooth number and an effect of the position of a site around its tooth. All random effects use a non-centered parameterization and weakly informative priors. Continuous predictors are standardized with training statistics, categorical predictors receive compact dummy coding and the two high-cardinality predictors, tooth number and side, are modeled as hierarchical effects instead of dummy variables.
+
+```python
+from periomod.bayes import BayesExperiment
+from periomod.data import ProcessedDataLoader
+
+df = ProcessedDataLoader.load_data(path="data/processed/processed_data.csv")
+
+experiment = BayesExperiment(
+    data=df,
+    task="improvement",
+    criterion="f1",
+    draws=1000,
+    tune=1000,
+    chains=4,
+)
+
+result = experiment.perform_evaluation()
+
+# discrimination and calibration of the validation sites
+print(result["metrics"])
+
+# site level posterior probabilities with credible intervals
+print(result["predictions"].head())
+
+# convergence diagnostics and posterior predictive checks
+print(result["diagnostics"])
+print(result["posterior_predictive_check"])
+```
+
+The second modeling stage adds an anatomical spatial component on top of the nested model, using the same adjacency as the graph submodule. Tooth effects are smoothed across adjacent teeth of an arch, site effects across the neighboring sites of a tooth and the interproximal contacts of adjacent teeth.
+
+```python
+from periomod.bayes import BayesExperiment, SpatialConfig
+
+# conditional autoregressive prior on the tooth effects
+experiment = BayesExperiment(
+    data=df, task="improvement", spatial=SpatialConfig(mode="tooth", name="car_tooth")
+)
+```
+
+The `BayesBenchmarker` runs the modeling stages across tasks, criteria and seeds and reports the metrics together with the convergence diagnostics of every run.
+
+```python
+from periomod.bayes import BayesBenchmarker
+
+benchmarker = BayesBenchmarker(
+    tasks=["improvement"],
+    criteria=["f1"],
+    stages=["nested", "car_tooth", "car_site"],
+    path="data/processed/processed_data.csv",
+)
+
+results, posteriors = benchmarker.run_benchmarks()
 ```
 
 ## License

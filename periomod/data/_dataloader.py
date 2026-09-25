@@ -150,6 +150,9 @@ class ProcessedDataLoader(BaseDataLoader):
             data: The DataFrame with scaled numeric columns.
         """
         scale_vars = [col for col in self.scale_vars if col in data.columns]
+        if not scale_vars:
+            return data
+
         data[scale_vars] = data[scale_vars].apply(pd.to_numeric, errors="coerce")
         scaled_values = StandardScaler().fit_transform(data[scale_vars])
         data[scale_vars] = pd.DataFrame(

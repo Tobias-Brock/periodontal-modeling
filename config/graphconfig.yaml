@@ -1,0 +1,3 @@
+defaults:
+  - graph: graph
+  - gnn: gnn

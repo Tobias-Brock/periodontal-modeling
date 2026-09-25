@@ -22,19 +22,23 @@ class TestExperiment(BaseExperiment):
         """
         return {"status": "success"}
 
-    def _evaluate_holdout(self, train_df: pd.DataFrame) -> dict:
+    def _evaluate_holdout(self, train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict:
         """Mock implementation of _evaluate_holdout.
 
         Args:
             train_df (pd.DataFrame): Training data for the holdout evaluation.
+            test_df (pd.DataFrame): test df for holdout tuning.
 
         Returns:
             dict: A dictionary indicating that holdout evaluation was performed.
         """
         return {"holdout": True}
 
-    def _evaluate_cv(self) -> dict:
+    def _evaluate_cv(self, train_df: pd.DataFrame) -> dict:
         """Mock implementation of _evaluate_cv.
+
+        Args:
+            train_df (pd.DataFrame): train df for holdout tuning.
 
         Returns:
             dict: Dictionary indicating that cross-validation evaluation was performed.
